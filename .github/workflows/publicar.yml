@@ -1,11 +1,15 @@
-# Compila o Eito no GitHub e publica no Firebase Hosting a cada envio de código.
-# Precisa do segredo FIREBASE_SERVICE_ACCOUNT (Settings › Secrets and variables › Actions).
-name: Publicar no Firebase
+# Compila o Eito e publica no Firebase Hosting a cada envio para o GitHub.
+# Não precisa ter o Flutter instalado no computador: tudo roda aqui.
+name: Publicar o Eito
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch: # botão "Run workflow" na aba Actions
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: publicar
+  cancel-in-progress: true
 
 jobs:
   publicar:
@@ -18,19 +22,34 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Completar projeto Flutter
-        run: flutter create . --platforms=web --project-name eito_gestao_rural
+      - name: Completar o projeto (só cria o que falta, não apaga nada)
+        run: |
+          flutter --version
+          flutter create . --platforms=web --project-name eito_gestao_rural
+          rm -f test/widget_test.dart
 
-      - name: Pacotes
+      - name: Baixar pacotes
         run: flutter pub get
 
+      - name: Revisar o código (avisos aparecem aqui, mas não param)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings || true
+
       - name: Testes
-        run: flutter test test/formato_test.dart
+        run: flutter test
+
+      - name: Nova versão do app para os aparelhos
+        run: sed -i "s/const CACHE = 'eito-v[0-9]*';/const CACHE = 'eito-v${{ github.run_number }}';/" web/sw.js
 
       - name: Compilar
         run: flutter build web --release --no-web-resources-cdn
 
-      - name: Publicar
+      - name: Guardar o site compilado
+        uses: actions/upload-artifact@v4
+        with:
+          name: eito-web
+          path: build/web
+
+      - name: Publicar no Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

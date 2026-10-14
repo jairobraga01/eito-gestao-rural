@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Eito Gestão Rural</title>
+  <meta name="description" content="O controle da sua fazenda, na palma da sua mão, direto no seu eito de trabalho.">
+  <meta name="theme-color" content="#262E12">
+
+  <!-- iPhone: "Adicionar à Tela de Início" abre como app, em tela cheia -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Eito">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #262E12; }
+    #carregando { position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
+      font-family: system-ui, sans-serif; color: #F4F1E6; }
+    #carregando img { width: 112px; height: 112px; }
+    #carregando p { margin: 0; font-size: 18px; opacity: .85; }
+  </style>
+</head>
+<body>
+  <div id="carregando">
+    <img src="favicon.svg" alt="Eito Gestão Rural">
+    <p>Abrindo o Eito…</p>
+  </div>
+
+  <script>
+    // Guarda o app no aparelho para abrir mesmo sem sinal (fora do modo de desenvolvimento).
+    if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js'); });
+    }
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('carregando');
+      if (el) el.remove();
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

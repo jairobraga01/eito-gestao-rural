@@ -1,0 +1,39 @@
+# Compila o Eito no GitHub e publica no Firebase Hosting a cada envio de código.
+# Precisa do segredo FIREBASE_SERVICE_ACCOUNT (Settings › Secrets and variables › Actions).
+name: Publicar no Firebase
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # botão "Run workflow" na aba Actions
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Completar projeto Flutter
+        run: flutter create . --platforms=web --project-name eito_gestao_rural
+
+      - name: Pacotes
+        run: flutter pub get
+
+      - name: Testes
+        run: flutter test test/formato_test.dart
+
+      - name: Compilar
+        run: flutter build web --release --no-web-resources-cdn
+
+      - name: Publicar
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: caderneta-rebanho
+          channelId: live

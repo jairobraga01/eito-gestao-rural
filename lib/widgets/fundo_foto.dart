@@ -38,8 +38,8 @@ class FundoFoto extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Cores.olivaEscuro.withOpacity(escurecer * 0.75),
-              Cores.olivaEscuro.withOpacity((escurecer + 0.25).clamp(0.0, 1.0)),
+              Cores.olivaEscuro.withValues(alpha: escurecer * 0.75),
+              Cores.olivaEscuro.withValues(alpha: (escurecer + 0.25).clamp(0.0, 1.0)),
             ],
           ),
         ),

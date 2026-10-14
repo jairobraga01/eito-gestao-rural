@@ -19,11 +19,23 @@ class LogoEito extends StatelessWidget {
 }
 
 class TelaCarregando extends StatelessWidget {
-  const TelaCarregando({super.key});
+  const TelaCarregando({super.key, this.mensagem});
+  final String? mensagem;
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
+  Widget build(BuildContext context) => Scaffold(
         backgroundColor: Cores.olivaEscuro,
-        body: Center(child: LogoEito(tamanho: 120)),
+        body: Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const LogoEito(tamanho: 120),
+            if (mensagem != null) ...[
+              const SizedBox(height: 20),
+              const SizedBox(
+                  width: 32, height: 32, child: CircularProgressIndicator(color: Cores.laranja, strokeWidth: 3)),
+              const SizedBox(height: 14),
+              Text(mensagem!, style: const TextStyle(color: Colors.white70, fontSize: 17)),
+            ],
+          ]),
+        ),
       );
 }

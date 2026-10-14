@@ -1,3 +1,5 @@
+// Formatos usados no Modo Curral e na leitura de bastão/balança.
+
 String dataBr(DateTime d) =>
     '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
@@ -11,9 +13,15 @@ String numeroBr(double n, {int casas = 1}) {
 
 String pesoKg(double p) => '${numeroBr(p)} kg';
 
-/// Primeiro número de um texto. Aceita vírgula ou ponto e o formato que as
-/// balanças mandam, por exemplo "452,5", "452.5 kg" ou "ST,GS,+0452.5kg".
+/// Lê um número digitado ou vindo da balança.
+/// Aceita "450", "450,5", "1.250,5", "452.5 kg" e "ST,GS,+0452.5kg".
 double? lerNumero(String texto) {
+  var t = texto.trim().replaceAll(' ', '');
+  if (t.isEmpty) return null;
+  if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
+  final direto = double.tryParse(t);
+  if (direto != null) return direto;
+  // Texto com letras (balança): pega o primeiro número.
   final m = RegExp(r'\d+(?:[.,]\d+)?').firstMatch(texto);
   if (m == null) return null;
   return double.tryParse(m.group(0)!.replaceAll(',', '.'));
@@ -29,14 +37,4 @@ String? leituraParaVisor(String leitura) {
 bool parecePeso(String leitura) {
   final digitos = leitura.replaceAll(RegExp(r'\D'), '');
   return lerNumero(leitura) != null && digitos.isNotEmpty && digitos.length <= 6;
-}
-
-String idade(DateTime nascimento) {
-  final hoje = DateTime.now();
-  var meses = (hoje.year - nascimento.year) * 12 + hoje.month - nascimento.month;
-  if (hoje.day < nascimento.day) meses--;
-  if (meses < 1) return '${hoje.difference(nascimento).inDays} dias';
-  if (meses < 24) return '$meses ${meses == 1 ? 'mês' : 'meses'}';
-  final anos = meses ~/ 12, resto = meses % 12;
-  return resto == 0 ? '$anos anos' : '$anos anos e $resto m';
 }

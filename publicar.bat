@@ -37,6 +37,7 @@ if errorlevel 1 (
 if not exist ".metadata" (
   echo Completando o projeto Flutter...
   call flutter create . --platforms=web --project-name eito_gestao_rural || goto erro
+  if exist "test\widget_test.dart" del "test\widget_test.dart"
 )
 
 echo Baixando os pacotes...
@@ -57,7 +58,7 @@ call firebase deploy --only hosting,firestore:rules --project caderneta-rebanho 
 echo.
 echo ==============================================
 echo   PRONTO! O app está no ar em:
-echo   https://caderneta-rebanho.web.app
+echo   https://caderneta-rebanho.web.app  (e eitogestao.com.br, depois de ligar o dominio)
 echo ==============================================
 start "" "https://caderneta-rebanho.web.app"
 pause

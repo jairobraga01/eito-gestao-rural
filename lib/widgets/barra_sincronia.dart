@@ -3,21 +3,23 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
-import '../dados/repositorio.dart';
+import '../dados/db.dart';
 import '../tema.dart';
 
-/// Faixa no topo que mostra, sem precisar pensar, se está tudo na nuvem
-/// ou guardado no aparelho esperando sinal.
+/// Faixa que mostra, sem precisar pensar, se está tudo na nuvem ou
+/// guardado no aparelho esperando sinal.
+///
+/// Com [sempre] = false (telas do app), só aparece quando há algo pendente
+/// ou falta sinal. No Modo Curral fica sempre visível.
 class BarraSincronia extends StatefulWidget {
-  const BarraSincronia({super.key, required this.repo});
-  final Repositorio repo;
+  const BarraSincronia({super.key, this.sempre = false});
+  final bool sempre;
 
   @override
   State<BarraSincronia> createState() => _BarraSincroniaState();
 }
 
 class _BarraSincroniaState extends State<BarraSincronia> {
-  late final Stream<int> _pendentes = widget.repo.pendentes();
   StreamSubscription<List<ConnectivityResult>>? _sub;
   bool _online = true;
 
@@ -41,10 +43,10 @@ class _BarraSincroniaState extends State<BarraSincronia> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<int>(
-      stream: _pendentes,
-      builder: (context, snap) {
-        final n = snap.data ?? 0;
+    return ValueListenableBuilder<int>(
+      valueListenable: Db.pendentes,
+      builder: (context, n, _) {
+        if (!widget.sempre && _online && n == 0) return const SizedBox.shrink();
         final (Color cor, IconData icone, String texto) = !_online
             ? (
                 Cores.tinta,
@@ -61,14 +63,14 @@ class _BarraSincroniaState extends State<BarraSincronia> {
           child: Container(
             width: double.infinity,
             color: cor,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: widget.sempre ? 10 : 6),
             child: Row(children: [
-              Icon(icone, color: Colors.white, size: 26),
+              Icon(icone, color: Colors.white, size: widget.sempre ? 26 : 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(texto,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        color: Colors.white, fontSize: widget.sempre ? 16 : 14, fontWeight: FontWeight.w600)),
               ),
             ]),
           ),

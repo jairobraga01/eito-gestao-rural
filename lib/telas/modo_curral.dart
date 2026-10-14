@@ -1,41 +1,39 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../dados/repositorio.dart';
+import '../dados/db.dart';
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
+import '../util/util.dart';
 import '../widgets/barra_sincronia.dart';
 import '../widgets/botao_curral.dart';
-import '../widgets/logo_eito.dart';
 import '../widgets/teclado_grande.dart';
+import 'animais.dart';
 import 'dispositivos.dart';
 import 'ficha_animal.dart';
 import 'manejo_em_serie.dart';
-import 'novo_animal.dart';
-import 'rebanho.dart';
+import 'mover.dart';
+import 'vendas.dart';
 
-/// Tela principal. Pensada para o curral: encostou o bastão no brinco,
-/// abre a ficha do animal. Tudo o mais em botões grandes.
+/// Atalho para lançar rápido o serviço feito no curral. Encostou o bastão no
+/// brinco, abre a ficha rápida do animal. Tudo grava nos módulos do app.
 class ModoCurral extends StatefulWidget {
-  const ModoCurral({super.key, required this.usuario});
-  final User usuario;
+  const ModoCurral({super.key});
 
   @override
   State<ModoCurral> createState() => _ModoCurralState();
 }
 
 class _ModoCurralState extends State<ModoCurral> {
-  late final Repositorio repo = Repositorio(widget.usuario.uid);
-  // Mantém o rebanho sempre ouvindo: assim ele fica inteiro no aparelho
-  // e a busca por brinco funciona no meio do pasto, sem sinal.
-  late final Stream<List<Animal>> _rebanho = repo.rebanhoAtivo();
   VoidCallback? _cancelarLeitor;
 
   @override
   void initState() {
     super.initState();
-    LeitorTeclado.instancia.iniciar();
-    _cancelarLeitor = LeitorTeclado.instancia.assinar(_abrirPorCodigo);
+    _cancelarLeitor = LeitorTeclado.instancia.assinar((codigo) {
+      if (!(ModalRoute.of(context)?.isCurrent ?? false)) return;
+      if (parecePeso(codigo)) return; // leitura da balança fora da pesagem
+      abrirPorCodigo(context, codigo);
+    });
   }
 
   @override
@@ -46,46 +44,15 @@ class _ModoCurralState extends State<ModoCurral> {
 
   void _ir(Widget tela) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => tela));
 
-  Future<void> _abrirPorCodigo(String codigo) async {
-    final animal = await repo.buscarPorCodigo(codigo);
-    if (!mounted) return;
-    if (animal != null) {
-      _ir(FichaAnimal(repo: repo, animalId: animal.id));
-      return;
-    }
-    final cadastrar = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Brinco não cadastrado'),
-        content: Text('Nenhum animal com o brinco $codigo.', style: const TextStyle(fontSize: 18)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('IGNORAR')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('CADASTRAR')),
-        ],
-      ),
-    );
-    if (cadastrar == true && mounted) _ir(NovoAnimal(repo: repo, codigoLido: codigo));
-  }
-
   Future<void> _digitarBrinco() async {
     final codigo = await pedirNumero(context, titulo: 'Número do brinco');
-    if (codigo != null && codigo.trim().isNotEmpty) _abrirPorCodigo(codigo.trim());
+    if (codigo != null && codigo.trim().isNotEmpty && mounted) abrirPorCodigo(context, codigo.trim());
   }
 
-  Future<void> _sair() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Sair da conta?'),
-        content: const Text(
-            'Se houver lançamentos ainda sem sinal, entre de novo com esta mesma conta para que sejam enviados.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCELAR')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SAIR')),
-        ],
-      ),
-    );
-    if (ok == true) await FirebaseAuth.instance.signOut();
+  Future<void> _escolherEIr(String titulo, Widget Function(List<Reg>) tela) async {
+    final r = await pickAnimais(context, titulo: titulo);
+    if (r == null || r.isEmpty || !mounted) return;
+    _ir(tela(r));
   }
 
   @override
@@ -93,76 +60,87 @@ class _ModoCurralState extends State<ModoCurral> {
     final largura = MediaQuery.sizeOf(context).width;
     return Scaffold(
       appBar: AppBar(
-        titleSpacing: 12,
-        title: const Row(children: [
-          LogoEito(tamanho: 36),
-          SizedBox(width: 10),
-          Text('Eito · Modo Curral'),
-        ]),
+        title: const Text('Modo Curral'),
         actions: [
           IconButton(
             tooltip: 'Bastão e balança',
             icon: const Icon(Icons.bluetooth),
             onPressed: () => _ir(const TelaDispositivos()),
           ),
-          PopupMenuButton<String>(
-            iconSize: 28,
-            onSelected: (v) {
-              if (v == 'sair') _sair();
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(enabled: false, child: Text(widget.usuario.email ?? '')),
-              const PopupMenuItem(value: 'sair', child: Text('Sair da conta', style: TextStyle(fontSize: 18))),
-            ],
-          ),
         ],
       ),
       body: Column(children: [
-        BarraSincronia(repo: repo),
+        const BarraSincronia(sempre: true),
+        ValueListenableBuilder<Reg?>(
+          valueListenable: Db.prop,
+          builder: (context, p, _) => Container(
+            width: double.infinity,
+            color: Cores.oliva,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(txt(p?['nome']).toUpperCase(),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
+          ),
+        ),
         Expanded(
           child: ListView(padding: const EdgeInsets.all(16), children: [
             _PainelLeitura(aoDigitar: _digitarBrinco),
             const SizedBox(height: 16),
-            StreamBuilder<List<Animal>>(
-              stream: _rebanho,
-              builder: (context, snap) {
-                final total = snap.data?.length;
-                return GridView.count(
-                  crossAxisCount: largura >= 720 ? 4 : 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  childAspectRatio: largura >= 720 ? 1.3 : 1.05,
-                  children: [
-                    BotaoCurral(
-                      icone: Icons.monitor_weight_outlined,
-                      rotulo: 'Pesagem\nem série',
-                      cor: Cores.laranja,
-                      aoTocar: () => _ir(ManejoEmSerie(repo: repo, modo: ModoSerie.pesagem)),
-                    ),
-                    BotaoCurral(
-                      icone: Icons.vaccines_outlined,
-                      rotulo: 'Vacinação\nem série',
-                      cor: Cores.oliva,
-                      aoTocar: () => _ir(ManejoEmSerie(repo: repo, modo: ModoSerie.sanidade)),
-                    ),
-                    BotaoCurral(
-                      icone: Icons.add_circle_outline,
-                      rotulo: 'Novo\nanimal',
-                      cor: Cores.olivaClaro,
-                      aoTocar: () => _ir(NovoAnimal(repo: repo)),
-                    ),
-                    BotaoCurral(
-                      icone: Icons.format_list_numbered,
-                      rotulo: 'Rebanho',
-                      detalhe: total == null ? null : '$total ${total == 1 ? 'cabeça' : 'cabeças'}',
-                      cor: Cores.olivaEscuro,
-                      aoTocar: () => _ir(TelaRebanho(repo: repo)),
-                    ),
-                  ],
-                );
-              },
+            AoMudar<int>(
+              carregar: () async => (await Db.animais(soAtivos: true)).length,
+              builder: (context, total) => GridView.count(
+                crossAxisCount: largura >= 720 ? 3 : 2,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                mainAxisSpacing: 14,
+                crossAxisSpacing: 14,
+                childAspectRatio: largura >= 720 ? 1.6 : 1.05,
+                children: [
+                  BotaoCurral(
+                    icone: Icons.monitor_weight_outlined,
+                    rotulo: 'Pesagem\nem série',
+                    cor: Cores.laranja,
+                    aoTocar: () => _ir(const ManejoEmSerie(modo: ModoSerie.pesagem)),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.vaccines_outlined,
+                    rotulo: 'Vacina e\nremédio em série',
+                    cor: Cores.oliva,
+                    aoTocar: () => _ir(const ManejoEmSerie(modo: ModoSerie.sanidade)),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.child_friendly_outlined,
+                    rotulo: 'Nascimento',
+                    cor: Cores.olivaClaro,
+                    aoTocar: () => _ir(const NascimentoFormPage()),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.add_circle_outline,
+                    rotulo: 'Novo\nanimal',
+                    detalhe: '$total ${total == 1 ? 'cabeça' : 'cabeças'} ativas',
+                    cor: Cores.olivaClaro,
+                    aoTocar: () => _ir(const AnimalFormPage()),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.swap_horiz,
+                    rotulo: 'Mover\nanimais',
+                    detalhe: 'lote, piquete, fazenda',
+                    cor: Cores.olivaEscuro,
+                    aoTocar: () => _escolherEIr('Animais para mover', (r) => MoverAnimaisPage(animais: r)),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.sell_outlined,
+                    rotulo: 'Venda\nou saída',
+                    cor: Cores.alerta,
+                    aoTocar: () => _escolherEIr('Animais que saem', (r) => SaidaFormPage(animais: r)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.dashboard_outlined),
+              label: const Text('VOLTAR AO PAINEL'),
             ),
           ]),
         ),
@@ -187,7 +165,7 @@ class _PainelLeitura extends StatelessWidget {
           image: const AssetImage('assets/imagens/fundo_gado.jpg'),
           fit: BoxFit.cover,
           alignment: const Alignment(0.35, -0.2),
-          colorFilter: ColorFilter.mode(Cores.olivaEscuro.withOpacity(0.72), BlendMode.srcATop),
+          colorFilter: ColorFilter.mode(Cores.olivaEscuro.withValues(alpha: 0.72), BlendMode.srcATop),
           onError: (_, __) {},
         ),
       ),
@@ -198,7 +176,7 @@ class _PainelLeitura extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
         const SizedBox(height: 4),
-        const Text('A ficha do animal abre sozinha.',
+        const Text('A ficha do animal abre sozinha: pesar, vacinar, parto, diagnóstico, saída.',
             textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 17)),
         const SizedBox(height: 16),
         FilledButton.icon(

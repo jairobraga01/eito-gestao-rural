@@ -23,47 +23,61 @@ ThemeData temaEito() {
     surface: Cores.palha,
   );
   final base = ThemeData(useMaterial3: true, colorScheme: esquema);
+  // O textTheme padrão só traz cores; os tamanhos vêm do Typography.
+  // Sem juntar os dois, o aumento de letra abaixo não teria efeito.
+  final texto = Typography.englishLike2021.merge(base.textTheme);
   return base.copyWith(
     scaffoldBackgroundColor: Cores.palha,
-    // Letras maiores que o padrão: o app é usado no curral, de pé, no sol.
-    textTheme: base.textTheme.apply(
-      fontSizeFactor: 1.12,
+    // Letras um pouco maiores que o padrão: o app é usado no curral, de pé, no sol.
+    textTheme: texto.apply(
+      fontSizeFactor: 1.08,
       bodyColor: Cores.tinta,
       displayColor: Cores.tinta,
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Cores.olivaEscuro,
       foregroundColor: Colors.white,
-      titleTextStyle: TextStyle(
-          fontSize: 22, fontWeight: FontWeight.w700, color: Colors.white),
+      titleTextStyle: TextStyle(fontSize: 21, fontWeight: FontWeight.w700, color: Colors.white),
       iconTheme: IconThemeData(size: 28, color: Colors.white),
+      actionsIconTheme: IconThemeData(size: 26, color: Colors.white),
     ),
+    tabBarTheme: const TabBarThemeData(
+      labelColor: Cores.oliva,
+      indicatorColor: Cores.laranja,
+      labelStyle: TextStyle(fontWeight: FontWeight.w800),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: Cores.laranja,
+      foregroundColor: Colors.white,
+    ),
+    // Altura grande, mas largura mínima finita: com Size.fromHeight o botão
+    // tenta ocupar largura infinita e quebra dentro de diálogos e linhas.
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size.fromHeight(64),
-        textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+        minimumSize: const Size(88, 56),
+        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(60),
+        minimumSize: const Size(88, 52),
         foregroundColor: Cores.oliva,
         side: const BorderSide(color: Cores.oliva, width: 2),
-        textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      labelStyle: const TextStyle(fontSize: 18),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     ),
+    cardTheme: const CardThemeData(color: Colors.white, surfaceTintColor: Colors.transparent),
     snackBarTheme: const SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      contentTextStyle: TextStyle(fontSize: 18),
+      contentTextStyle: TextStyle(fontSize: 17),
     ),
   );
 }

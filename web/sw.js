@@ -12,7 +12,7 @@ const ESSENCIAIS = ['./', 'index.html', 'manifest.json', 'flutter_bootstrap.js',
 const EXTERNOS = ['https://www.gstatic.com', 'https://fonts.gstatic.com', 'https://fonts.googleapis.com'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ESSENCIAIS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ESSENCIAIS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -64,7 +64,7 @@ self.addEventListener('fetch', (e) => {
   // Arquivos do app: responde do aparelho na hora e atualiza por trás.
   e.respondWith(
     caches.match(req).then((guardado) => {
-      const daRede = fetch(req)
+      const daRede = fetch(req, { cache: 'no-cache' })
         .then((r) => {
           if (r.ok) {
             const copia = r.clone();

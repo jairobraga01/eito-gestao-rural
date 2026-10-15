@@ -21,6 +21,7 @@ import 'telas/entradas.dart';
 import 'telas/estoque.dart';
 import 'telas/inicio.dart';
 import 'telas/login.dart';
+import 'telas/financeiro.dart';
 import 'telas/lotes.dart';
 import 'telas/mapa.dart';
 import 'telas/animais.dart';
@@ -189,6 +190,7 @@ class _InicioState extends State<Inicio> {
         secVendas => const SaidasPage(),
         secCustos => const CustosPage(),
         secDividas => const DividasPage(),
+        secContas => const ContasPage(),
         secProteinado => const ProteinadoPage(),
         secEstoque => const EstoquePage(),
         secDieta => const DietaPage(),
@@ -196,6 +198,7 @@ class _InicioState extends State<Inicio> {
         secVender => const VenderEsperarPage(),
         secChuva => const ChuvaPage(),
         secRelatorios => const RelatoriosPage(),
+        secExportacoes => const ExportacoesPage(doMenu: true),
         secBackup => const BackupPage(),
         _ => const InicioPage(),
       };

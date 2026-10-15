@@ -60,6 +60,8 @@ const _camposInteiros = {
   'ponto_id',
   'esperado',
   'contado',
+  'tipo_doc',
+  'conta_banco',
   'doses',
   'quantidade',
   'carencia',
@@ -183,6 +185,7 @@ class Db {
     'insumos',
     'formulas',
     'dividas',
+    'contas',
     'cotacoes',
     'estoque',
     'dietas',
@@ -414,7 +417,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens']) {
+        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }

@@ -70,6 +70,13 @@ String _faixaCategoria(Object? categoria) => switch (categoria) {
       _ => '>36',
     };
 
+/// Coluna do SIDAGO do animal (ex.: 13-24M) com a idade na data [data].
+String faixaSidago(Reg a, String data) {
+  final meses = _meses(a, data);
+  final faixa = meses == null ? _faixaCategoria(a['categoria']) : _faixaMeses(meses);
+  return '$faixa${a['sexo'] == 'M' ? 'M' : 'F'}';
+}
+
 class Declaracao {
   Declaracao(this.data);
   final String data;
@@ -85,10 +92,8 @@ Declaracao declaracaoRebanho(String data) {
   final d = Declaracao(data);
   for (final a in _animaisDaProp()) {
     if (a['status'] != 'Ativo') continue;
-    final meses = _meses(a, data);
-    if (meses == null) d.semNascimento.add(a);
-    final faixa = meses == null ? _faixaCategoria(a['categoria']) : _faixaMeses(meses);
-    final col = '$faixa${a['sexo'] == 'M' ? 'M' : 'F'}';
+    if (_meses(a, data) == null) d.semNascimento.add(a);
+    final col = faixaSidago(a, data);
     d.saldo[col] = d.saldo[col]! + 1;
   }
   return d;

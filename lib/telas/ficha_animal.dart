@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/indicadores.dart';
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -119,6 +120,30 @@ class _FichaCurralState extends State<FichaCurral> {
     _aviso('${item.produto} registrado no brinco ${a['brinco']}.');
   }
 
+  Future<void> _escore(Reg a) async {
+    final ecc = await showDialog<double>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Escore corporal do brinco ${a['brinco']}'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('1 = muito magra · 3 = boa · 5 = gorda', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final n in notasEcc)
+              FilledButton(
+                onPressed: () => Navigator.pop(c, n),
+                child: Text(numeroBr(n, casas: 1), style: const TextStyle(fontSize: 20)),
+              ),
+          ]),
+        ]),
+        actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('CANCELAR'))],
+      ),
+    );
+    if (ecc == null) return;
+    await lancarEcc(id, hojeIso(), ecc);
+    if (mounted) _aviso('Escore ${numeroBr(ecc, casas: 1)} salvo.');
+  }
+
   Future<void> _vincular(Reg a) async {
     final rfid = await showDialog<String>(context: context, builder: (_) => const _DialogoLerRfid());
     if (rfid == null || rfid.trim().isEmpty) return;
@@ -168,6 +193,7 @@ class _FichaCurralState extends State<FichaCurral> {
           botao(Icons.monitor_weight_outlined, 'PESAR', () => _pesar(a), cor: Cores.azul),
           botao(Icons.vaccines_outlined, 'VACINAR / MEDICAR', () => _medicar(a)),
           if (femea) ...[
+            botao(Icons.straighten, 'ESCORE (ECC)', () => _escore(a), cor: Cores.azul),
             botao(Icons.child_friendly_outlined, 'NASCIMENTO',
                 () => _ir(NascimentoFormPage(mae: a, reproducao: f.servicoAberto)),
                 cor: Cores.olivaClaro),
@@ -197,6 +223,12 @@ class _FichaCurralState extends State<FichaCurral> {
           body: ListView(padding: const EdgeInsets.all(16), children: [
             _Cabecalho(animal: a, ultimaPesagem: f.pesagens.isEmpty ? null : f.pesagens.first),
             const SizedBox(height: 16),
+            for (final c in emCarencia([id], hojeIso()))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text('EM CARÊNCIA (${c.produto}): não vender para abate antes de ${br(c.libera)}.',
+                    style: const TextStyle(color: Cores.alerta, fontSize: 18, fontWeight: FontWeight.w800)),
+              ),
             if (!ativo)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -251,6 +283,9 @@ class _FichaCurralState extends State<FichaCurral> {
         '${s['produto']}',
         [txt(s['tipo']), if (txt(s['dose']).isNotEmpty) 'dose ${s['dose']}'].where((x) => x.isNotEmpty).join(' · '),
       ));
+    }
+    for (final e in escoresDoAnimal(id)) {
+      itens.add((txt(e['data']), Icons.straighten, 'Escore corporal: ${numeroBr((e['ecc'] as num).toDouble(), casas: 1)}', ''));
     }
     if (itens.isEmpty) return const [Text('Nenhum lançamento ainda.', style: TextStyle(fontSize: 17))];
     itens.sort((x, y) => y.$1.compareTo(x.$1));
@@ -312,6 +347,7 @@ class _Cabecalho extends StatelessWidget {
         const SizedBox(height: 6),
         dado('Categoria', txt(a['categoria'])),
         dado('Eletrônico', txt(a['rfid'])),
+        dado('SISBOV', txt(a['sisbov'])),
         dado('Raça', txt(a['raca'])),
         dado('Lote', txt(a['lote_nome'])),
         dado('Piquete', txt(a['piquete_nome'])),

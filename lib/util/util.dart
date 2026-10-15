@@ -287,7 +287,7 @@ class _AnimalPickerState extends State<_AnimalPicker> {
     if (b.isEmpty) return todos;
     return todos
         .where((a) =>
-            '${a['brinco']} ${txt(a['nome'])} ${txt(a['lote_nome'])} ${txt(a['rfid'])}'.toLowerCase().contains(b))
+            '${a['brinco']} ${txt(a['nome'])} ${txt(a['lote_nome'])} ${txt(a['rfid'])} ${txt(a['sisbov'])}'.toLowerCase().contains(b))
         .toList();
   }
 

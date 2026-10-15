@@ -237,6 +237,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
   late final pai = TextEditingController(text: txt(widget.animal?['pai']));
   late final obs = TextEditingController(text: txt(widget.animal?['obs']));
   late final rfid = TextEditingController(text: txt(widget.animal?['rfid']));
+  late final sisbov = TextEditingController(text: txt(widget.animal?['sisbov']));
   final peso = TextEditingController();
   VoidCallback? _cancelarLeitor;
 
@@ -269,7 +270,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
       // O bastão "digita" no campo que estiver com o cursor: tira de lá.
       Future.delayed(const Duration(milliseconds: 150), () {
         if (!mounted) return;
-        for (final c in [brinco, nome, raca, pai, obs, peso]) {
+        for (final c in [brinco, nome, raca, pai, obs, sisbov, peso]) {
           if (c.text.endsWith(leitura.trim())) {
             c.text = c.text.substring(0, c.text.length - leitura.trim().length);
           }
@@ -293,7 +294,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
   @override
   void dispose() {
     _cancelarLeitor?.call();
-    for (final c in [brinco, nome, raca, pai, obs, rfid, peso]) {
+    for (final c in [brinco, nome, raca, pai, obs, rfid, sisbov, peso]) {
       c.dispose();
     }
     super.dispose();
@@ -318,6 +319,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
     final v = <String, Object?>{
       'brinco': brinco.text.trim(),
       'rfid': nulo(rfid.text),
+      'sisbov': nulo(sisbov.text),
       'nome': nulo(nome.text),
       'sexo': sexo,
       'raca': nulo(raca.text),
@@ -374,6 +376,16 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
               labelText: 'Brinco eletrônico (RFID)',
               helperText: 'Encoste o bastão no brinco para preencher',
               prefixIcon: Icon(Icons.contactless_outlined),
+            ),
+          ),
+          gap,
+          TextField(
+            controller: sisbov,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Número oficial (SISBOV / PNIB)',
+              helperText: 'Identificação individual do MAPA, se o animal já tiver',
+              prefixIcon: Icon(Icons.verified_outlined),
             ),
           ),
           gap,
@@ -706,6 +718,7 @@ class FichaAnimalPage extends StatelessWidget {
                     children: [
                       Info('Situação', txt(a['status'])),
                       Info('Brinco eletrônico', txt(a['rfid'])),
+                      Info('Número oficial', txt(a['sisbov'])),
                       Info('Sexo', femea ? 'Fêmea' : 'Macho'),
                       Info('Categoria', txt(a['categoria'])),
                       Info('Raça', txt(a['raca'])),

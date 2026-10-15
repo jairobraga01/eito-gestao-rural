@@ -5,6 +5,7 @@ import '../dados/manejo.dart' show intervaloEntrePartosRebanho;
 import '../dados/resumo_periodo.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'indicadores.dart';
 import 'projecao_abate.dart';
 import 'ranking_matrizes.dart';
 import 'resumo_semanal.dart';
@@ -313,6 +314,27 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
         subtitle: const Text('Prenhez, intervalo entre partos e desmama das crias'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingMatrizesPage())),
+      ),
+      ListTile(
+        leading: const Icon(Icons.child_care),
+        title: const Text('Indicadores de cria'),
+        subtitle: const Text('Natalidade, desmame, kg por matriz, mortes e prenhez pelo ECC'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IndicadoresCriaPage())),
+      ),
+      ListTile(
+        leading: const Icon(Icons.account_balance_wallet_outlined),
+        title: const Text('Fluxo de caixa projetado'),
+        subtitle: const Text('Vendas previstas, parcelas e custos dos próximos 6 meses'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FluxoCaixaPage())),
+      ),
+      ListTile(
+        leading: const Icon(Icons.assignment_outlined),
+        title: const Text('Declaração de rebanho'),
+        subtitle: const Text('Saldo por faixa de idade e sexo para o órgão estadual'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeclaracaoRebanhoPage())),
       ),
       ListTile(
         leading: const Icon(Icons.share),

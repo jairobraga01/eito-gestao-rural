@@ -113,7 +113,7 @@ class _CarregarDadosState extends State<CarregarDados> {
                       textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 18)),
                   const SizedBox(height: 16),
                   FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: Cores.laranja),
+                    style: FilledButton.styleFrom(backgroundColor: Cores.laranja, foregroundColor: Cores.azul),
                     onPressed: () => setState(() => _pronto = _iniciar()),
                     child: const Text('TENTAR DE NOVO'),
                   ),

@@ -182,6 +182,7 @@ class Db {
     'reproducoes',
     'sanidade',
     'pesagens',
+    'escores',
     'ordenhas',
     'config',
   ];
@@ -450,7 +451,7 @@ class Db {
         for (final r in _todos('reproducoes').where((x) => _int(x['cria_id']) == id)) {
           m.mesclar('reproducoes', r['id']!, {'cria_id': null});
         }
-        for (final tab in ['sanidade', 'pesagens', 'ordenhas']) {
+        for (final tab in ['sanidade', 'pesagens', 'escores', 'ordenhas']) {
           for (final r in _todos(tab).where((x) => _int(x['animal_id']) == id)) {
             m.apagar(tab, r['id']!);
           }
@@ -471,6 +472,7 @@ class Db {
     final id = _int(v['id']);
     final brinco = '${v['brinco'] ?? ''}'.trim().toLowerCase();
     final rfid = '${v['rfid'] ?? ''}'.trim();
+    final sisbov = '${v['sisbov'] ?? ''}'.trim();
     final propId = _int(v['propriedade_id']);
     for (final a in _todos('animais')) {
       if (_int(a['id']) == id || a['status'] != 'Ativo') continue;
@@ -481,6 +483,9 @@ class Db {
       }
       if (rfid.isNotEmpty && '${a['rfid'] ?? ''}'.trim() == rfid) {
         throw RegistroDuplicado('Esse brinco eletrônico já é do animal ${a['brinco']}.');
+      }
+      if (sisbov.isNotEmpty && '${a['sisbov'] ?? ''}'.trim() == sisbov) {
+        throw RegistroDuplicado('Esse número oficial (SISBOV) já é do animal ${a['brinco']}.');
       }
     }
   }
@@ -570,7 +575,7 @@ class Db {
       if (semLote && a0['lote_id'] != null) continue;
       final a = _completo(a0, ultimas);
       if (b.isNotEmpty) {
-        final alvo = [a['brinco'], a['nome'], a['lote_nome'], a['raca'], a['rfid']]
+        final alvo = [a['brinco'], a['nome'], a['lote_nome'], a['raca'], a['rfid'], a['sisbov']]
             .map((x) => '${x ?? ''}'.toLowerCase());
         if (!alvo.any((x) => x.contains(b))) continue;
       }
@@ -610,13 +615,15 @@ class Db {
           if (_int(a['mae_id']) == maeId) Map.of(a),
       ]..sort((x, y) => _comparaDataDesc(x['nascimento'], y['nascimento']));
 
-  /// Busca pelo brinco eletrônico (RFID) ou pelo número do brinco visual.
+  /// Busca pelo brinco eletrônico (RFID), pelo número oficial (SISBOV) ou pelo brinco visual.
   /// Procura primeiro os ativos da propriedade aberta, depois os demais.
   static Future<Reg?> buscarPorCodigo(String codigo) async {
     final c = codigo.trim().toLowerCase();
     if (c.isEmpty) return null;
     bool bate(Reg a) =>
-        '${a['rfid'] ?? ''}'.trim().toLowerCase() == c || '${a['brinco'] ?? ''}'.trim().toLowerCase() == c;
+        '${a['rfid'] ?? ''}'.trim().toLowerCase() == c ||
+        '${a['sisbov'] ?? ''}'.trim().toLowerCase() == c ||
+        '${a['brinco'] ?? ''}'.trim().toLowerCase() == c;
     final todos = _todos('animais').where(bate).toList();
     if (todos.isEmpty) return null;
     int peso(Reg a) =>

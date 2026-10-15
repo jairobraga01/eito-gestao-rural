@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/indicadores.dart';
 import '../util/util.dart';
 import 'base.dart';
 
@@ -141,10 +142,27 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
     }
   }
 
+  /// Venda e consumo de animal em carência de medicamento (abate antes da hora).
+  List<Carencia> get _carencia => tipo == 'Venda' || tipo == 'Consumo'
+      ? emCarencia([for (final a in animais) a['id'] as int], data)
+      : const [];
+
   Future<void> salvar() async {
     if (animais.isEmpty) {
       avisar(context, 'Selecione os animais.');
       return;
+    }
+    final carencia = _carencia;
+    if (carencia.isNotEmpty) {
+      final seguir = await confirmar(
+        context,
+        'Animais em carência',
+        '${carencia.length} animal(is) ainda em carência de medicamento:\n\n'
+            '${carencia.map((c) => '${c.animal['brinco']}: ${c.produto}, liberado em ${br(c.libera)}').join('\n')}\n\n'
+            'Vender para abate antes disso é proibido. Registrar mesmo assim?',
+        ok: 'Registrar mesmo assim',
+      );
+      if (!seguir || !mounted) return;
     }
     final ok = await confirmar(
       context,
@@ -199,6 +217,16 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
                       onDeleted: () => setState(() => animais = [...animais]..remove(a)),
                     ),
                 ],
+              ),
+            ),
+          if (_carencia.isNotEmpty)
+            Card(
+              margin: const EdgeInsets.only(top: 12),
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: ListTile(
+                leading: const Icon(Icons.block),
+                title: Text('${_carencia.length} animal(is) em carência nesta data'),
+                subtitle: Text(_carencia.map((c) => '${c.animal['brinco']} até ${br(c.libera)}').join(' · ')),
               ),
             ),
           gap,

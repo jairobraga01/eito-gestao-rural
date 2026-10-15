@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/manejo.dart' show intervaloEntrePartos, partosDaVaca;
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
+import '../widgets/foto_animal.dart';
 import 'base.dart';
 import 'ficha_animal.dart' show FichaCurral;
 import 'mover.dart';
@@ -694,6 +696,7 @@ class FichaAnimalPage extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.only(bottom: 32),
             children: [
+              FotoAnimal(animalId: id),
               Card(
                 margin: const EdgeInsets.all(12),
                 child: Padding(
@@ -719,6 +722,12 @@ class FichaAnimalPage extends StatelessWidget {
                       ),
                       Info('Pai', txt(a['pai'])),
                       Info('Origem', txt(a['origem'])),
+                      if (femea && partosDaVaca(id).isNotEmpty)
+                        Info(
+                          'Partos',
+                          '${partosDaVaca(id).length}'
+                              '${intervaloEntrePartos(id) == null ? '' : ' · intervalo médio de ${intervaloEntrePartos(id)!.round()} dias'}',
+                        ),
                       if (f.saida != null)
                         Info('Saída',
                             '${f.saida!['tipo']} em ${br(f.saida!['data'])}${txt(f.saida!['destino']).isEmpty ? '' : ' – ${f.saida!['destino']}'}'),

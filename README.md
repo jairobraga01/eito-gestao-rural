@@ -78,6 +78,7 @@ lib/
   marca.dart / tema.dart    nome, slogan, cores (verde oliva + laranja)
   dados/db.dart             dados: cópia local + Firestore, mesmas funções da Caderneta
   dados/resumo_periodo.dart números do mês ou do ano para os relatórios
+  dados/manejo.dart         fila do dia, intervalo entre partos, projeção de abate
   dispositivos/leitor_teclado.dart   bastão RFID e balança (HID)
   util/util.dart            datas, números, campos, seletor de animais
   util/formato.dart         formatos e leitura de balança
@@ -91,6 +92,10 @@ lib/
     manejo_em_serie.dart    pesagem e sanidade em série
     modo_inseminacao.dart   IA/IATF e diagnóstico em série, com baixa da dose
     semens.dart             cadastro de sêmen: preço por dose e estoque
+    entradas.dart           compras e entradas: cadastra os animais que chegaram
+    fila_do_dia.dart        o que fazer hoje no curral, para riscar
+    protocolos.dart         protocolos de IATF com a data de cada etapa
+    projecao_abate.dart     quando cada lote chega ao peso de venda e quanto vale
     login.dart, dispositivos.dart
   widgets/                  botões grandes, teclado numérico, faixa de sincronia, logo
 web/                        PWA: index.html, manifest, ícones, sw.js (offline)

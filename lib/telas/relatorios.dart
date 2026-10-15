@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/manejo.dart' show intervaloEntrePartosRebanho;
 import '../dados/resumo_periodo.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'projecao_abate.dart';
 
 // ---------- Consultas compartilhadas com o Painel ----------
 
@@ -168,6 +170,13 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
   Widget build(BuildContext context) {
     return Pagina(
       titulo: 'Relatórios',
+      acoes: [
+        IconButton(
+          tooltip: 'Projeção de abate',
+          icon: const Icon(Icons.trending_up),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjecaoAbatePage())),
+        ),
+      ],
       corpo: AoMudar<(ResumoPeriodo, List<ResumoPeriodo>?, _Atual)>(
         carregar: () async => (
           anual ? ResumoPeriodo.ano(ano) : ResumoPeriodo.mes(ano, mes),
@@ -245,7 +254,14 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
       if (p.vacinasPorProduto.isNotEmpty) Barras(_ordenado(p.vacinasPorProduto)),
       _linha('Pesagens', '${p.pesagens}'),
       _linha('GMD médio', media == null ? 'precisa de 2 pesagens no período' : '${gmd(media)} (${p.gmds.length} animais)'),
-      const Secao('Saídas'),
+      const Secao('Compras e entradas'),
+      if (p.entradasPorTipo.isEmpty) _linha('Nenhuma', ''),
+      for (final e in _ordenado(p.entradasPorTipo).entries) _linha(e.key, '${e.value} cab.'),
+      if (p.cabecasCompradas > 0 && p.valorCompras > 0) ...[
+        _linha('Valor das compras', moeda(p.valorCompras)),
+        _linha('Média por cabeça comprada', moeda(p.valorCompras / p.cabecasCompradas)),
+      ],
+      const Secao('Vendas e saídas'),
       if (p.saidasPorTipo.isEmpty) _linha('Nenhuma', ''),
       for (final e in _ordenado(p.saidasPorTipo).entries) _linha(e.key, '${e.value} cab.'),
       if (p.cabecasVendidas > 0 && p.valorVendas > 0) ...[
@@ -270,6 +286,19 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
       Barras({for (final e in r.porCategoria.entries) e.key: e.value}),
       const Secao('Por lote / pasto'),
       Barras({for (final e in r.porLote.entries) e.key: e.value}),
+      if (intervaloEntrePartosRebanho() case (final iep?, final n))
+        ListTile(
+          dense: true,
+          title: const Text('Intervalo entre partos'),
+          trailing: Text('${iep.round()} dias ($n ${n == 1 ? 'vaca' : 'vacas'})'),
+        ),
+      ListTile(
+        leading: const Icon(Icons.trending_up),
+        title: const Text('Projeção de abate'),
+        subtitle: const Text('Quando cada lote chega ao peso de venda e quanto vale'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjecaoAbatePage())),
+      ),
       Secao('Partos previstos (próximos 90 dias): ${r.partos.length}'),
       if (r.partos.isEmpty) const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Nenhum.')),
       for (final p in r.partos)

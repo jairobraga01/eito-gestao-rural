@@ -39,6 +39,10 @@ class ResumoPeriodo {
   /// GMD de cada animal com duas ou mais pesagens no período.
   final gmds = <double>[];
 
+  int entradas = 0, cabecasCompradas = 0;
+  final entradasPorTipo = <String, int>{};
+  double valorCompras = 0;
+
   int saidas = 0;
   final saidasPorTipo = <String, int>{};
   double valorVendas = 0;
@@ -132,6 +136,18 @@ class ResumoPeriodo {
       final dias = DateTime.utc(d1.year, d1.month, d1.day).difference(DateTime.utc(d0.year, d0.month, d0.day)).inDays;
       if (dias <= 0) continue;
       r.gmds.add(((l.last['peso'] as num) - (l.first['peso'] as num)) / dias);
+    }
+
+    for (final e in Db.registros('entradas')) {
+      if (_int(e['propriedade_id']) != pid || !r._dentro(e['data'])) continue;
+      final qtd = _int(e['quantidade']) ?? 0;
+      final tipo = _t(e['tipo']).isEmpty ? 'Outra' : _t(e['tipo']);
+      r.entradas += qtd;
+      r.entradasPorTipo[tipo] = (r.entradasPorTipo[tipo] ?? 0) + qtd;
+      if (tipo == 'Compra') {
+        r.cabecasCompradas += qtd;
+        if (e['valor_total'] is num) r.valorCompras += e['valor_total'] as num;
+      }
     }
 
     for (final s in Db.registros('saidas')) {

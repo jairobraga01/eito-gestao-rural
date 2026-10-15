@@ -1,11 +1,84 @@
 rules_version = '2';
 
+// Os dados de cada conta ficam em usuarios/{dono}/{tabela}/{id}.
+// O dono pode pôr outras pessoas na equipe (usuarios/{dono}/equipe/{uid}):
+// - gerente: lê e grava tudo, menos a equipe;
+// - peão: lê tudo, menos o financeiro; grava só o serviço de campo e só
+//   apaga o que ele mesmo lançou.
+// Convites ficam em convites/{email} e só servem para quem tem esse e-mail
+// confirmado (ou para o login de peão que o dono criou, pelo uid).
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Cada usuário só acessa os próprios dados: usuarios/{uid}/...
-    match /usuarios/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function logado() {
+      return request.auth != null;
     }
+    function meuEmail() {
+      return request.auth.token.get('email', '').lower();
+    }
+    function vinculo(u) {
+      return /databases/$(database)/documents/usuarios/$(u)/equipe/$(request.auth.uid);
+    }
+    function membro(u) {
+      return logado() && exists(vinculo(u));
+    }
+    function papel(u) {
+      return get(vinculo(u)).data.papel;
+    }
+    function conviteServe(c) {
+      return c.get('uid', null) == request.auth.uid
+        || (c.get('uid', null) == null && request.auth.token.get('email_verified', false) == true);
+    }
+    function caminhoConvite() {
+      return /databases/$(database)/documents/convites/$(meuEmail());
+    }
+    function conviteDe(u) {
+      return meuEmail() != '' && exists(caminhoConvite())
+        && get(caminhoConvite()).data.dono == u
+        && conviteServe(get(caminhoConvite()).data);
+    }
+    // Tabelas que o peão grava no campo.
+    function peaoGrava(t) {
+      return t in ['animais', 'pesagens', 'sanidade', 'reproducoes', 'escores', 'ordenhas', 'pastagens',
+        'ocorrencias', 'contagens', 'chuvas', 'insumos', 'estoque', 'semens', 'fotos', 'tarefas', 'config'];
+    }
+    // Financeiro: o peão não lê.
+    function peaoNaoLe(t) {
+      return t in ['contas', 'dividas', 'custos'];
+    }
+
+    // O dono: tudo dentro da própria conta.
+    match /usuarios/{u}/{document=**} {
+      allow read, write: if logado() && request.auth.uid == u;
+    }
+
+    // Equipe: só o dono muda. A pessoa vê a própria ligação, pode sair e,
+    // com um convite válido, entra sozinha com o papel do convite.
+    match /usuarios/{u}/equipe/{m} {
+      allow read: if logado() && (request.auth.uid == m || membro(u));
+      allow delete: if logado() && request.auth.uid == m;
+      allow create: if logado() && request.auth.uid == m && conviteDe(u)
+        && request.resource.data.papel == get(caminhoConvite()).data.papel;
+    }
+
+    // Dados do dono para quem está na equipe.
+    match /usuarios/{u}/{tabela}/{doc} {
+      allow read: if tabela != 'equipe' && membro(u)
+        && !(papel(u) == 'peao' && peaoNaoLe(tabela));
+      allow write: if tabela != 'equipe' && membro(u) && papel(u) == 'gerente';
+      allow create, update: if tabela != 'equipe' && membro(u) && papel(u) == 'peao' && peaoGrava(tabela);
+      allow delete: if tabela != 'equipe' && membro(u) && papel(u) == 'peao' && peaoGrava(tabela)
+        && resource.data.get('criado_por', '') == request.auth.uid;
+    }
+
+    match /convites/{email} {
+      allow read: if logado() && (resource.data.dono == request.auth.uid
+        || (meuEmail() == email && conviteServe(resource.data)));
+      allow create: if logado() && request.resource.data.dono == request.auth.uid && email == email.lower();
+      allow update: if logado() && resource.data.dono == request.auth.uid
+        && request.resource.data.dono == request.auth.uid;
+      allow delete: if logado() && (resource.data.dono == request.auth.uid || meuEmail() == email);
+    }
+
     // Todo o resto fica bloqueado
     match /{document=**} {
       allow read, write: if false;

@@ -350,7 +350,7 @@ class _Cabecalho extends StatelessWidget {
         dado('SISBOV', txt(a['sisbov'])),
         dado('Raça', txt(a['raca'])),
         dado('Lote', txt(a['lote_nome'])),
-        dado('Piquete', txt(a['piquete_nome'])),
+        dado('Piquete/Pasto', txt(a['piquete_nome'])),
         dado('Idade', a['nascimento'] == null ? '' : '${idade(a['nascimento'])} (${br(a['nascimento'])})'),
         dado('Mãe', txt(a['mae_brinco'])),
       ]),

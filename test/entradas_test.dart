@@ -1,4 +1,5 @@
 import 'package:eito_gestao_rural/dados/db.dart';
+import 'package:eito_gestao_rural/dados/numeracao.dart';
 import 'package:eito_gestao_rural/dados/resumo_periodo.dart';
 import 'package:eito_gestao_rural/telas/entradas.dart' show separarBrincos;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
@@ -17,6 +18,21 @@ void main() {
         brincos,
         {'sexo': 'M', 'categoria': 'Garrote', 'raca': 'Nelore'},
       );
+
+  test('gado sem brinco: prefixo sugerido e numeração que continua', () async {
+    expect(prefixoSugerido(categoria: 'Vaca', sexo: 'F', tipo: 'Rebanho existente', data: '2026-10-25'), 'vaca_fazenda');
+    expect(prefixoSugerido(categoria: 'Bezerra', sexo: 'F', tipo: 'Compra', data: '2026-10-25'),
+        'bezerra_compra25OUT2026');
+    expect(gerarBrincos('vaca_fazenda', 1, 3), ['vaca_fazenda_001', 'vaca_fazenda_002', 'vaca_fazenda_003']);
+    expect(gerarBrincos('novilha_fazenda', 999, 2), ['novilha_fazenda_0999', 'novilha_fazenda_1000']);
+
+    expect(proximoNumero('vaca_fazenda'), 1);
+    await Db.registrarEntrada({'tipo': 'Rebanho existente', 'data': '2026-10-15'}, gerarBrincos('vaca_fazenda', 1, 400),
+        {'sexo': 'F', 'categoria': 'Vaca'});
+    expect(Db.registros('animais').length, 400);
+    expect(proximoNumero('vaca_fazenda'), 401);
+    expect(proximoNumero('novilha_fazenda'), 1);
+  });
 
   test('separa os brincos por linha, vírgula ou espaço', () {
     expect(separarBrincos('101, 102\n103;104  105'), ['101', '102', '103', '104', '105']);

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/numeracao.dart';
 import '../util/util.dart';
 import 'base.dart';
 
-const tiposEntrada = ['Compra', 'Transferência', 'Doação', 'Outro'];
+const tiposEntrada = ['Compra', 'Rebanho existente', 'Transferência', 'Doação', 'Outro'];
 
 /// Seta de entrada (verde, para baixo) e de saída (vermelha, para cima).
 const iconeEntrada = Icons.arrow_circle_down_outlined;
@@ -130,21 +131,55 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
   final obs = TextEditingController();
   bool salvando = false;
 
+  // Gado sem brinco: o Eito gera a numeração (prefixo_001, prefixo_002...).
+  bool gerar = false;
+  final quantidade = TextEditingController();
+  final prefixo = TextEditingController();
+  final inicio = TextEditingController();
+  bool prefixoEditado = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _sugerir();
+  }
+
+  /// Atualiza o prefixo sugerido (enquanto a pessoa não o mudou) e o próximo número.
+  void _sugerir() {
+    if (!prefixoEditado) {
+      prefixo.text = prefixoSugerido(categoria: categoria, sexo: sexo, tipo: tipo ?? '', data: data);
+    }
+    inicio.text = '${proximoNumero(prefixo.text)}';
+  }
+
+  List<String> _lista() {
+    if (!gerar) return separarBrincos(brincos.text);
+    final qtd = int.tryParse(quantidade.text.trim()) ?? 0;
+    final ini = int.tryParse(inicio.text.trim()) ?? 1;
+    if (qtd <= 0 || qtd > 5000 || prefixo.text.trim().isEmpty) return const [];
+    return gerarBrincos(prefixo.text, ini < 1 ? 1 : ini, qtd);
+  }
+
   @override
   void dispose() {
-    for (final c in [brincos, raca, peso, valor, origem, gta, obs]) {
+    for (final c in [brincos, raca, peso, valor, origem, gta, obs, quantidade, prefixo, inicio]) {
       c.dispose();
     }
     super.dispose();
   }
 
   Future<void> salvar() async {
-    final lista = separarBrincos(brincos.text);
+    final lista = _lista();
     if (lista.isEmpty) {
-      avisar(context, 'Digite os brincos dos animais que chegaram.');
+      avisar(context,
+          gerar ? 'Diga quantos animais (até 5.000 por vez) e o prefixo.' : 'Digite os brincos dos animais que chegaram.');
       return;
     }
-    if (!await confirmar(context, 'Confirmar ${tipo!.toLowerCase()}', '${lista.length} animal(is) entrarão no rebanho.')) {
+    if (!await confirmar(
+        context,
+        'Confirmar ${tipo!.toLowerCase()}',
+        '${lista.length} animal(is) entrarão no rebanho'
+            '${gerar ? ', de ${lista.first} até ${lista.last}' : ''}.')) {
       return;
     }
     setState(() => salvando = true);
@@ -177,7 +212,8 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
   @override
   Widget build(BuildContext context) {
     final compra = tipo == 'Compra';
-    final n = separarBrincos(brincos.text).length;
+    final gerados = _lista();
+    final n = gerados.length;
     final p = lerNumero(peso.text);
     final v = lerNumero(valor.text);
     return Scaffold(
@@ -185,10 +221,64 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          escolha('Tipo', tipo, tiposEntrada, (x) => setState(() => tipo = x)),
+          escolha('Tipo', tipo, tiposEntrada, (x) => setState(() {
+                tipo = x;
+                if (x == 'Rebanho existente') gerar = true;
+                _sugerir();
+              })),
+          if (tipo == 'Rebanho existente')
+            const Padding(
+              padding: EdgeInsets.only(top: 6),
+              child: Text('Para cadastrar o gado que já está na fazenda, de uma vez.',
+                  style: TextStyle(color: Colors.black54)),
+            ),
           gap,
-          DateField(label: 'Data', value: data, obrigatorio: true, onChanged: (x) => setState(() => data = x!)),
-          gap,
+          DateField(
+              label: 'Data',
+              value: data,
+              obrigatorio: true,
+              onChanged: (x) => setState(() {
+                    data = x!;
+                    _sugerir();
+                  })),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: gerar,
+            title: const Text('Sem brinco: gerar a numeração'),
+            subtitle: const Text('Ex.: vaca_fazenda_001, vaca_fazenda_002...'),
+            onChanged: (v) => setState(() => gerar = v),
+          ),
+          if (gerar) ...[
+            TextField(
+              controller: quantidade,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(labelText: 'Quantos animais *', suffixText: 'cab.'),
+            ),
+            gap,
+            TextField(
+              controller: prefixo,
+              onChanged: (_) => setState(() {
+                prefixoEditado = true;
+                inicio.text = '${proximoNumero(prefixo.text)}';
+              }),
+              decoration: const InputDecoration(labelText: 'Prefixo', helperText: 'Muda sozinho com a categoria e a data.'),
+            ),
+            gap,
+            TextField(
+              controller: inicio,
+              keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                  labelText: 'Começar do número', helperText: 'Já vem o próximo livre, para continuar a contagem.'),
+            ),
+            if (n > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(n == 1 ? gerados.first : '${gerados.first} até ${gerados.last}',
+                    style: const TextStyle(fontWeight: FontWeight.w700)),
+              ),
+          ] else
           TextField(
             controller: brincos,
             maxLines: 4,
@@ -210,10 +300,14 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
             onSelectionChanged: (s) => setState(() {
               sexo = s.first;
               categoria = null;
+              _sugerir();
             }),
           ),
           gap,
-          escolha('Categoria', categoria, sexo == 'F' ? categoriasF : categoriasM, (x) => setState(() => categoria = x)),
+          escolha('Categoria', categoria, sexo == 'F' ? categoriasF : categoriasM, (x) => setState(() {
+                categoria = x;
+                _sugerir();
+              })),
           gap,
           campoTexto(raca, 'Raça'),
           gap,

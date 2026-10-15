@@ -66,10 +66,13 @@ void main() {
     final sal = await Db.inserir('insumos',
         {'propriedade_id': pid, 'nome': 'Sal mineral', 'categoria': 'Sal mineral', 'preco_saco': 150, 'kg_saco': 30});
     await entradaEstoque(sal, 60, data: '2026-10-01');
-    await Db.inserir('dietas', {'propriedade_id': pid, 'lote_id': lote, 'insumo_id': sal, 'kg_cab_dia': 0.1});
+    final pasto = await Db.inserir('piquetes', {'propriedade_id': pid, 'nome': 'Pasto 1'});
+    await Db.moverParaPiquete(Db.registros('animais'), pasto, '2026-10-01');
+    await Db.inserir('dietas', {'propriedade_id': pid, 'piquete_id': pasto, 'insumo_id': sal, 'kg_cab_dia': 0.1});
     await pumpEventQueue();
 
     final d = dietas().single;
+    expect(d.local, 'Pasto 1');
     expect(d.cabecas, 10);
     expect(d.kgDia, closeTo(1, 1e-9));
     expect(d.custoMes, closeTo(150, 1e-9)); // 30 kg × R$ 5

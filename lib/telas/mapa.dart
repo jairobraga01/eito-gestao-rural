@@ -73,7 +73,7 @@ class _MapaPageState extends State<MapaPage> {
     final ps = await Db.piquetes();
     if (!mounted) return;
     if (ps.isEmpty) {
-      avisar(context, 'Cadastre os piquetes primeiro (menu Piquetes).');
+      avisar(context, 'Cadastre os piquetes primeiro (menu Piquete/Pasto).');
       return;
     }
     final p = await showModalBottomSheet<Reg>(
@@ -631,7 +631,7 @@ class _OcorrenciaFormPageState extends State<OcorrenciaFormPage> {
           ),
         ]),
         gap,
-        escolhaId('Piquete', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Nenhum'),
+        escolhaId('Piquete/Pasto', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Nenhum'),
         gap,
         escolhaId('Ponto (aguada, cocho, cerca…)', pontoId, ps, (v) => setState(() => pontoId = v), vazio: 'Nenhum'),
         gap,
@@ -937,7 +937,7 @@ class _ContagemPageState extends State<ContagemPage> {
         builder: (context, d) {
           final (esperados, historico) = d;
           return ListView(padding: const EdgeInsets.all(16), children: [
-            escolhaId('Piquete', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Escolha'),
+            escolhaId('Piquete/Pasto', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Escolha'),
             if (piqueteId != null) ...[
               gap,
               Text('O Eito tem ${esperados.length} animal(is) neste piquete.', style: const TextStyle(fontSize: 18)),

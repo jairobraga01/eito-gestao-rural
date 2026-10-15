@@ -196,7 +196,7 @@ class AnimalTile extends StatelessWidget {
       txt(a['categoria']).isEmpty ? 'Sem categoria' : txt(a['categoria']),
       txt(a['raca']),
       if (txt(a['lote_nome']).isNotEmpty) 'Lote ${a['lote_nome']}',
-      if (txt(a['piquete_nome']).isNotEmpty) 'Piquete ${a['piquete_nome']}',
+      if (txt(a['piquete_nome']).isNotEmpty) 'Piquete/Pasto ${a['piquete_nome']}',
       idade(a['nascimento']),
       if (a['ultimo_peso'] != null) kg(a['ultimo_peso'] as num),
     ].where((x) => x.isNotEmpty);
@@ -428,7 +428,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
           gap,
           escolhaId('Lote', loteId, lotes, (v) => setState(() => loteId = v), vazio: 'Sem lote'),
           gap,
-          escolhaId('Piquete', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Nenhum'),
+          escolhaId('Piquete/Pasto', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Nenhum'),
           gap,
           AnimalField(
             label: 'Mãe',
@@ -725,7 +725,7 @@ class FichaAnimalPage extends StatelessWidget {
                       Info('Nascimento',
                           a['nascimento'] == null ? '' : '${br(a['nascimento'])} (${idade(a['nascimento'])})'),
                       Info('Lote', txt(a['lote_nome'])),
-                      Info('Piquete', txt(a['piquete_nome'])),
+                      Info('Piquete/Pasto', txt(a['piquete_nome'])),
                       Info(
                         'Mãe',
                         txt(a['mae_brinco']),

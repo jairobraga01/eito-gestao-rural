@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../dados/equipe.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../widgets/fundo_foto.dart';
@@ -44,7 +45,8 @@ class _TelaLoginState extends State<TelaLogin> {
         final cred = await auth.createUserWithEmailAndPassword(email: email, password: senha);
         await cred.user?.sendEmailVerification();
       } else {
-        await auth.signInWithEmailAndPassword(email: email, password: senha);
+        // Peão entra só com o usuário (sem @).
+        await auth.signInWithEmailAndPassword(email: emailDoLogin(email), password: senha);
       }
     } on FirebaseAuthException catch (e) {
       setState(() => _erro = _mensagem(e));
@@ -57,6 +59,10 @@ class _TelaLoginState extends State<TelaLogin> {
     final email = _email.text.trim();
     if (email.isEmpty) {
       setState(() => _erro = 'Digite seu e-mail acima para receber o link de nova senha.');
+      return;
+    }
+    if (!email.contains('@')) {
+      setState(() => _erro = 'Login de peão: peça ao dono da fazenda uma senha nova.');
       return;
     }
     try {
@@ -146,7 +152,7 @@ class _TelaLoginState extends State<TelaLogin> {
                         autofillHints: const [AutofillHints.email],
                         textInputAction: TextInputAction.next,
                         style: const TextStyle(fontSize: 20),
-                        decoration: const InputDecoration(labelText: 'E-mail', prefixIcon: Icon(Icons.email_outlined)),
+                        decoration: const InputDecoration(labelText: 'E-mail (peão: usuário)', prefixIcon: Icon(Icons.email_outlined)),
                       ),
                       const SizedBox(height: 14),
                       TextField(

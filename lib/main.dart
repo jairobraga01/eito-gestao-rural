@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'dados/db.dart';
+import 'dados/equipe.dart';
 import 'dispositivos/leitor_teclado.dart';
 import 'firebase_options.dart';
 import 'marca.dart';
@@ -18,6 +19,7 @@ import 'telas/cotacao_arroba.dart';
 import 'telas/dividas.dart';
 import 'telas/dieta.dart';
 import 'telas/entradas.dart';
+import 'telas/equipe.dart';
 import 'telas/estoque.dart';
 import 'telas/inicio.dart';
 import 'telas/login.dart';
@@ -102,7 +104,25 @@ class _CarregarDadosState extends State<CarregarDados> {
     _pronto = _iniciar();
   }
 
-  Future<void> _iniciar() => Db.iniciar(widget.usuario.uid);
+  /// Abre os dados do próprio usuário ou, se ele está numa equipe, os do dono.
+  Future<void> _iniciar() async {
+    var u = widget.usuario;
+    final peao = ehLoginDePeao(u.email);
+    // Quem acabou de confirmar o e-mail precisa de um token novo para ler o convite.
+    if (!peao && !u.emailVerified) {
+      try {
+        await u.reload();
+        u = FirebaseAuth.instance.currentUser ?? u;
+        if (u.emailVerified) await u.getIdToken(true);
+      } catch (_) {}
+    }
+    final acesso = await Equipe.procurarAcesso(u.uid, u.email);
+    if (acesso == null && peao) {
+      throw 'Este login não está ligado a nenhuma fazenda. Fale com o dono.';
+    }
+    await Db.iniciar(u.uid,
+        dono: acesso?.dono, papel: acesso?.papel ?? 'dono', nome: acesso?.nome ?? u.displayName ?? u.email ?? '');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -200,6 +220,8 @@ class _InicioState extends State<Inicio> {
         secRelatorios => const RelatoriosPage(),
         secExportacoes => const ExportacoesPage(doMenu: true),
         secBackup => const BackupPage(),
+        secTarefas => const TarefasPage(),
+        secHistorico => const HistoricoPage(doMenu: true),
         _ => const InicioPage(),
       };
 
@@ -212,7 +234,7 @@ class _InicioState extends State<Inicio> {
         onPopInvokedWithResult: (saiu, _) {
           if (!saiu) Nav.ir(secPainel);
         },
-        child: KeyedSubtree(key: ValueKey(i), child: _pagina(i)),
+        child: KeyedSubtree(key: ValueKey(i), child: _pagina(podeVer(i) ? i : secPainel)),
       ),
     );
   }

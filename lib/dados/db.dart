@@ -1400,7 +1400,7 @@ class Db {
 
   static Future<Reg?> saida(int id) async => registro('saidas', id);
 
-  static Future<void> registrarSaida(Reg saida, List<int> animalIds) async {
+  static Future<int> registrarSaida(Reg saida, List<int> animalIds) async {
     final status = statusPorSaida[saida['tipo']] ?? 'Baixado';
     final id = novoId();
     final m = _Mudancas()
@@ -1409,6 +1409,7 @@ class Db {
       m.mesclar('animais', a, {'status': status, 'saida_id': id, 'piquete_id': null});
     }
     m.enviar();
+    return id;
   }
 
   /// Exclui a saída e devolve os animais ao rebanho ativo.

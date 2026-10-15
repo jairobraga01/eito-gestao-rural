@@ -100,17 +100,31 @@ class CalculoFormula {
   double? get batidasSeca => kgBatida <= 0 ? null : kgSeca / kgBatida;
 }
 
-/// Lança o custo de [batidas] batidas da fórmula em Custos (Ração e sal).
-Future<int> registrarBatida(Reg formula, {required String data, double batidas = 1, int? loteId}) {
+/// Lança o custo de [batidas] batidas da fórmula em Custos (Ração e sal) e
+/// tira do estoque os insumos usados. Apagar o custo devolve o estoque.
+Future<int> registrarBatida(Reg formula, {required String data, double batidas = 1, int? loteId, String? descricao}) async {
   final c = CalculoFormula(formula);
-  return Db.inserir('custos', {
+  final id = await Db.inserir('custos', {
     'propriedade_id': Db.pid,
     'lote_id': loteId,
     'categoria': 'Ração e sal',
-    'descricao': 'Proteinado ${formula['nome']} · ${_qtd(batidas)} batida${batidas == 1 ? '' : 's'} (${_qtd(c.kgBatida * batidas)} kg)',
+    'descricao': descricao ??
+        'Proteinado ${formula['nome']} · ${_qtd(batidas)} batida${batidas == 1 ? '' : 's'} (${_qtd(c.kgBatida * batidas)} kg)',
     'valor': double.parse((c.custoBatida * batidas).toStringAsFixed(2)),
     'data': data,
   });
+  for (final l in c.linhas) {
+    if (l.insumo == null) continue;
+    await Db.inserir('estoque', {
+      'propriedade_id': Db.pid,
+      'insumo_id': l.insumo!['id'],
+      'data': data,
+      'qtd': -double.parse((l.kg * batidas).toStringAsFixed(3)),
+      'motivo': descricao ?? 'Batida ${formula['nome']}',
+      'grupo': '$id',
+    });
+  }
+  return id;
 }
 
 String _qtd(double v) => v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1).replaceAll('.', ',');
@@ -153,7 +167,14 @@ Future<int> carregarPlanilhaProteinado() async {
   final ids = {for (final i in insumos()) _t(i['nome']).toLowerCase(): _int(i['id'])!};
   for (final (nome, preco, kg) in _insumosPlanilha) {
     if (ids.containsKey(nome.toLowerCase())) continue;
-    ids[nome.toLowerCase()] = await Db.inserir('insumos', {'propriedade_id': pid, 'nome': nome, 'preco_saco': preco, 'kg_saco': kg});
+    ids[nome.toLowerCase()] = await Db.inserir('insumos', {
+      'propriedade_id': pid,
+      'nome': nome,
+      'categoria': 'Ração e ingredientes',
+      'unidade': 'kg',
+      'preco_saco': preco,
+      'kg_saco': kg,
+    });
   }
   final existentes = {for (final f in formulas()) '${tipoFormula(f)}|${f['nome']}'.toLowerCase()};
   var novas = 0;

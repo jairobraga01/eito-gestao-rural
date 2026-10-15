@@ -16,7 +16,9 @@ import 'telas/chuva.dart';
 import 'telas/custos.dart';
 import 'telas/cotacao_arroba.dart';
 import 'telas/dividas.dart';
+import 'telas/dieta.dart';
 import 'telas/entradas.dart';
+import 'telas/estoque.dart';
 import 'telas/inicio.dart';
 import 'telas/login.dart';
 import 'telas/lotes.dart';
@@ -29,6 +31,7 @@ import 'telas/relatorios.dart';
 import 'telas/reproducao.dart';
 import 'telas/sanidade.dart';
 import 'telas/vendas.dart';
+import 'telas/vender_esperar.dart';
 import 'widgets/logo_eito.dart';
 
 Future<void> main() async {
@@ -185,7 +188,10 @@ class _InicioState extends State<Inicio> {
         secCustos => const CustosPage(),
         secDividas => const DividasPage(),
         secProteinado => const ProteinadoPage(),
+        secEstoque => const EstoquePage(),
+        secDieta => const DietaPage(),
         secCotacao => const CotacaoArrobaPage(),
+        secVender => const VenderEsperarPage(),
         secChuva => const ChuvaPage(),
         secRelatorios => const RelatoriosPage(),
         secBackup => const BackupPage(),

@@ -178,6 +178,8 @@ class Db {
     'formulas',
     'dividas',
     'cotacoes',
+    'estoque',
+    'dietas',
     'animais',
     'reproducoes',
     'sanidade',
@@ -406,7 +408,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas']) {
+        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
@@ -420,6 +422,25 @@ class Db {
         }
         for (final c in _todos('custos').where((x) => _int(x['lote_id']) == id)) {
           m.mesclar('custos', c['id']!, {'lote_id': null});
+        }
+        for (final d in _todos('dietas').where((x) => _int(x['lote_id']) == id)) {
+          m.apagar('dietas', d['id']!);
+        }
+      case 'custos':
+        // Batida ou trato apagado: o que saiu do estoque volta.
+        for (final e in _todos('estoque').where((x) => '${x['grupo']}' == '$id')) {
+          m.apagar('estoque', e['id']!);
+        }
+      case 'insumos':
+        for (final e in _todos('estoque').where((x) => _int(x['insumo_id']) == id)) {
+          m.apagar('estoque', e['id']!);
+        }
+        for (final d in _todos('dietas').where((x) => _int(x['insumo_id']) == id)) {
+          m.apagar('dietas', d['id']!);
+        }
+      case 'formulas':
+        for (final d in _todos('dietas').where((x) => _int(x['formula_id']) == id)) {
+          m.apagar('dietas', d['id']!);
         }
       case 'piquetes':
         for (final p in _todos('pastagens').where((x) => _int(x['piquete_id']) == id)) {
@@ -1072,6 +1093,21 @@ class Db {
     }
   }
 
+  /// Lê todas as fotos da conta (para o backup). Retorna quantas há, ou null sem sinal.
+  static Future<int?> carregarFotos() async {
+    try {
+      final q = await _col('fotos').get();
+      for (final d in q.docs) {
+        final id = _int(d.data()['animal_id']) ?? int.tryParse(d.id);
+        if (id != null) _fotos[id] = d.data()['imagem'] as String?;
+      }
+      return _fotos.values.whereType<String>().length;
+    } catch (e) {
+      debugPrint('Eito: erro ao ler as fotos: $e');
+      return null;
+    }
+  }
+
   static Future<void> salvarFoto(int animalId, String? base64) async {
     _fotos[animalId] = base64;
     final ref = _col('fotos').doc('$animalId');
@@ -1150,14 +1186,38 @@ class Db {
     for (final id in animalIds) {
       m.gravar('sanidade', {...valores, 'id': novoId(), 'grupo': g, 'animal_id': id});
     }
+    _baixaSanidade(m, valores, animalIds.length, g);
     m.enviar();
     return g;
+  }
+
+  /// Vacina ou remédio com o mesmo nome de um insumo do estoque: tira do
+  /// estoque a dose de cada animal.
+  static void _baixaSanidade(_Mudancas m, Reg valores, int animais, String grupo) {
+    final produto = '${valores['produto'] ?? ''}'.trim().toLowerCase();
+    if (produto.isEmpty || animais == 0) return;
+    final insumo = _todos('insumos').where((i) =>
+        _int(i['propriedade_id']) == pid && '${i['nome'] ?? ''}'.trim().toLowerCase() == produto).firstOrNull;
+    if (insumo == null) return;
+    final dose = insumo['dose_animal'] is num && (insumo['dose_animal'] as num) > 0 ? insumo['dose_animal'] as num : 1;
+    m.gravar('estoque', {
+      'id': novoId(),
+      'propriedade_id': pid,
+      'insumo_id': insumo['id'],
+      'data': '${valores['data'] ?? _hoje()}'.substring(0, 10),
+      'qtd': -(dose * animais),
+      'motivo': 'Sanidade · $animais animal(is)',
+      'grupo': grupo,
+    });
   }
 
   static Future<void> excluirGrupoSanidade(String grupo) async {
     final m = _Mudancas();
     for (final s in _todos('sanidade').where((x) => '${x['grupo']}' == grupo)) {
       m.apagar('sanidade', s['id']!);
+    }
+    for (final e in _todos('estoque').where((x) => '${x['grupo']}' == grupo)) {
+      m.apagar('estoque', e['id']!);
     }
     m.enviar();
   }
@@ -1323,7 +1383,7 @@ class Db {
 
   /// Texto com todos os dados (todas as propriedades). Síncrono de propósito:
   /// o navegador só deixa copiar para a área de transferência logo após o toque.
-  static String exportarJson() {
+  static String exportarJson({bool comFotos = true}) {
     final dados = <String, Object?>{};
     for (final t in tabelas) {
       if (t == 'config') {
@@ -1339,6 +1399,11 @@ class Db {
       'versao': 2,
       'gerado_em': DateTime.now().toIso8601String(),
       'tabelas': dados,
+      if (comFotos)
+        'fotos': [
+          for (final e in _fotos.entries)
+            if (e.value != null && _reg('animais', e.key) != null) {'animal_id': e.key, 'imagem': e.value},
+        ],
     });
   }
 
@@ -1404,6 +1469,13 @@ class Db {
       }
     }
     m.enviar();
+
+    // Fotos uma a uma: cada uma pesa e o lote do Firestore tem limite de tamanho.
+    for (final f in (mapa['fotos'] as List?) ?? const []) {
+      final foto = Map<String, dynamic>.from(f as Map);
+      final id = _int(foto['animal_id']);
+      if (id != null && foto['imagem'] is String) await salvarFoto(id, foto['imagem'] as String);
+    }
 
     if (_todos('propriedades').isEmpty) {
       await inserir('propriedades', {'nome': 'Minha propriedade'});

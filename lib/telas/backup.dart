@@ -15,6 +15,23 @@ class BackupPage extends StatefulWidget {
 class _BackupPageState extends State<BackupPage> {
   bool ocupado = false;
 
+  /// Fotos lidas da nuvem para entrar no backup (null = ainda lendo ou sem sinal).
+  int? fotos;
+  bool lendoFotos = true;
+
+  @override
+  void initState() {
+    super.initState();
+    Db.carregarFotos().then((n) {
+      if (mounted) {
+        setState(() {
+          fotos = n;
+          lendoFotos = false;
+        });
+      }
+    });
+  }
+
   /// Copia sem esperar nada antes: o navegador do iPhone só deixa copiar
   /// logo após o toque no botão.
   void exportar() {
@@ -114,8 +131,18 @@ class _BackupPageState extends State<BackupPage> {
             'lá, toque em "Copiar backup"; aqui, toque em "Restaurar backup" e cole.',
           ),
           const SizedBox(height: 24),
+          Text(
+            lendoFotos
+                ? 'Buscando as fotos dos animais para o backup…'
+                : fotos == null
+                    ? 'Sem sinal: as fotos não entram neste backup (só os dados).'
+                    : fotos == 0
+                        ? 'Nenhuma foto de animal para incluir.'
+                        : 'As $fotos foto(s) dos animais entram no backup.',
+          ),
+          gap,
           FilledButton.icon(
-            onPressed: ocupado ? null : exportar,
+            onPressed: ocupado || lendoFotos ? null : exportar,
             icon: const Icon(Icons.copy_all),
             label: const Text('Copiar backup'),
           ),

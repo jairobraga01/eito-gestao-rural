@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/estoque.dart' show alertasEstoque;
 import '../tema.dart';
 import '../util/util.dart';
 import 'animais.dart';
@@ -11,7 +12,7 @@ import 'reproducao.dart';
 import 'sanidade.dart';
 
 class _Painel {
-  int ativos = 0, femeas = 0, machos = 0, prenhes = 0, lotes = 0;
+  int ativos = 0, femeas = 0, machos = 0, prenhes = 0, lotes = 0, avisosEstoque = 0;
   List<Reg> partos = [], diagnosticos = [], aplicacoes = [], carencia = [];
 }
 
@@ -27,6 +28,7 @@ Future<_Painel> _carregar() async {
   p.diagnosticos = await diagnosticosAtrasados();
   p.aplicacoes = await aplicacoesProximas(15);
   p.carencia = await animaisEmCarencia();
+  p.avisosEstoque = alertasEstoque(hojeIso()).length;
   return p;
 }
 
@@ -126,6 +128,7 @@ class _InicioPageState extends State<InicioPage> {
                   _Indicador('${p.femeas} / ${p.machos}', 'Fêmeas / machos', Icons.wc, () => Nav.ir(secRebanho)),
                   _Indicador('${p.prenhes}', 'Prenhes', Icons.favorite, () => Nav.ir(secReproducao)),
                   _Indicador('${p.carencia.length}', 'Em carência', Icons.block, () => Nav.ir(secRelatorios)),
+                  _Indicador('${p.avisosEstoque}', 'Avisos de estoque', Icons.inventory_2_outlined, () => Nav.ir(secEstoque)),
                 ],
               ),
             ),

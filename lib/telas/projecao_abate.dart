@@ -31,10 +31,11 @@ class _ProjecaoAbatePageState extends State<ProjecaoAbatePage> {
   void _mudou() {
     setState(() {});
     Db.salvarConfig('abate', {
+      ...?Db.registro('config', 'abate'),
       'alvo': lerNumero(alvo.text),
       'rendimento': lerNumero(rendimento.text),
       'arroba': lerNumero(arroba.text),
-    });
+    }..remove('id'));
   }
 
   Widget _campo(TextEditingController c, String rotulo, {String? sufixo, String? prefixo}) => Expanded(

@@ -165,7 +165,7 @@ class _FichaCurralState extends State<FichaCurral> {
               ),
             );
         final botoes = <Widget>[
-          botao(Icons.monitor_weight_outlined, 'PESAR', () => _pesar(a), cor: Cores.laranja),
+          botao(Icons.monitor_weight_outlined, 'PESAR', () => _pesar(a), cor: Cores.azul),
           botao(Icons.vaccines_outlined, 'VACINAR / MEDICAR', () => _medicar(a)),
           if (femea) ...[
             botao(Icons.child_friendly_outlined, 'NASCIMENTO',
@@ -301,7 +301,7 @@ class _Cabecalho extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(color: Cores.laranja, borderRadius: BorderRadius.circular(10)),
             child: Text(a['sexo'] == 'F' ? 'FÊMEA' : 'MACHO',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: Cores.azul, fontWeight: FontWeight.w800)),
           ),
         ]),
         const SizedBox(height: 8),

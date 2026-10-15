@@ -1,5 +1,6 @@
 // Fila do dia, intervalo entre partos e projeção de abate da propriedade aberta.
 import 'db.dart';
+import 'gestao.dart' show pendenciasCalendario;
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
 String _t(Object? v) => v == null ? '' : '$v';
@@ -94,6 +95,16 @@ List<ItemFila> filaDoDia(String hoje) {
       '${e.key} · ${brincos.length} ${brincos.length == 1 ? 'animal' : 'animais'}',
       '$tipo · ${desde == hoje ? 'vence hoje' : 'vencida desde ${desde.substring(8, 10)}/${desde.substring(5, 7)}'} · ${brincos.join(', ')}',
       atrasado: desde.compareTo(hoje) < 0,
+    ));
+  }
+
+  // Calendário sanitário pronto (brucelose, raiva, vermífugo...).
+  for (final (item, brincos) in pendenciasCalendario(hoje)) {
+    itens.add(ItemFila(
+      TipoFila.sanidade,
+      'cal_${item.id}_${hoje.substring(0, 7)}',
+      '${item.nome} · ${brincos.length} ${brincos.length == 1 ? 'animal' : 'animais'}',
+      'Calendário: ${item.descricao} · ${brincos.join(', ')}',
     ));
   }
 

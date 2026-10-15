@@ -4,6 +4,7 @@ import '../dados/db.dart';
 import '../dados/manejo.dart';
 import '../tema.dart';
 import '../util/util.dart';
+import 'calendario_sanitario.dart';
 import 'modo_inseminacao.dart';
 import 'manejo_em_serie.dart';
 import 'protocolos.dart';
@@ -32,7 +33,13 @@ class FilaDoDiaPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Fila do dia · ${br(hojeIso())}')),
+      appBar: AppBar(title: Text('Fila do dia · ${br(hojeIso())}'), actions: [
+        IconButton(
+          tooltip: 'Calendário sanitário',
+          icon: const Icon(Icons.calendar_month_outlined),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarioSanitarioPage())),
+        ),
+      ]),
       body: AoMudar<(List<ItemFila>, Set<String>)>(
         carregar: () async => (filaDoDia(hojeIso()), Db.filaFeitos()),
         builder: (context, d) {

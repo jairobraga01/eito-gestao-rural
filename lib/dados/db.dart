@@ -172,6 +172,8 @@ class Db {
     'entradas',
     'semens',
     'protocolos',
+    'custos',
+    'chuvas',
     'animais',
     'reproducoes',
     'sanidade',
@@ -398,8 +400,10 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final p in _todos('protocolos').where((x) => _int(x['propriedade_id']) == id)) {
-          m.apagar('protocolos', p['id']!);
+        for (final t in ['protocolos', 'custos', 'chuvas']) {
+          for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
+            m.apagar(t, p['id']!);
+          }
         }
         for (final s in _todos('semens').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('semens', s['id']!);
@@ -407,6 +411,9 @@ class Db {
       case 'lotes':
         for (final a in _todos('animais').where((x) => _int(x['lote_id']) == id)) {
           m.mesclar('animais', a['id']!, {'lote_id': null});
+        }
+        for (final c in _todos('custos').where((x) => _int(x['lote_id']) == id)) {
+          m.mesclar('custos', c['id']!, {'lote_id': null});
         }
       case 'piquetes':
         for (final p in _todos('pastagens').where((x) => _int(x['piquete_id']) == id)) {

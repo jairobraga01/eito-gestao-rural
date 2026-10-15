@@ -42,7 +42,7 @@ void main() {
       ], femeas: [lote]);
 
       final fila = filaDoDia('2026-10-15');
-      expect(fila.map((i) => i.tipo), unorderedEquals(TipoFila.values));
+      expect(fila.map((i) => i.tipo).toSet(), TipoFila.values.toSet());
       expect(fila.firstWhere((i) => i.tipo == TipoFila.sanidade).titulo, 'Aftosa · 1 animal');
       expect(fila.firstWhere((i) => i.tipo == TipoFila.sanidade).atrasado, isTrue);
       expect(fila.firstWhere((i) => i.tipo == TipoFila.protocolo).titulo, 'D8 · Retirada');
@@ -51,7 +51,7 @@ void main() {
 
       // Vacina refeita sai da fila.
       await Db.lancarSanidade([boi], {'data': '2026-10-15', 'tipo': 'Vacinação', 'produto': 'Aftosa'});
-      expect(filaDoDia('2026-10-15').where((i) => i.tipo == TipoFila.sanidade), isEmpty);
+      expect(filaDoDia('2026-10-15').where((i) => i.chave.startsWith('san_')), isEmpty);
     });
 
     test('inseminação de vaca em protocolo leva o nome do protocolo', () async {

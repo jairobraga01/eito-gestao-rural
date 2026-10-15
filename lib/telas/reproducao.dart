@@ -5,6 +5,7 @@ import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
 import 'modo_inseminacao.dart';
+import 'ranking_matrizes.dart';
 import 'semens.dart';
 
 const tiposServico = ['IATF', 'IA', 'Monta natural', 'TE (embrião)'];
@@ -74,6 +75,11 @@ class _ReproducaoPageState extends State<ReproducaoPage> {
         titulo: 'Reprodução',
         fab: const AcoesFab(),
         acoes: [
+          IconButton(
+            tooltip: 'Ranking de matrizes',
+            icon: const Icon(Icons.emoji_events_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingMatrizesPage())),
+          ),
           IconButton(
             tooltip: 'Sêmen e touros',
             icon: const Icon(Icons.science_outlined),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/gestao.dart' show alertaConsanguinidade;
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -130,6 +131,10 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
       return;
     }
     final semen = Db.registro('semens', _semenId);
+    final parentesco = alertaConsanguinidade(id, semen?['touro']);
+    if (parentesco != null) {
+      if (!mounted || !await _perguntar('Atenção: consanguinidade', parentesco, 'INSEMINAR ASSIM')) return;
+    }
     final doses = (semen?['doses'] as num?)?.toInt() ?? 0;
     if (semen != null && doses <= 0 && !_avisouSemEstoque) {
       if (!mounted) return;

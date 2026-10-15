@@ -6,6 +6,8 @@ import '../dados/resumo_periodo.dart';
 import '../util/util.dart';
 import 'base.dart';
 import 'projecao_abate.dart';
+import 'ranking_matrizes.dart';
+import 'resumo_semanal.dart';
 
 // ---------- Consultas compartilhadas com o Painel ----------
 
@@ -172,6 +174,11 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
       titulo: 'Relatórios',
       acoes: [
         IconButton(
+          tooltip: 'Resumo da semana (WhatsApp)',
+          icon: const Icon(Icons.share),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResumoSemanalPage())),
+        ),
+        IconButton(
           tooltip: 'Projeção de abate',
           icon: const Icon(Icons.trending_up),
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjecaoAbatePage())),
@@ -249,6 +256,7 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
       _linha('Serviços (IA, IATF, TE e monta)', '${p.servicos}'),
       _linha('Prenhes / vazias / sem diagnóstico', '${p.prenhes} / ${p.vazias} / ${p.pendentes}'),
       _linha('Gasto com sêmen', moeda(p.custoSemen)),
+      _linha('Chuva', '${num1(p.chuvaMm)} mm'),
       const Secao('Sanidade e pesagens'),
       _linha('Manejos sanitários', '${p.manejosSanitarios}'),
       if (p.vacinasPorProduto.isNotEmpty) Barras(_ordenado(p.vacinasPorProduto)),
@@ -298,6 +306,20 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
         subtitle: const Text('Quando cada lote chega ao peso de venda e quanto vale'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProjecaoAbatePage())),
+      ),
+      ListTile(
+        leading: const Icon(Icons.emoji_events_outlined),
+        title: const Text('Ranking de matrizes'),
+        subtitle: const Text('Prenhez, intervalo entre partos e desmama das crias'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RankingMatrizesPage())),
+      ),
+      ListTile(
+        leading: const Icon(Icons.share),
+        title: const Text('Resumo da semana'),
+        subtitle: const Text('Para mandar pelo WhatsApp'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResumoSemanalPage())),
       ),
       Secao('Partos previstos (próximos 90 dias): ${r.partos.length}'),
       if (r.partos.isEmpty) const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Nenhum.')),

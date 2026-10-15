@@ -332,7 +332,7 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
       ListTile(
         leading: const Icon(Icons.assignment_outlined),
         title: const Text('Declaração de rebanho'),
-        subtitle: const Text('Saldo por faixa de idade e sexo para o órgão estadual'),
+        subtitle: const Text('Saldo nas colunas do SIDAGO (Agrodefesa) e conferência'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeclaracaoRebanhoPage())),
       ),

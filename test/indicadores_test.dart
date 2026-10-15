@@ -43,16 +43,20 @@ void main() {
     expect((await Db.buscarPorCodigo('105000000000001'))?['brinco'], '1');
   });
 
-  test('declaração separa por faixa de idade e sexo', () async {
+  test('declaração usa as colunas do SIDAGO', () async {
     await animal('1', nascimento: '2026-03-01');
     await animal('2', sexo: 'M', nascimento: '2025-06-01');
-    await animal('3', nascimento: '2020-01-01');
-    await animal('4', sexo: 'M');
-    final l = {for (final x in declaracaoRebanho('2026-10-15')) x.faixa: x};
-    expect(l['0 a 12 meses']!.femeas, 1);
-    expect(l['13 a 24 meses']!.machos, 1);
-    expect(l['Acima de 36 meses']!.femeas, 1);
-    expect(l['Sem nascimento']!.machos, 1);
+    await animal('3', nascimento: '2025-10-15'); // completou 12 meses: 13-24
+    await animal('4', nascimento: '2020-01-01');
+    await animal('5', sexo: 'M', categoria: 'Bezerro'); // sem nascimento: pela categoria
+    final d = declaracaoRebanho('2026-10-15');
+    expect(d.saldo['0-12F'], 1);
+    expect(d.saldo['13-24M'], 1);
+    expect(d.saldo['13-24F'], 1);
+    expect(d.saldo['>36F'], 1);
+    expect(d.saldo['0-12M'], 1);
+    expect(d.semNascimento.length, 1);
+    expect(d.total, 5);
   });
 
   test('prenhez pelo ECC usa o escore antes do serviço', () async {

@@ -2,9 +2,11 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/mapa.dart';
 import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
+import 'mapa.dart';
 
 const tiposPastagem = [
   'Entrada de animais',
@@ -34,9 +36,18 @@ class PiquetesPage extends StatelessWidget {
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PiqueteFormPage())),
         child: const Icon(Icons.add),
       ),
-      corpo: AoMudar<List<Reg>>(
-        carregar: Db.piquetes,
-        builder: (context, lista) {
+      acoes: [
+        IconButton(
+          tooltip: 'Rodízio de pastejo',
+          icon: const Icon(Icons.autorenew),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RodizioPage())),
+        ),
+      ],
+      corpo: AoMudar<(List<Reg>, Map<int, Lotacao>, Map<Object?, Rodizio>)>(
+        carregar: () async =>
+            (await Db.piquetes(), lotacaoPiquetes(), {for (final r in rodizio(hojeIso())) r.piquete['id']: r}),
+        builder: (context, d) {
+          final (lista, lot, rod) = d;
           if (lista.isEmpty) {
             return const Vazio('Nenhum piquete cadastrado.\nCadastre as divisões de pasto da propriedade.',
                 icone: Icons.fence);
@@ -65,7 +76,9 @@ class PiquetesPage extends StatelessWidget {
                 subtitle: Text([
                   if (a != null) '${num1(a)} ha',
                   if (txt(p['forrageira']).isNotEmpty) txt(p['forrageira']),
-                  if (p['ultimo_manejo'] != null) 'Último manejo ${br(p['ultimo_manejo'])}',
+                  if (lot[p['id']]?.uaHa != null) '${num1(lot[p['id']]!.uaHa!)} UA/ha',
+                  if (rod[p['id']] != null && rod[p['id']]!.situacao != SituacaoPasto.semHistorico) rod[p['id']]!.texto
+                  else if (p['ultimo_manejo'] != null) 'Último manejo ${br(p['ultimo_manejo'])}',
                 ].join(' · ')),
                 trailing: Text(qtd > 0 ? '$qtd cab.' : 'Vazio',
                     style: TextStyle(color: qtd > 0 ? cs.primary : cs.outline, fontWeight: FontWeight.w600)),
@@ -95,10 +108,12 @@ class _PiqueteFormPageState extends State<PiqueteFormPage> {
   late final forrageira = TextEditingController(text: txt(p?['forrageira']));
   late final capacidade = TextEditingController(text: p?['capacidade'] is num ? num1(p!['capacidade'] as num) : '');
   late final obs = TextEditingController(text: txt(p?['obs']));
+  late final ocupacao = TextEditingController(text: p?['dias_ocupacao'] is num ? '${p!['dias_ocupacao']}' : '');
+  late final descanso = TextEditingController(text: p?['dias_descanso'] is num ? '${p!['dias_descanso']}' : '');
 
   @override
   void dispose() {
-    for (final c in [nome, area, forrageira, capacidade, obs]) {
+    for (final c in [nome, area, forrageira, capacidade, obs, ocupacao, descanso]) {
       c.dispose();
     }
     super.dispose();
@@ -114,6 +129,8 @@ class _PiqueteFormPageState extends State<PiqueteFormPage> {
       'area': lerNumero(area.text),
       'forrageira': nulo(forrageira.text),
       'capacidade': lerNumero(capacidade.text),
+      'dias_ocupacao': lerNumero(ocupacao.text)?.round(),
+      'dias_descanso': lerNumero(descanso.text)?.round(),
       'obs': nulo(obs.text),
     };
     if (p == null) {
@@ -144,6 +161,12 @@ class _PiqueteFormPageState extends State<PiqueteFormPage> {
           gap,
           campoTexto(capacidade, 'Capacidade de suporte', numero: true, sufixo: 'UA/ha'),
           gap,
+          Row(children: [
+            Expanded(child: campoTexto(ocupacao, 'Ocupação (padrão $ocupacaoPadrao)', numero: true, sufixo: 'dias')),
+            const SizedBox(width: 12),
+            Expanded(child: campoTexto(descanso, 'Descanso (padrão $descansoPadrao)', numero: true, sufixo: 'dias')),
+          ]),
+          gap,
           campoTexto(obs, 'Anotações', linhas: 3),
         ],
       ),
@@ -169,9 +192,8 @@ class PiqueteDetalhePage extends StatelessWidget {
         final animais = d.$2, manejos = d.$3;
         final area = p['area'] as num?;
         final cap = p['capacidade'] as num?;
-        // Taxa de lotação simples: 1 UA = 450 kg de peso vivo.
-        final pesos = animais.map((a) => a['ultimo_peso']).whereType<num>();
-        final ua = pesos.isEmpty ? null : pesos.fold<num>(0, (a, b) => a + b) / 450;
+        final lot = lotacaoPiquetes()[id];
+        final rod = rodizio(hojeIso()).where((r) => r.piquete['id'] == id).firstOrNull;
         final entrada = manejos.where((m) => m['tipo'] == 'Entrada de animais').firstOrNull;
         return Scaffold(
           appBar: AppBar(
@@ -219,8 +241,11 @@ class PiqueteDetalhePage extends StatelessWidget {
                     Info('Animais', '${animais.length}'),
                     if (entrada != null && animais.isNotEmpty)
                       Info('Ocupado desde', '${br(entrada['data'])} (${diasEntre(txt(entrada['data']), hojeIso())} dias)'),
-                    if (ua != null && area != null && area > 0)
-                      Info('Lotação atual', '${num1(ua / area)} UA/ha${cap != null && ua / area > cap ? ' – acima da capacidade' : ''}'),
+                    if (lot?.uaHa != null)
+                      Info('Lotação atual',
+                          '${num1(lot!.uaHa!)} UA/ha (${num1(lot.ua)} UA)${lot.acima ? ' – acima da capacidade' : ''}'
+                          '${lot.estimados > 0 ? ' · ${lot.estimados} sem pesagem, pela categoria' : ''}'),
+                    if (rod != null) Info('Rodízio', rod.texto),
                     Info('Anotações', txt(p['obs'])),
                   ]),
                 ),
@@ -228,6 +253,18 @@ class PiqueteDetalhePage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Wrap(spacing: 8, runSpacing: 8, children: [
+                  FilledButton.tonalIcon(
+                    icon: const Icon(Icons.format_list_numbered),
+                    label: const Text('Contagem'),
+                    onPressed: () =>
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => ContagemPage(piqueteId: id))),
+                  ),
+                  FilledButton.tonalIcon(
+                    icon: const Icon(Icons.report_outlined),
+                    label: const Text('Ocorrência'),
+                    onPressed: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => OcorrenciaFormPage(local: centro(contorno(p))))),
+                  ),
                   FilledButton.tonalIcon(
                     icon: const Icon(Icons.login),
                     label: const Text('Colocar animais'),

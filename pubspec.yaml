@@ -20,6 +20,9 @@ dependencies:
   flutter_svg: ^2.0.10
   image_picker: ^1.1.2
   url_launcher: ^6.3.0
+  flutter_map: ^8.2.0
+  latlong2: ^0.10.0
+  geolocator: ^14.0.0
 
 dev_dependencies:
   flutter_test:

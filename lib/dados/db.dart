@@ -57,6 +57,9 @@ const _camposInteiros = {
   'cria_id',
   'animal_id',
   'semen_id',
+  'ponto_id',
+  'esperado',
+  'contado',
   'doses',
   'quantidade',
   'carencia',
@@ -168,6 +171,9 @@ class Db {
     'lotes',
     'piquetes',
     'pastagens',
+    'pontos',
+    'ocorrencias',
+    'contagens',
     'saidas',
     'entradas',
     'semens',
@@ -408,13 +414,16 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas']) {
+        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
         }
         for (final s in _todos('semens').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('semens', s['id']!);
+        }
+        for (final o in _todos('ocorrencias').where((x) => _int(x['propriedade_id']) == id)) {
+          _apagarCascata(m, 'ocorrencias', _int(o['id'])!);
         }
       case 'lotes':
         for (final a in _todos('animais').where((x) => _int(x['lote_id']) == id)) {
@@ -446,9 +455,22 @@ class Db {
         for (final p in _todos('pastagens').where((x) => _int(x['piquete_id']) == id)) {
           m.apagar('pastagens', p['id']!);
         }
+        for (final c in _todos('contagens').where((x) => _int(x['piquete_id']) == id)) {
+          m.apagar('contagens', c['id']!);
+        }
+        for (final o in _todos('ocorrencias').where((x) => _int(x['piquete_id']) == id)) {
+          m.mesclar('ocorrencias', o['id']!, {'piquete_id': null});
+        }
         for (final a in _todos('animais').where((x) => _int(x['piquete_id']) == id)) {
           m.mesclar('animais', a['id']!, {'piquete_id': null});
         }
+      case 'pontos':
+        for (final o in _todos('ocorrencias').where((x) => _int(x['ponto_id']) == id)) {
+          m.mesclar('ocorrencias', o['id']!, {'ponto_id': null});
+        }
+      case 'ocorrencias':
+        m.apagar('fotos', id);
+        _fotos.remove(id);
       case 'saidas':
         for (final a in _todos('animais').where((x) => _int(x['saida_id']) == id)) {
           m.mesclar('animais', a['id']!, {'saida_id': null});

@@ -1,5 +1,6 @@
 // Fila do dia, intervalo entre partos e projeção de abate da propriedade aberta.
 import 'db.dart';
+import 'mapa.dart' show rodizio, SituacaoPasto;
 import 'gestao.dart' show pendenciasCalendario;
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
@@ -23,7 +24,7 @@ const protocolosIatf = <String, List<(int, String)>>{
 
 // ---------- Fila do dia ----------
 
-enum TipoFila { protocolo, sanidade, diagnostico, parto }
+enum TipoFila { protocolo, sanidade, diagnostico, parto, pasto }
 
 class ItemFila {
   const ItemFila(this.tipo, this.chave, this.titulo, this.detalhe, {this.atrasado = false, this.animalId});
@@ -131,6 +132,12 @@ List<ItemFila> filaDoDia(String hoje) {
         ));
       }
     }
+  }
+  // Rodízio: piquetes com o gado além dos dias de ocupação.
+  for (final r in rodizio(hoje)) {
+    if (r.situacao != SituacaoPasto.trocar) continue;
+    itens.add(ItemFila(TipoFila.pasto, 'pasto_${r.piquete['id']}_$hoje', 'Trocar o gado · ${r.piquete['nome']}',
+        'Ocupado há ${r.dias} dias (limite ${r.limite})', atrasado: true));
   }
   return itens;
 }

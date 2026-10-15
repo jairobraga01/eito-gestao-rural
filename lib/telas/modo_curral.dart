@@ -12,6 +12,7 @@ import 'animais.dart';
 import 'dispositivos.dart';
 import 'ficha_animal.dart';
 import 'manejo_em_serie.dart';
+import 'modo_inseminacao.dart';
 import 'mover.dart';
 import 'vendas.dart';
 
@@ -111,6 +112,13 @@ class _ModoCurralState extends State<ModoCurral> {
                     rotulo: 'Vacina e\nremédio em série',
                     cor: Cores.oliva,
                     aoTocar: () => _ir(const ManejoEmSerie(modo: ModoSerie.sanidade)),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.favorite_border,
+                    rotulo: 'Modo\nInseminação',
+                    detalhe: 'IA, IATF e diagnóstico',
+                    cor: Cores.azul,
+                    aoTocar: () => _ir(const ModoInseminacao()),
                   ),
                   BotaoCurral(
                     icone: Icons.child_friendly_outlined,

@@ -5,7 +5,7 @@
 // O número abaixo é trocado sozinho a cada publicação pelo GitHub Actions,
 // para os aparelhos baixarem o app novo.
 const CACHE = 'eito-v1';
-const ESSENCIAIS = ['./', 'index.html', 'manifest.json', 'flutter_bootstrap.js', 'main.dart.js', 'favicon.svg'];
+const ESSENCIAIS = ['./', 'index.html', 'manifest.json', 'flutter_bootstrap.js', 'main.dart.js', 'favicon.png', 'icons/Icon-192.png'];
 
 // Scripts do Firebase e fontes vêm de servidores do Google: guardar também,
 // senão o app não abre sem internet. Os pedaços do mapa (satélite e ruas) já

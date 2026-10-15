@@ -100,13 +100,12 @@ class _TelaLoginState extends State<TelaLogin> {
             flex: 6,
             child: FundoFoto(
               escurecer: 0.15,
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Padding(
+              child: Center(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.all(40),
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: const _Marca(alinhar: CrossAxisAlignment.start),
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: const _Marca(),
                   ),
                 ),
               ),
@@ -132,8 +131,8 @@ class _TelaLoginState extends State<TelaLogin> {
               constraints: const BoxConstraints(maxWidth: 440),
               child: Column(children: [
                 if (mostrarMarca) ...[
-                  const _Marca(alinhar: CrossAxisAlignment.center),
-                  const SizedBox(height: 28),
+                  const _Marca(),
+                  const SizedBox(height: 20),
                 ] else ...[
                   const LogoEito(tamanho: 72),
                   const SizedBox(height: 20),
@@ -209,25 +208,33 @@ class _TelaLoginState extends State<TelaLogin> {
   }
 }
 
+/// Logomarca com as frases, num cartão claro igual ao fundo da imagem.
 class _Marca extends StatelessWidget {
-  const _Marca({required this.alinhar});
-  final CrossAxisAlignment alinhar;
+  const _Marca();
 
   @override
   Widget build(BuildContext context) {
-    final centro = alinhar == CrossAxisAlignment.center;
-    const sombra = [Shadow(color: Colors.black54, blurRadius: 12)];
-    return Column(crossAxisAlignment: alinhar, children: [
-      const LogoEito(tamanho: 104),
-      const SizedBox(height: 16),
-      Text(Marca.nome,
-          textAlign: centro ? TextAlign.center : TextAlign.start,
-          style: const TextStyle(
-              color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800, shadows: sombra)),
-      const SizedBox(height: 8),
-      Text(Marca.slogan,
-          textAlign: centro ? TextAlign.center : TextAlign.start,
-          style: const TextStyle(color: Colors.white, fontSize: 18, height: 1.3, shadows: sombra)),
-    ]);
+    const frase = TextStyle(color: Cores.tinta, fontSize: 17, height: 1.35);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      decoration: BoxDecoration(color: const Color(0xFFFAFBFA), borderRadius: BorderRadius.circular(20)),
+      child: Column(children: [
+        Image.asset('assets/logo/eito_logomarca.png', width: 230, semanticLabel: Marca.nome),
+        const SizedBox(height: 14),
+        Container(width: 56, height: 3, decoration: BoxDecoration(color: Cores.laranja, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 14),
+        const Text(Marca.slogan,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Cores.olivaEscuro, fontSize: 20, height: 1.3, fontWeight: FontWeight.w700)),
+        for (final t in Marca.apresentacao) ...[
+          const SizedBox(height: 12),
+          Text(t, textAlign: TextAlign.center, style: frase),
+        ],
+        const SizedBox(height: 14),
+        const Text(Marca.fechamento,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Cores.olivaEscuro, fontSize: 18, fontWeight: FontWeight.w800)),
+      ]),
+    );
   }
 }

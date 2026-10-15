@@ -6,6 +6,8 @@ import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
 
+const _outro = 'Outro tipo…';
+
 String _n(Object? v, [int casas = 2]) =>
     v is num ? numeroBr(v.toDouble(), casas: v % 1 == 0 ? 0 : casas) : '';
 
@@ -17,7 +19,7 @@ class ProteinadoPage extends StatelessWidget {
     final n = await carregarPlanilhaProteinado();
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(n == 0 ? 'As fórmulas da planilha já estão aqui.' : '$n fórmula(s) da planilha carregada(s).')));
+        content: Text(n == 0 ? 'As fórmulas prontas já estão aqui.' : '$n fórmula(s) pronta(s) carregada(s).')));
   }
 
   @override
@@ -32,7 +34,7 @@ class ProteinadoPage extends StatelessWidget {
         ),
         PopupMenuButton<String>(
           onSelected: (_) => _planilha(context),
-          itemBuilder: (_) => const [PopupMenuItem(value: 'planilha', child: Text('Carregar fórmulas da planilha'))],
+          itemBuilder: (_) => const [PopupMenuItem(value: 'planilha', child: Text('Carregar fórmulas prontas'))],
         ),
       ],
       fab: FloatingActionButton.extended(
@@ -50,21 +52,24 @@ class ProteinadoPage extends StatelessWidget {
                 const Vazio('Nenhuma fórmula de proteinado ainda.', icone: Icons.agriculture_outlined),
                 FilledButton.icon(
                   icon: const Icon(Icons.table_view),
-                  label: const Text('Carregar fórmulas da planilha'),
+                  label: const Text('Carregar fórmulas prontas'),
                   onPressed: () => _planilha(context),
                 ),
               ]),
             );
           }
           return ListView(padding: const EdgeInsets.only(bottom: 88), children: [
-            for (final tipo in tiposProteinado)
-              if (fs.any((f) => f['tipo'] == tipo)) ...[
-                Secao(tipo),
-                for (final f in fs.where((f) => f['tipo'] == tipo)) _FormulaCard(f),
-              ],
-            if (fs.any((f) => !tiposProteinado.contains(f['tipo']))) ...[
-              const Secao('Outras'),
-              for (final f in fs.where((f) => !tiposProteinado.contains(f['tipo']))) _FormulaCard(f),
+            for (final tipo in tiposEmUso()) ...[
+              Secao(tipo,
+                  acao: IconButton(
+                    tooltip: 'Nova fórmula de $tipo',
+                    icon: const Icon(Icons.add),
+                    onPressed: () => Navigator.push(
+                        context, MaterialPageRoute(builder: (_) => FormulaPage(tipoInicial: tipo))),
+                  )),
+              if (!fs.any((f) => tipoFormula(f) == tipo))
+                const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Nenhuma fórmula.')),
+              for (final f in fs.where((f) => tipoFormula(f) == tipo)) _FormulaCard(f),
             ],
           ]);
         },
@@ -109,8 +114,12 @@ class _FormulaCard extends StatelessWidget {
 
 /// Monta ou edita a fórmula, com a conta ao vivo e o lançamento da batida em Custos.
 class FormulaPage extends StatefulWidget {
-  const FormulaPage({super.key, this.formula});
+  const FormulaPage({super.key, this.formula, this.modelo, this.tipoInicial});
   final Reg? formula;
+
+  /// Fórmula nova copiada desta (sem id).
+  final Reg? modelo;
+  final String? tipoInicial;
 
   @override
   State<FormulaPage> createState() => _FormulaPageState();
@@ -118,16 +127,17 @@ class FormulaPage extends StatefulWidget {
 
 class _FormulaPageState extends State<FormulaPage> {
   Reg? get f => widget.formula;
-  late final nome = TextEditingController(text: txt(f?['nome']));
-  late String tipo = txt(f?['tipo']).isEmpty ? tiposProteinado.first : txt(f!['tipo']);
-  late final consumo = TextEditingController(text: _n(f?['consumo_g']));
-  late final cabecas = TextEditingController(text: _n(f?['cabecas'] ?? 1));
-  late final meses = TextEditingController(text: _n(f?['meses'] ?? 4));
-  late final sacos = TextEditingController(text: _n(f?['saco_qtd']));
-  late final precoSaco = TextEditingController(text: _n(f?['saco_preco']));
-  late final maoObra = TextEditingController(text: _n(f?['mao_obra']));
+  Reg? get _base => widget.formula ?? widget.modelo;
+  late final nome = TextEditingController(text: txt(_base?['nome']));
+  late String tipo = _base != null ? tipoFormula(_base!) : (widget.tipoInicial ?? tiposProteinado.first);
+  late final consumo = TextEditingController(text: _n(_base?['consumo_g']));
+  late final cabecas = TextEditingController(text: _n(_base?['cabecas'] ?? 1));
+  late final meses = TextEditingController(text: _n(_base?['meses'] ?? 4));
+  late final sacos = TextEditingController(text: _n(_base?['saco_qtd']));
+  late final precoSaco = TextEditingController(text: _n(_base?['saco_preco']));
+  late final maoObra = TextEditingController(text: _n(_base?['mao_obra']));
   late final itens = <(int?, TextEditingController)>[
-    for (final it in (f?['itens'] as List?) ?? const [])
+    for (final it in (_base?['itens'] as List?) ?? const [])
       (Map.of(it as Map)['insumo_id'] as int?, TextEditingController(text: _n(it['kg']))),
   ];
 
@@ -164,6 +174,28 @@ class _FormulaPageState extends State<FormulaPage> {
     }
     if (mounted) Navigator.pop(context);
   }
+
+  Future<void> _outroTipo() async {
+    final c = TextEditingController();
+    final novo = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Novo tipo de fórmula'),
+        content: campoTexto(c, 'Tipo (ex.: Sal mineral, Engorda)', foco: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, nulo(c.text)), child: const Text('OK')),
+        ],
+      ),
+    );
+    c.dispose();
+    if (novo != null) setState(() => tipo = novo);
+  }
+
+  void _duplicar() => Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+          builder: (_) => FormulaPage(modelo: {..._dados, 'nome': '${nulo(nome.text) ?? 'Fórmula'} (cópia)'})));
 
   Future<void> _excluir() async {
     if (!await confirmar(context, 'Excluir a fórmula?', txt(f!['nome']), ok: 'Excluir')) return;
@@ -222,6 +254,7 @@ class _FormulaPageState extends State<FormulaPage> {
       appBar: AppBar(
         title: Text(f == null ? 'Nova fórmula' : txt(f!['nome'])),
         actions: [
+          IconButton(tooltip: 'Duplicar', icon: const Icon(Icons.copy_outlined), onPressed: _duplicar),
           if (f != null) IconButton(tooltip: 'Excluir', icon: const Icon(Icons.delete_outline), onPressed: _excluir),
         ],
       ),
@@ -229,7 +262,16 @@ class _FormulaPageState extends State<FormulaPage> {
         Row(children: [
           Expanded(flex: 3, child: campoTexto(nome, 'Nome (ex.: Nutroeste)')),
           const SizedBox(width: 12),
-          Expanded(flex: 2, child: escolha('Tipo', tipo, tiposProteinado, (v) => setState(() => tipo = v ?? tipo))),
+          Expanded(
+            flex: 2,
+            child: escolha('Tipo', tipo, [...{...tiposEmUso(), tipo}, _outro], (v) {
+              if (v == _outro) {
+                _outroTipo();
+              } else if (v != null) {
+                setState(() => tipo = v);
+              }
+            }),
+          ),
         ]),
         const Secao('Batida (kg de cada insumo)'),
         if (ins.isEmpty)

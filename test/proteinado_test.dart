@@ -16,7 +16,7 @@ void main() {
   Reg formula(String tipo, String nome) => formulas().firstWhere((f) => f['tipo'] == tipo && f['nome'] == nome);
 
   test('fórmulas da planilha batem com o cálculo dela', () async {
-    expect(await carregarPlanilhaProteinado(), 9);
+    expect(await carregarPlanilhaProteinado(), 11);
     await pumpEventQueue();
     expect(await carregarPlanilhaProteinado(), 0); // não duplica
 
@@ -33,8 +33,21 @@ void main() {
     expect(CalculoFormula(formula('Alto consumo', 'Nutroeste 2')).custoBatida, closeTo(703.92, 1e-9));
     // A planilha divide por 400, mas a batida tem 800 kg.
     expect(CalculoFormula(formula('Alto consumo', 'Nutroeste')).precoKg, closeTo(1658.4 / 800, 1e-9));
-    expect(CalculoFormula(formula('Creep', 'Nutroeste')).custoBatida, closeTo(806, 1e-9));
+    expect(CalculoFormula(formula('Ração creep', 'Nutroeste')).custoBatida, closeTo(806, 1e-9));
     expect(CalculoFormula(formula('Baixo consumo', 'Agrocria')).semPreco, ['Calcário calcítico', 'Fosfato bicálcico']);
+  });
+
+  test('tipos fixos na ordem, tipo antigo Creep e tipos criados pelo usuário', () async {
+    await Db.inserir('formulas', {'propriedade_id': Db.pid, 'nome': 'Antiga', 'tipo': 'Creep'});
+    await Db.inserir('formulas', {'propriedade_id': Db.pid, 'nome': 'Mineral', 'tipo': 'Sal mineral'});
+    await Db.inserir('formulas', {'propriedade_id': Db.pid, 'nome': 'Leite', 'tipo': 'ração leite'});
+    expect(tiposEmUso(), ['Alto consumo', 'Médio consumo', 'Baixo consumo', 'Ração creep', 'Ração leite', 'Sal mineral']);
+    expect(formulas().map(tipoFormula), ['Ração creep', 'Ração leite', 'Sal mineral']);
+    await pumpEventQueue();
+    await carregarPlanilhaProteinado();
+    await pumpEventQueue();
+    expect(formulas().where((f) => tipoFormula(f) == 'Médio consumo').length, 1);
+    expect(formulas().where((f) => tipoFormula(f) == 'Ração leite').length, 2);
   });
 
   test('preço novo do insumo refaz a fórmula e a batida vai para Custos', () async {

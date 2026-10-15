@@ -52,6 +52,7 @@ const _camposInteiros = {
   'piquete_id',
   'mae_id',
   'saida_id',
+  'entrada_id',
   'femea_id',
   'cria_id',
   'animal_id',
@@ -168,7 +169,9 @@ class Db {
     'piquetes',
     'pastagens',
     'saidas',
+    'entradas',
     'semens',
+    'protocolos',
     'animais',
     'reproducoes',
     'sanidade',
@@ -260,6 +263,7 @@ class Db {
     }
     _subs.clear();
     _dados.clear();
+    _fotos.clear();
     _pendentesPorTabela.clear();
     pendentes.value = 0;
     prop.value = null;
@@ -391,6 +395,12 @@ class Db {
         for (final s in _todos('saidas').where((x) => _int(x['propriedade_id']) == id)) {
           _apagarCascata(m, 'saidas', _int(s['id'])!);
         }
+        for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
+          m.apagar('entradas', e['id']!);
+        }
+        for (final p in _todos('protocolos').where((x) => _int(x['propriedade_id']) == id)) {
+          m.apagar('protocolos', p['id']!);
+        }
         for (final s in _todos('semens').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('semens', s['id']!);
         }
@@ -408,6 +418,10 @@ class Db {
       case 'saidas':
         for (final a in _todos('animais').where((x) => _int(x['saida_id']) == id)) {
           m.mesclar('animais', a['id']!, {'saida_id': null});
+        }
+      case 'entradas':
+        for (final a in _todos('animais').where((x) => _int(x['entrada_id']) == id)) {
+          m.mesclar('animais', a['id']!, {'entrada_id': null});
         }
       case 'semens':
         for (final r in _todos('reproducoes').where((x) => _int(x['semen_id']) == id)) {
@@ -432,6 +446,8 @@ class Db {
         for (final f in _todos('animais').where((x) => _int(x['mae_id']) == id)) {
           m.mesclar('animais', f['id']!, {'mae_id': null});
         }
+        m.apagar('fotos', id);
+        _fotos.remove(id);
     }
     m.apagar(t, id);
   }
@@ -923,6 +939,7 @@ class Db {
       m.mesclar('reproducoes', aberto['id']!, {'diagnostico': 'Vazia', 'data_diagnostico': data, 'parto_previsto': null});
     }
     final semen = _reg('semens', semenId);
+    protocolo ??= protocoloDaFemea(femeaId, data)?['nome'] as String?;
     final id = novoId();
     m.gravar('reproducoes', {
       'id': id,
@@ -953,6 +970,97 @@ class Db {
       'data_diagnostico': diagnostico == 'Pendente' ? null : data,
       'parto_previsto': diagnostico == 'Prenhe' ? partoPrevisto(r['data']) : null,
     });
+  }
+
+  // ---------- Protocolos de IATF ----------
+
+  /// Protocolos desta propriedade, os mais recentes primeiro.
+  static Future<List<Reg>> protocolos() async => [
+        for (final p in _todos('protocolos'))
+          if (_int(p['propriedade_id']) == pid) Map.of(p),
+      ]..sort((x, y) => _comparaDataDesc(x['inicio'], y['inicio']));
+
+  /// Grava um lote de vacas em protocolo. [etapas]: lista de {dia, nome}, com o D0 em [inicio].
+  static Future<int> salvarProtocolo({
+    int? id,
+    required String nome,
+    required String inicio,
+    required List<Map<String, Object?>> etapas,
+    required List<int> femeas,
+  }) async {
+    final v = {'nome': nome, 'inicio': inicio, 'etapas': etapas, 'femeas': femeas};
+    if (id != null) {
+      await atualizar('protocolos', id, v);
+      return id;
+    }
+    return inserir('protocolos', {...v, 'propriedade_id': pid});
+  }
+
+  /// Data (ISO) de uma etapa: D0 + dia.
+  static String dataEtapa(Object? inicio, Object? dia) {
+    final d = DateTime.parse('$inicio'.substring(0, 10));
+    final e = DateTime(d.year, d.month, d.day + (_int(dia) ?? 0));
+    return '${e.year.toString().padLeft(4, '0')}-${e.month.toString().padLeft(2, '0')}-${e.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Protocolo em que a fêmea está cuja inseminação cai perto de [data] (até 5 dias).
+  static Reg? protocoloDaFemea(int femeaId, String data) {
+    final alvo = DateTime.tryParse(data);
+    if (alvo == null) return null;
+    for (final p in _todos('protocolos')) {
+      if (!((p['femeas'] as List?) ?? const []).map(_int).contains(femeaId)) continue;
+      final etapas = (p['etapas'] as List?) ?? const [];
+      if (etapas.isEmpty || p['inicio'] == null) continue;
+      final ia = DateTime.parse(dataEtapa(p['inicio'], (etapas.last as Map)['dia']));
+      if (alvo.difference(ia).inDays.abs() <= 5) return p;
+    }
+    return null;
+  }
+
+  /// Grava um ajuste do app (ex.: valores da projeção de abate) em config/[chave].
+  static Future<void> salvarConfig(String chave, Reg valores) async =>
+      (_Mudancas()..gravar('config', {...valores, 'id': chave})).enviar();
+
+  // ---------- Fila do dia ----------
+
+  /// Itens da fila riscados hoje.
+  static Set<String> filaFeitos() {
+    final f = _reg('config', 'fila');
+    if (f == null || f['dia'] != _hoje()) return {};
+    return {for (final c in (f['feitos'] as List?) ?? const []) '$c'};
+  }
+
+  static Future<void> marcarFila(String chave, bool feito) async {
+    final feitos = filaFeitos();
+    feito ? feitos.add(chave) : feitos.remove(chave);
+    (_Mudancas()..gravar('config', {'id': 'fila', 'dia': _hoje(), 'feitos': feitos.toList()})).enviar();
+  }
+
+  // ---------- Foto do animal ----------
+  // Fica fora das tabelas escutadas (é pesada): lida só quando a ficha abre.
+
+  static final Map<int, String?> _fotos = {};
+
+  /// Foto (JPEG em base64) do animal, ou null.
+  static Future<String?> foto(int animalId) async {
+    if (_fotos.containsKey(animalId)) return _fotos[animalId];
+    try {
+      final d = await _col('fotos').doc('$animalId').get();
+      return _fotos[animalId] = d.data()?['imagem'] as String?;
+    } catch (e) {
+      debugPrint('Eito: erro ao ler foto: $e');
+      return null;
+    }
+  }
+
+  static Future<void> salvarFoto(int animalId, String? base64) async {
+    _fotos[animalId] = base64;
+    final ref = _col('fotos').doc('$animalId');
+    final f = base64 == null
+        ? ref.delete()
+        : ref.set({'animal_id': animalId, 'imagem': base64, 'data': DateTime.now().toIso8601String()});
+    f.catchError((Object e) => debugPrint('Eito: falha ao gravar foto: $e'));
+    _avisar();
   }
 
   // ---------- Sêmen ----------
@@ -1118,6 +1226,77 @@ class Db {
       m.mesclar('animais', a['id']!, {'status': 'Ativo', 'saida_id': null});
     }
     m.apagar('saidas', id);
+    m.enviar();
+  }
+
+  // ---------- Entradas (compras, transferências...) ----------
+
+  static Future<List<Reg>> entradas() async {
+    final brincos = <int, List<String>>{};
+    for (final a in _todos('animais')) {
+      final e = _int(a['entrada_id']);
+      if (e != null) brincos.putIfAbsent(e, () => []).add('${a['brinco']}');
+    }
+    return [
+      for (final e in _todos('entradas'))
+        if (_int(e['propriedade_id']) == pid) {...e, 'brincos': brincos[_int(e['id'])]?.join(', ')},
+    ]..sort((x, y) {
+        final c = _comparaDataDesc(x['data'], y['data']);
+        return c != 0 ? c : _comparaId(y['id'], x['id']);
+      });
+  }
+
+  /// Cadastra os animais que chegaram (um por brinco) com os dados comuns em
+  /// [animal] e registra a entrada. Com peso total, cada animal ganha uma
+  /// pesagem de entrada com o peso médio.
+  static Future<int> registrarEntrada(Reg entrada, List<String> brincos, Reg animal) async {
+    final lista = [for (final b in brincos) b.trim()]..removeWhere((b) => b.isEmpty);
+    final vistos = <String>{};
+    for (final b in lista) {
+      if (!vistos.add(b.toLowerCase())) throw RegistroDuplicado('O brinco $b foi digitado duas vezes.');
+    }
+    final id = novoId();
+    final data = '${entrada['data'] ?? _hoje()}';
+    final peso = entrada['peso_total'];
+    final pesoMedio = peso is num && peso > 0 && lista.isNotEmpty ? peso / lista.length : null;
+    final novos = [
+      for (final b in lista)
+        <String, Object?>{
+          ...animal,
+          'id': novoId(),
+          'brinco': b,
+          'propriedade_id': pid,
+          'origem': entrada['tipo'] == 'Compra' ? 'Compra' : 'Outro',
+          'entrada_id': id,
+          'status': 'Ativo',
+          'criado_em': DateTime.now().toIso8601String(),
+        },
+    ];
+    for (final a in novos) {
+      _checarAnimal(a);
+    }
+    final m = _Mudancas()
+      ..gravar('entradas', {...entrada, 'id': id, 'data': data, 'quantidade': lista.length, 'propriedade_id': pid});
+    for (final a in novos) {
+      m.gravar('animais', a);
+      if (pesoMedio != null) {
+        m.gravar('pesagens', {'id': novoId(), 'animal_id': a['id'], 'data': data, 'peso': pesoMedio, 'evento': 'Entrada'});
+      }
+    }
+    m.enviar();
+    return id;
+  }
+
+  /// Exclui a entrada. Com [apagarAnimais], apaga também os animais que
+  /// chegaram nela (e o histórico deles); sem, eles continuam no rebanho.
+  static Future<void> excluirEntrada(int id, {bool apagarAnimais = false}) async {
+    final m = _Mudancas();
+    if (apagarAnimais) {
+      for (final a in _todos('animais').where((x) => _int(x['entrada_id']) == id)) {
+        _apagarCascata(m, 'animais', _int(a['id'])!);
+      }
+    }
+    _apagarCascata(m, 'entradas', id);
     m.enviar();
   }
 

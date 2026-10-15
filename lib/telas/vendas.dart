@@ -21,7 +21,7 @@ class SaidasPage extends StatelessWidget {
         carregar: Db.saidas,
         builder: (context, lista) {
           if (lista.isEmpty) {
-            return const Vazio('Nenhuma venda ou saída registrada.', icone: Icons.sell_outlined);
+            return const Vazio('Nenhuma venda ou saída registrada.', icone: Icons.arrow_circle_up_outlined);
           }
           return ListView.separated(
             padding: const EdgeInsets.only(bottom: 88),
@@ -31,7 +31,7 @@ class SaidasPage extends StatelessWidget {
               final s = lista[i];
               final venda = s['tipo'] == 'Venda';
               return ListTile(
-                leading: Icon(venda ? Icons.sell_outlined : Icons.logout),
+                leading: const Icon(Icons.arrow_circle_up_outlined, color: Colors.red, size: 30),
                 title: Text('${s['tipo']} · ${s['quantidade'] ?? 0} cab.'
                     '${venda && s['valor_total'] != null ? ' · ${moeda(s['valor_total'] as num)}' : ''}'),
                 subtitle: Text([

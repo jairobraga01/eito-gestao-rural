@@ -114,6 +114,7 @@ class _InicioPageState extends State<InicioPage> {
           padding: const EdgeInsets.only(bottom: 88),
           children: [
             const _BotaoModoCurral(),
+            const _BotaoModoInseminacao(),
             SizedBox(
               height: 128,
               child: ListView(
@@ -280,6 +281,43 @@ class _BotaoModoCurral extends StatelessWidget {
                 Icon(Icons.chevron_right, color: Colors.white, size: 32),
               ]),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Atalho para o Modo Inseminação, logo abaixo do Modo Curral.
+class _BotaoModoInseminacao extends StatelessWidget {
+  const _BotaoModoInseminacao();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+      child: Material(
+        color: Cores.azul,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => abrirModoInseminacao(context),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Row(children: [
+              Icon(Icons.favorite_border, size: 44, color: Cores.laranja),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('MODO INSEMINAÇÃO',
+                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                  SizedBox(height: 2),
+                  Text('IA e IATF com baixa do sêmen, e diagnóstico em série.',
+                      style: TextStyle(color: Colors.white70, fontSize: 15)),
+                ]),
+              ),
+              Icon(Icons.chevron_right, color: Colors.white, size: 32),
+            ]),
           ),
         ),
       ),

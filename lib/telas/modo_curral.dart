@@ -14,6 +14,8 @@ import 'ficha_animal.dart';
 import 'manejo_em_serie.dart';
 import 'modo_inseminacao.dart';
 import 'mover.dart';
+import 'fila_do_dia.dart';
+import '../dados/manejo.dart' show filaDoDia;
 import 'vendas.dart';
 
 /// Atalho para lançar rápido o serviço feito no curral. Encostou o bastão no
@@ -93,7 +95,10 @@ class _ModoCurralState extends State<ModoCurral> {
             const SizedBox(height: 16),
             AoMudar<int>(
               carregar: () async => (await Db.animais(soAtivos: true)).length,
-              builder: (context, total) => GridView.count(
+              builder: (context, total) {
+                final feitos = Db.filaFeitos();
+                final fila = filaDoDia(hojeIso()).where((i) => !feitos.contains(i.chave)).length;
+                return GridView.count(
                 crossAxisCount: largura >= 720 ? 3 : 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -101,6 +106,13 @@ class _ModoCurralState extends State<ModoCurral> {
                 crossAxisSpacing: 14,
                 childAspectRatio: largura >= 720 ? 1.6 : 1.05,
                 children: [
+                  BotaoCurral(
+                    icone: Icons.checklist,
+                    rotulo: 'Fila\ndo dia',
+                    detalhe: fila == 0 ? 'nada pendente' : '$fila para fazer',
+                    cor: fila == 0 ? Cores.olivaClaro : Cores.alerta,
+                    aoTocar: () => _ir(const FilaDoDiaPage()),
+                  ),
                   BotaoCurral(
                     icone: Icons.monitor_weight_outlined,
                     rotulo: 'Pesagem\nem série',
@@ -147,7 +159,8 @@ class _ModoCurralState extends State<ModoCurral> {
                     aoTocar: () => _escolherEIr('Animais que saem', (r) => SaidaFormPage(animais: r)),
                   ),
                 ],
-              ),
+              );
+              },
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(

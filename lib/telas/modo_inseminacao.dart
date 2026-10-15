@@ -5,6 +5,7 @@ import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import '../widgets/teclado_grande.dart';
+import 'protocolos.dart';
 import 'semens.dart';
 
 const tiposInseminacao = ['IATF', 'IA', 'TE (embrião)'];
@@ -191,6 +192,11 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
         title: const Text('Modo Inseminação'),
         actions: [
           IconButton(
+            tooltip: 'Protocolos de IATF',
+            icon: const Icon(Icons.event_note),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ProtocolosPage())),
+          ),
+          IconButton(
             tooltip: 'Sêmen e touros',
             icon: const Icon(Icons.science_outlined),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SemensPage())),
@@ -270,7 +276,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
             Row(children: [
               Expanded(child: campoTexto(_inseminador, 'Inseminador')),
               const SizedBox(width: 12),
-              Expanded(child: campoTexto(_protocolo, 'Protocolo')),
+              Expanded(child: campoTexto(_protocolo, 'Protocolo (vazio = o do lote)')),
             ]),
             gap,
             DateField(label: 'Data da inseminação', value: _data, obrigatorio: true, onChanged: (v) => setState(() => _data = v!)),

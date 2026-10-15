@@ -13,6 +13,7 @@ import 'conta.dart';
 import 'dispositivos.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
+import 'modo_inseminacao.dart';
 import 'propriedades.dart';
 import 'reproducao.dart';
 import 'sanidade.dart';
@@ -36,18 +37,24 @@ const itensMenu = <(String, IconData)>[
   ('Sanidade e pesagens', Icons.vaccines_outlined),
   ('Piquetes', Icons.fence),
   ('Pastagem', Icons.grass),
-  ('Vendas e saídas', Icons.sell_outlined),
+  ('Compras e entradas', Icons.arrow_circle_down_outlined),
+  ('Vendas e saídas', Icons.arrow_circle_up_outlined),
   ('Relatórios', Icons.bar_chart),
   ('Backup', Icons.backup_outlined),
 ];
 
 // Índices usados pelos atalhos.
 const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secReproducao = 4,
-    secSanidade = 5, secPiquetes = 6, secPastagem = 7, secVendas = 8, secRelatorios = 9, secBackup = 10;
+    secSanidade = 5, secPiquetes = 6, secPastagem = 7, secEntradas = 8, secVendas = 9, secRelatorios = 10,
+    secBackup = 11;
 
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).
 void abrirModoCurral(BuildContext context) =>
     Navigator.push(context, MaterialPageRoute(builder: (_) => const ModoCurral()));
+
+/// Abre o Modo Inseminação (IA/IATF e diagnóstico em série).
+void abrirModoInseminacao(BuildContext context) =>
+    Navigator.push(context, MaterialPageRoute(builder: (_) => const ModoInseminacao()));
 
 Future<void> sairDaConta(BuildContext context) async {
   final pendentes = Db.pendentes.value;
@@ -143,6 +150,25 @@ class MenuLateral extends StatelessWidget {
                   onTap: () {
                     fechar();
                     abrirModoCurral(context);
+                  },
+                ),
+              ),
+            ),
+            // Modo Inseminação: logo abaixo do Modo Curral.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Material(
+                color: Cores.azul,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  leading: const Icon(Icons.favorite_border, color: Cores.laranja),
+                  title: const Text('Modo Inseminação',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                  subtitle: const Text('IA, IATF e diagnóstico', style: TextStyle(color: Colors.white70)),
+                  onTap: () {
+                    fechar();
+                    abrirModoInseminacao(context);
                   },
                 ),
               ),

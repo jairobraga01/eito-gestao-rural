@@ -12,6 +12,7 @@ import 'tema.dart';
 import 'telas/backup.dart';
 import 'telas/base.dart';
 import 'telas/ficha_animal.dart';
+import 'telas/entradas.dart';
 import 'telas/inicio.dart';
 import 'telas/login.dart';
 import 'telas/lotes.dart';
@@ -172,6 +173,7 @@ class _InicioState extends State<Inicio> {
         secSanidade => const SanidadePage(),
         secPiquetes => const PiquetesPage(),
         secPastagem => const PastagemPage(),
+        secEntradas => const EntradasPage(),
         secVendas => const SaidasPage(),
         secRelatorios => const RelatoriosPage(),
         secBackup => const BackupPage(),

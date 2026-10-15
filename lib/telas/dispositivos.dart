@@ -36,7 +36,7 @@ class _TelaDispositivosState extends State<TelaDispositivos> {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             CircleAvatar(
                 radius: 16,
-                backgroundColor: Cores.laranja,
+                backgroundColor: Cores.azul,
                 child: Text(n, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
             const SizedBox(width: 12),
             Expanded(child: Text(texto, style: corpo)),

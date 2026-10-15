@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/indicadores.dart';
+import '../dados/negocio.dart';
 import '../util/util.dart';
 import 'base.dart';
 
@@ -34,7 +35,7 @@ class SaidasPage extends StatelessWidget {
               return ListTile(
                 leading: const Icon(Icons.arrow_circle_up_outlined, color: Colors.red, size: 30),
                 title: Text('${s['tipo']} · ${s['quantidade'] ?? 0} cab.'
-                    '${venda && s['valor_total'] != null ? ' · ${moeda(s['valor_total'] as num)}' : ''}'),
+                    '${venda && s['valor_total'] != null ? ' · ${moeda(s['valor_total'] as num)}${s['bruto'] is num ? ' líquido' : ''}' : ''}'),
                 subtitle: Text([
                   br(s['data']),
                   if (txt(s['destino']).isNotEmpty) txt(s['destino']),
@@ -53,6 +54,8 @@ class SaidasPage extends StatelessWidget {
     final qtd = (s['quantidade'] as int?) ?? 0;
     final peso = s['peso_total'] as num?;
     final valor = s['valor_total'] as num?;
+    final lucro = lucroDaVenda(s);
+    num z(String k) => s[k] as num? ?? 0;
     final excluir = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
@@ -64,8 +67,23 @@ class SaidasPage extends StatelessWidget {
               Info('Cabeças', '$qtd'),
               Info('Peso total', kg(peso)),
               if (peso != null && qtd > 0) Info('Peso médio', kg(peso / qtd)),
-              Info('Valor total', moeda(valor)),
-              if (valor != null && qtd > 0) Info('Por cabeça', moeda(valor / qtd)),
+              if (s['bruto'] is num) ...[
+                if (s['por_arroba'] == true) ...[
+                  Info('Arrobas', '${num1(z('arrobas'))} @ (rend. ${num1(z('rendimento_pct'))}%)'),
+                  Info('Preço da arroba', moeda(z('preco'))),
+                ] else
+                  Info('Preço por cabeça', moeda(z('preco'))),
+                Info('Valor bruto', moeda(z('bruto'))),
+                if (z('funrural') > 0) Info('Funrural (${num1(z('funrural_pct'))}%)', '− ${moeda(z('funrural'))}'),
+                for (final (k, r) in [('fundepec', 'Fundepec'), ('nota', 'Nota'), ('frete', 'Frete'), ('outros', 'Outros')])
+                  if (z(k) > 0) Info(r, '− ${moeda(z(k))}'),
+              ],
+              Info(s['bruto'] is num ? 'Valor líquido' : 'Valor total', moeda(valor)),
+              if (valor != null && qtd > 0) Info('Líquido por cabeça', moeda(valor / qtd)),
+              if (lucro != null) ...[
+                Info('Custo dos animais', moeda(lucro.custo)),
+                Info(lucro.lucro >= 0 ? 'Lucro' : 'Prejuízo', moeda(lucro.lucro)),
+              ],
               if (valor != null && peso != null && peso > 0) Info('Por kg vivo', moeda(valor / peso)),
               Info('Comprador / destino', txt(s['destino'])),
               Info('Brincos', txt(s['brincos'])),
@@ -104,6 +122,13 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
   late List<Reg> animais = [...widget.animais];
   final peso = TextEditingController();
   final valor = TextEditingController();
+  bool porArroba = true;
+  late final rendimento = TextEditingController(text: num1(rendimentoVendaPadrao()));
+  late final funrural = TextEditingController(text: num1(funruralPadrao()));
+  final fundepec = TextEditingController();
+  final nota = TextEditingController();
+  final frete = TextEditingController();
+  final outros = TextEditingController();
   final destino = TextEditingController();
   final obs = TextEditingController();
   bool salvando = false;
@@ -118,7 +143,7 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
 
   @override
   void dispose() {
-    for (final c in [peso, valor, destino, obs]) {
+    for (final c in [peso, valor, rendimento, funrural, fundepec, nota, frete, outros, destino, obs]) {
       c.dispose();
     }
     super.dispose();
@@ -142,6 +167,32 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
     }
   }
 
+  double _v(TextEditingController c) => (lerNumero(c.text) ?? 0).toDouble();
+
+  ContaVenda? _conta() {
+    final v = lerNumero(valor.text);
+    if (tipo != 'Venda' || v == null) return null;
+    return ContaVenda(
+      cabecas: animais.length,
+      porArroba: porArroba,
+      preco: v.toDouble(),
+      pesoTotal: lerNumero(peso.text)?.toDouble(),
+      rendimentoPct: _v(rendimento),
+      funruralPct: _v(funrural),
+      fundepec: _v(fundepec),
+      nota: _v(nota),
+      frete: _v(frete),
+      outros: _v(outros),
+    );
+  }
+
+  Widget _numero(TextEditingController c, String label, {String? sufixo, String? prefixo}) => TextField(
+        controller: c,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, suffixText: sufixo, prefixText: prefixo),
+        onChanged: (_) => setState(() {}),
+      );
+
   /// Venda e consumo de animal em carência de medicamento (abate antes da hora).
   List<Carencia> get _carencia => tipo == 'Venda' || tipo == 'Consumo'
       ? emCarencia([for (final a in animais) a['id'] as int], data)
@@ -164,6 +215,11 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
       );
       if (!seguir || !mounted) return;
     }
+    final conta = _conta();
+    if (conta != null && conta.porArroba && conta.arrobas == null) {
+      avisar(context, 'Informe o peso total para vender por arroba.');
+      return;
+    }
     final ok = await confirmar(
       context,
       'Confirmar ${tipo!.toLowerCase()}',
@@ -171,11 +227,29 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
     );
     if (!ok) return;
     setState(() => salvando = true);
+    if (conta != null) {
+      await lembrarAjustesNegocio({
+        'funrural_pct': conta.funruralPct,
+        if (conta.porArroba) 'rendimento_pct': conta.rendimentoPct,
+      });
+    }
     await Db.registrarSaida({
       'tipo': tipo,
       'data': data,
       'peso_total': lerNumero(peso.text),
-      'valor_total': tipo == 'Venda' ? lerNumero(valor.text) : null,
+      'valor_total': conta?.liquido,
+      if (conta != null) ...{
+        'por_arroba': conta.porArroba,
+        'preco': conta.preco,
+        if (conta.porArroba) ...{'arrobas': conta.arrobas, 'rendimento_pct': conta.rendimentoPct},
+        'bruto': conta.bruto,
+        'funrural_pct': conta.funruralPct,
+        'funrural': conta.funrural,
+        'fundepec': conta.fundepec,
+        'nota': conta.nota,
+        'frete': conta.frete,
+        'outros': conta.outros,
+      },
       'destino': nulo(destino.text),
       'obs': nulo(obs.text),
     }, [for (final a in animais) a['id'] as int]);
@@ -188,7 +262,8 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
   Widget build(BuildContext context) {
     final venda = tipo == 'Venda';
     final p = lerNumero(peso.text);
-    final v = lerNumero(valor.text);
+    final conta = _conta();
+    final v = conta?.liquido;
     final n = animais.length;
     return Scaffold(
       appBar: AppBar(title: const Text('Nova saída')),
@@ -242,12 +317,45 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
           ),
           if (venda) ...[
             gap,
-            TextField(
-              controller: valor,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Valor total', prefixText: r'R$ '),
-              onChanged: (_) => setState(() {}),
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: true, label: Text('Por arroba')),
+                ButtonSegment(value: false, label: Text('Por cabeça')),
+              ],
+              selected: {porArroba},
+              onSelectionChanged: (s) => setState(() => porArroba = s.first),
             ),
+            gap,
+            Row(children: [
+              Expanded(
+                  flex: 2,
+                  child: _numero(valor, porArroba ? 'Preço da arroba' : 'Preço por cabeça', prefixo: r'R$ ')),
+              if (porArroba) ...[
+                const SizedBox(width: 8),
+                Expanded(child: _numero(rendimento, 'Rendimento', sufixo: '%')),
+              ],
+            ]),
+            if (porArroba)
+              const Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: Text('Arrobas = peso × rendimento ÷ 15. Use 100% se o peso já é de carcaça.',
+                    style: TextStyle(color: Colors.black54, fontSize: 12)),
+              ),
+            gap,
+            const Text('Descontos', style: TextStyle(fontWeight: FontWeight.w700)),
+            Row(children: [
+              Expanded(child: _numero(funrural, 'Funrural', sufixo: '%')),
+              const SizedBox(width: 8),
+              Expanded(child: _numero(fundepec, 'Fundepec', prefixo: r'R$ ')),
+              const SizedBox(width: 8),
+              Expanded(child: _numero(nota, 'Nota', prefixo: r'R$ ')),
+            ]),
+            gap,
+            Row(children: [
+              Expanded(child: _numero(frete, 'Frete', prefixo: r'R$ ')),
+              const SizedBox(width: 8),
+              Expanded(child: _numero(outros, 'Outros', prefixo: r'R$ ')),
+            ]),
           ],
           gap,
           campoTexto(destino, venda ? 'Comprador' : 'Destino / causa'),
@@ -260,7 +368,11 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    Info('Por cabeça', moeda(v / n)),
+                    if (conta!.arrobas != null) Info('Arrobas', '${num1(conta.arrobas!)} @'),
+                    Info('Valor bruto', moeda(conta.bruto)),
+                    Info('Descontos', '− ${moeda(conta.descontos)}'),
+                    Info('Valor líquido', moeda(conta.liquido)),
+                    Info('Líquido por cabeça', moeda(v / n)),
                     if (p != null && p > 0) Info('Por kg vivo', moeda(v / p)),
                     if (p != null && p > 0) Info('Peso médio', kg(p / n)),
                   ],

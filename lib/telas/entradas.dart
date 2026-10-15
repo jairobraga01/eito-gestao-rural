@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/negocio.dart';
 import '../dados/numeracao.dart';
 import '../util/util.dart';
 import 'base.dart';
@@ -70,8 +71,14 @@ class EntradasPage extends StatelessWidget {
               Info('Cabeças', '$qtd'),
               Info('Peso total', kg(peso)),
               if (peso != null && qtd > 0) Info('Peso médio', kg(peso / qtd)),
-              Info('Valor total', moeda(valor)),
-              if (valor != null && qtd > 0) Info('Por cabeça', moeda(valor / qtd)),
+              if (e['subtotal'] is num) ...[
+                Info('Subtotal', moeda(e['subtotal'] as num)),
+                Info('Comissão (${num1(e['comissao_pct'] as num? ?? 0)}%)', moeda(e['comissao'] as num?)),
+                if ((e['nota'] as num? ?? 0) > 0) Info('Nota', moeda(e['nota'] as num)),
+                if ((e['frete'] as num? ?? 0) > 0) Info('Frete', moeda(e['frete'] as num)),
+              ],
+              Info(e['subtotal'] is num ? 'Total pago' : 'Valor total', moeda(valor)),
+              if (valor != null && qtd > 0) Info('Média por cabeça', moeda(valor / qtd)),
               if (valor != null && peso != null && peso > 0) Info('Por kg vivo', moeda(valor / peso)),
               Info('Vendedor / origem', txt(e['origem'])),
               Info('GTA', txt(e['gta'])),
@@ -126,6 +133,10 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
   final raca = TextEditingController();
   final peso = TextEditingController();
   final valor = TextEditingController();
+  bool porCabeca = true;
+  late final comissao = TextEditingController(text: num1(comissaoPadrao()));
+  final nota = TextEditingController();
+  final frete = TextEditingController();
   final origem = TextEditingController();
   final gta = TextEditingController();
   final obs = TextEditingController();
@@ -162,10 +173,22 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
 
   @override
   void dispose() {
-    for (final c in [brincos, raca, peso, valor, origem, gta, obs, quantidade, prefixo, inicio]) {
+    for (final c in [brincos, raca, peso, valor, comissao, nota, frete, origem, gta, obs, quantidade, prefixo, inicio]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  ContaCompra? _conta(int n) {
+    final v = lerNumero(valor.text);
+    if (tipo != 'Compra' || v == null) return null;
+    return ContaCompra(
+      cabecas: n,
+      subtotal: (porCabeca ? v * n : v).toDouble(),
+      comissaoPct: (lerNumero(comissao.text) ?? 0).toDouble(),
+      nota: (lerNumero(nota.text) ?? 0).toDouble(),
+      frete: (lerNumero(frete.text) ?? 0).toDouble(),
+    );
   }
 
   Future<void> salvar() async {
@@ -183,12 +206,21 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
       return;
     }
     setState(() => salvando = true);
+    final conta = _conta(lista.length);
+    if (conta != null) await lembrarAjustesNegocio({'comissao_pct': conta.comissaoPct});
     try {
       await Db.registrarEntrada({
         'tipo': tipo,
         'data': data,
         'peso_total': lerNumero(peso.text),
-        'valor_total': tipo == 'Compra' ? lerNumero(valor.text) : null,
+        'valor_total': conta?.total,
+        if (conta != null) ...{
+          'subtotal': conta.subtotal,
+          'comissao_pct': conta.comissaoPct,
+          'comissao': conta.comissao,
+          'nota': conta.nota,
+          'frete': conta.frete,
+        },
         'origem': nulo(origem.text),
         'gta': nulo(gta.text),
         'obs': nulo(obs.text),
@@ -209,13 +241,21 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
     Navigator.pop(context, true);
   }
 
+  Widget _numero(TextEditingController c, String label, {String? sufixo, String? prefixo}) => TextField(
+        controller: c,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(labelText: label, suffixText: sufixo, prefixText: prefixo),
+        onChanged: (_) => setState(() {}),
+      );
+
   @override
   Widget build(BuildContext context) {
     final compra = tipo == 'Compra';
     final gerados = _lista();
     final n = gerados.length;
     final p = lerNumero(peso.text);
-    final v = lerNumero(valor.text);
+    final conta = _conta(n);
+    final v = conta?.total;
     return Scaffold(
       appBar: AppBar(title: const Text('Nova entrada')),
       body: ListView(
@@ -328,12 +368,29 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
           ),
           if (compra) ...[
             gap,
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: true, label: Text('Valor por cabeça')),
+                ButtonSegment(value: false, label: Text('Valor do lote')),
+              ],
+              selected: {porCabeca},
+              onSelectionChanged: (s) => setState(() => porCabeca = s.first),
+            ),
+            gap,
             TextField(
               controller: valor,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Valor total', prefixText: r'R$ '),
+              decoration: InputDecoration(labelText: porCabeca ? 'Valor por cabeça' : 'Valor do lote', prefixText: r'R$ '),
               onChanged: (_) => setState(() {}),
             ),
+            gap,
+            Row(children: [
+              Expanded(child: _numero(comissao, 'Comissão do comprador', sufixo: '%')),
+              const SizedBox(width: 8),
+              Expanded(child: _numero(nota, 'Nota', prefixo: r'R$ ')),
+              const SizedBox(width: 8),
+              Expanded(child: _numero(frete, 'Frete', prefixo: r'R$ ')),
+            ]),
           ],
           gap,
           campoTexto(origem, compra ? 'Vendedor' : 'Origem'),
@@ -348,7 +405,14 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    if (compra && v != null) Info('Por cabeça', moeda(v / n)),
+                    if (conta != null) ...[
+                      Info('Subtotal', moeda(conta.subtotal)),
+                      Info('Comissão (${num1(conta.comissaoPct)}%)', moeda(conta.comissao)),
+                      if (conta.nota > 0) Info('Nota', moeda(conta.nota)),
+                      if (conta.frete > 0) Info('Frete', moeda(conta.frete)),
+                      Info('Total pago', moeda(conta.total)),
+                    ],
+                    if (compra && v != null) Info('Média por cabeça', moeda(v / n)),
                     if (compra && v != null && p != null && p > 0) Info('Por kg vivo', moeda(v / p)),
                     if (p != null && p > 0) Info('Peso médio', kg(p / n)),
                   ],

@@ -174,10 +174,15 @@ class Db {
     'protocolos',
     'custos',
     'chuvas',
+    'insumos',
+    'formulas',
+    'dividas',
+    'cotacoes',
     'animais',
     'reproducoes',
     'sanidade',
     'pesagens',
+    'ordenhas',
     'config',
   ];
 
@@ -400,7 +405,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'custos', 'chuvas']) {
+        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
@@ -445,7 +450,7 @@ class Db {
         for (final r in _todos('reproducoes').where((x) => _int(x['cria_id']) == id)) {
           m.mesclar('reproducoes', r['id']!, {'cria_id': null});
         }
-        for (final tab in ['sanidade', 'pesagens']) {
+        for (final tab in ['sanidade', 'pesagens', 'ordenhas']) {
           for (final r in _todos(tab).where((x) => _int(x['animal_id']) == id)) {
             m.apagar(tab, r['id']!);
           }

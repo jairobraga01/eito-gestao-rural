@@ -29,7 +29,7 @@ class CustosPage extends StatelessWidget {
             if (arroba == null)
               const Padding(
                 padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Text('Informe o preço da arroba na Projeção de abate (Relatórios) para somar o valor do gado no pasto.'),
+                child: Text('Lance a arroba em Cotação da arroba para somar o valor do gado no pasto.'),
               ),
             if (contas.isEmpty) const Vazio('Nenhum lote ainda.', icone: Icons.attach_money),
             for (final c in contas) _ContaCard(c),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../dados/db.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'calendario_sanitario.dart';
 
 const eventosPesagem = ['Rotina', 'Nascimento', 'Desmama', 'Sobreano', 'Entrada', 'Venda'];
 
@@ -11,11 +12,18 @@ class SanidadePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const DefaultTabController(
+    return DefaultTabController(
       length: 2,
       child: Pagina(
         titulo: 'Sanidade',
-        corpo: Column(
+        acoes: [
+          IconButton(
+            tooltip: 'Calendário sanitário',
+            icon: const Icon(Icons.calendar_month_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarioSanitarioPage())),
+          ),
+        ],
+        corpo: const Column(
           children: [
             TabBar(tabs: [Tab(text: 'MANEJOS SANITÁRIOS'), Tab(text: 'PESAGENS')]),
             Expanded(child: TabBarView(children: [_ManejosTab(), _PesagensTab()])),

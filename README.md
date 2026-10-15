@@ -79,6 +79,7 @@ lib/
   dados/db.dart             dados: cópia local + Firestore, mesmas funções da Caderneta
   dados/resumo_periodo.dart números do mês ou do ano para os relatórios
   dados/manejo.dart         fila do dia, intervalo entre partos, projeção de abate
+  dados/gestao.dart         custos e margem, calendário sanitário, ranking, genealogia, chuva, resumo semanal
   dispositivos/leitor_teclado.dart   bastão RFID e balança (HID)
   util/util.dart            datas, números, campos, seletor de animais
   util/formato.dart         formatos e leitura de balança
@@ -96,6 +97,8 @@ lib/
     fila_do_dia.dart        o que fazer hoje no curral, para riscar
     protocolos.dart         protocolos de IATF com a data de cada etapa
     projecao_abate.dart     quando cada lote chega ao peso de venda e quanto vale
+    custos.dart, chuva.dart custos e margem por lote; pluviômetro
+    calendario_sanitario.dart, ranking_matrizes.dart, resumo_semanal.dart
     login.dart, dispositivos.dart
   widgets/                  botões grandes, teclado numérico, faixa de sincronia, logo
 web/                        PWA: index.html, manifest, ícones, sw.js (offline)

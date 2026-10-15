@@ -1,5 +1,6 @@
 // Números de um período (mês ou ano) da propriedade aberta, para os relatórios.
 import 'db.dart';
+import 'gestao.dart' show chuvaEntre;
 
 const nomesMeses = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -42,6 +43,8 @@ class ResumoPeriodo {
   int entradas = 0, cabecasCompradas = 0;
   final entradasPorTipo = <String, int>{};
   double valorCompras = 0;
+
+  double chuvaMm = 0;
 
   int saidas = 0;
   final saidasPorTipo = <String, int>{};
@@ -137,6 +140,8 @@ class ResumoPeriodo {
       if (dias <= 0) continue;
       r.gmds.add(((l.last['peso'] as num) - (l.first['peso'] as num)) / dias);
     }
+
+    r.chuvaMm = chuvaEntre(de, ate);
 
     for (final e in Db.registros('entradas')) {
       if (_int(e['propriedade_id']) != pid || !r._dentro(e['data'])) continue;

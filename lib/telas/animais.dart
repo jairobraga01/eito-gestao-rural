@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/gestao.dart' show Genealogia;
 import '../dados/manejo.dart' show intervaloEntrePartos, partosDaVaca;
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
@@ -738,6 +739,7 @@ class FichaAnimalPage extends StatelessWidget {
               ),
               _secaoPesagens(context, f),
               if (femea) _secaoReproducao(context, f),
+              _secaoGenealogia(context, a),
               if (f.filhos.isNotEmpty) ...[
                 Secao('Crias (${f.filhos.length})'),
                 for (final c in f.filhos) AnimalTile({...c, 'mae_brinco': a['brinco']}),
@@ -748,6 +750,41 @@ class FichaAnimalPage extends StatelessWidget {
         );
       },
     );
+  }
+
+  Widget _secaoGenealogia(BuildContext context, Reg a) {
+    final g = Genealogia(a);
+    Widget linha(String titulo, Reg? animal, {String? pai}) => Info(
+          titulo,
+          animal != null ? rotulo(animal) : txt(pai),
+          onTap: animal == null
+              ? null
+              : () => Navigator.push(context, MaterialPageRoute(builder: (_) => FichaAnimalPage(animal['id'] as int))),
+        );
+    final parentes = g.tourosParentes;
+    if (g.mae == null && parentes.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Secao('Genealogia'),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(children: [
+          linha('Pai', null, pai: a['pai'] as String?),
+          linha('Mãe', g.mae),
+          linha('Avô materno', null, pai: g.mae?['pai'] as String?),
+          linha('Avó materna', g.avo),
+          linha('Bisavó materna', g.bisavo),
+          if (a['sexo'] == 'F' && parentes.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+              child: Text('Para evitar consanguinidade, não use sêmen de: '
+                  '${parentes.entries.map((e) => '${e.key} (${e.value})').join(', ')}.'),
+            ),
+        ]),
+      ),
+    ]);
   }
 
   Widget _secaoPesagens(BuildContext context, _Ficha f) {

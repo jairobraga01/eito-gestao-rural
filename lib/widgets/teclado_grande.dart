@@ -171,7 +171,7 @@ class _TelaNumeroState extends State<_TelaNumero> {
             const SizedBox(height: 12),
             FilledButton.icon(
               style: FilledButton.styleFrom(
-                  backgroundColor: Cores.laranja, minimumSize: const Size.fromHeight(72)),
+                  backgroundColor: Cores.laranja, foregroundColor: Cores.azul, minimumSize: const Size.fromHeight(72)),
               onPressed: () {
                 if (_valor.value.isEmpty) return;
                 Navigator.pop(context, _valor.value);

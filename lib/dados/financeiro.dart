@@ -2,6 +2,7 @@
 // Produtor Rural, leiaute 1.3 da Receita Federal) e planilhas para o
 // contador e para a GTA.
 import 'db.dart';
+import 'dividas.dart' show dividas, saldoDevedor, parcelasAVencer;
 import 'indicadores.dart' show faixaSidago;
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
@@ -60,23 +61,21 @@ Future<void> pagarConta(int id, bool pago, String data) =>
 /// Em aberto vencidas até [hoje] (atrasadas).
 bool atrasada(Reg c, String hoje) => c['pago'] != true && _dia(c['vencimento']).compareTo(hoje) < 0;
 
-/// Traz para as contas (já pagas) as vendas, compras de gado e custos lançados
-/// no ano que ainda não estão lá. Não traz o consumo de ração tirado do estoque
-/// (a compra do insumo é que é o gasto). Retorna quantas contas criou.
-Future<int> trazerDoRebanho(int ano) async {
+/// Vendas, compras de gado e custos lançados no ano que ainda não estão nas
+/// contas, no formato de conta paga (com a 'origem'). Não inclui o consumo de
+/// ração tirado do estoque (a compra do insumo é que é o gasto).
+List<Reg> _doRebanho(int ano) {
   final ja = {for (final c in Db.registros('contas')) _t(c['origem'])}..remove('');
   final doEstoque = {for (final e in Db.registros('estoque')) _t(e['grupo'])};
-  var n = 0;
+  final r = <Reg>[];
   bool doAno(Object? d) => _dia(d).startsWith('$ano-');
-  Future<void> criar(String origem, Reg v) async {
-    if (ja.contains(origem)) return;
-    await Db.inserir('contas', {'propriedade_id': Db.pid, 'pago': true, 'tipo_doc': 1, 'origem': origem, ...v});
-    n++;
+  void criar(String origem, Reg v) {
+    if (!ja.contains(origem)) r.add({'pago': true, 'tipo_doc': 1, 'origem': origem, ...v});
   }
 
   for (final s in Db.registros('saidas')) {
     if (_int(s['propriedade_id']) != Db.pid || s['tipo'] != 'Venda' || _n(s['valor_total']) <= 0 || !doAno(s['data'])) continue;
-    await criar('saida:${s['id']}', {
+    criar('saida:${s['id']}', {
       'tipo': 'Receita',
       'categoria': 'Venda de gado',
       'descricao': 'Venda de gado${_t(s['destino']).isEmpty ? '' : ' para ${s['destino']}'}',
@@ -88,7 +87,7 @@ Future<int> trazerDoRebanho(int ano) async {
   }
   for (final e in Db.registros('entradas')) {
     if (_int(e['propriedade_id']) != Db.pid || e['tipo'] != 'Compra' || _n(e['valor_total']) <= 0 || !doAno(e['data'])) continue;
-    await criar('entrada:${e['id']}', {
+    criar('entrada:${e['id']}', {
       'tipo': 'Despesa',
       'categoria': 'Compra de gado',
       'descricao': 'Compra de ${e['quantidade'] ?? ''} cab.${_t(e['origem']).isEmpty ? '' : ' de ${e['origem']}'}',
@@ -102,7 +101,7 @@ Future<int> trazerDoRebanho(int ano) async {
   for (final c in Db.registros('custos')) {
     if (_int(c['propriedade_id']) != Db.pid || _n(c['valor']) <= 0 || !doAno(c['data'])) continue;
     if (doEstoque.contains(_t(c['id']))) continue; // consumo do estoque, não é pagamento
-    await criar('custo:${c['id']}', {
+    criar('custo:${c['id']}', {
       'tipo': 'Despesa',
       'categoria': switch (c['categoria']) {
         'Ração e sal' => 'Ração, sal e suplemento',
@@ -118,8 +117,64 @@ Future<int> trazerDoRebanho(int ano) async {
       'pago_em': _dia(c['data']),
     });
   }
-  return n;
+  return r;
 }
+
+/// Traz para as contas (já pagas) as vendas, compras de gado e custos lançados
+/// no ano que ainda não estão lá. Retorna quantas contas criou.
+Future<int> trazerDoRebanho(int ano) async {
+  final novas = _doRebanho(ano);
+  for (final v in novas) {
+    await Db.inserir('contas', {'propriedade_id': Db.pid, ...v});
+  }
+  return novas.length;
+}
+
+// ---------- Relatório financeiro geral (só o dono) ----------
+
+class RelatorioFinanceiro {
+  RelatorioFinanceiro(this.ano, this.movimentos);
+  final int ano;
+
+  /// Contas pagas no ano e o que foi lançado no rebanho e ainda não virou conta.
+  final List<Reg> movimentos;
+
+  Iterable<Reg> get _receitas => movimentos.where((m) => m['tipo'] == 'Receita');
+  Iterable<Reg> get _despesas => movimentos.where((m) => m['tipo'] != 'Receita');
+  double get receitas => _receitas.fold(0, (s, m) => s + _n(m['valor']));
+  double get despesas => _despesas.fold(0, (s, m) => s + _n(m['valor']));
+  double get resultado => receitas - despesas;
+
+  Map<String, double> _porCategoria(Iterable<Reg> l) {
+    final r = <String, double>{};
+    for (final m in l) {
+      final c = _t(m['categoria']).isEmpty ? 'Sem categoria' : _t(m['categoria']);
+      r[c] = (r[c] ?? 0) + _n(m['valor']);
+    }
+    return Map.fromEntries(r.entries.toList()..sort((a, b) => b.value.compareTo(a.value)));
+  }
+
+  Map<String, double> get receitasPorCategoria => _porCategoria(_receitas);
+  Map<String, double> get despesasPorCategoria => _porCategoria(_despesas);
+
+  /// Receitas e despesas de cada mês (índice 0 = janeiro).
+  List<(double, double)> get porMes => [
+        for (var m = 1; m <= 12; m++)
+          () {
+            final mes = '$ano-${m.toString().padLeft(2, '0')}';
+            final doMes = movimentos.where((x) => _dia(x['pago_em']).startsWith(mes));
+            return (
+              doMes.where((x) => x['tipo'] == 'Receita').fold(0.0, (s, x) => s + _n(x['valor'])),
+              doMes.where((x) => x['tipo'] != 'Receita').fold(0.0, (s, x) => s + _n(x['valor'])),
+            );
+          }(),
+      ];
+}
+
+RelatorioFinanceiro relatorioFinanceiro(int ano) => RelatorioFinanceiro(ano, [
+      ...contas(pagas: true, ano: ano),
+      ..._doRebanho(ano),
+    ]..sort((a, b) => _dia(a['pago_em']).compareTo(_dia(b['pago_em']))));
 
 // ---------- Livro caixa ----------
 
@@ -159,6 +214,77 @@ String _br(Object? iso) {
 }
 
 String _prop(Object? id) => _t(Db.registro('propriedades', id)?['nome']);
+
+const _meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+String _reais(double v) {
+  final neg = v < 0;
+  final partes = v.abs().toStringAsFixed(2).split('.');
+  final inteiro = partes[0].replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
+  return '${neg ? '-' : ''}R\$ $inteiro,${partes[1]}';
+}
+
+/// Contas em aberto, dívidas e reprodução para o relatório financeiro.
+class PosicaoFinanceira {
+  PosicaoFinanceira(String hoje)
+      : aReceber = contas(receita: true, pagas: false).fold(0.0, (s, c) => s + _n(c['valor'])),
+        aPagar = contas(receita: false, pagas: false).fold(0.0, (s, c) => s + _n(c['valor'])),
+        atrasadas = contas(pagas: false).where((c) => atrasada(c, hoje)).length,
+        saldoDividas = dividas().fold(0.0, (s, d) => s + saldoDevedor(d)),
+        parcelas12meses = parcelasAVencer(hoje, dias: 365).fold(0.0, (s, p) => s + p.valor);
+  final double aReceber, aPagar, saldoDividas, parcelas12meses;
+  final int atrasadas;
+}
+
+/// Relatório financeiro geral em texto (para o WhatsApp).
+String textoRelatorioFinanceiro(int ano, String hoje) {
+  final r = relatorioFinanceiro(ano);
+  final p = PosicaoFinanceira(hoje);
+  final b = StringBuffer()
+    ..writeln('*Relatório financeiro $ano · ${_prop(Db.pid)}*')
+    ..writeln()
+    ..writeln('Receitas: ${_reais(r.receitas)}')
+    ..writeln('Despesas: ${_reais(r.despesas)}')
+    ..writeln('*Resultado: ${_reais(r.resultado)}*');
+  if (r.receitasPorCategoria.isNotEmpty) {
+    b
+      ..writeln()
+      ..writeln('Receitas por categoria:');
+    r.receitasPorCategoria.forEach((k, v) => b.writeln('  $k: ${_reais(v)}'));
+  }
+  if (r.despesasPorCategoria.isNotEmpty) {
+    b
+      ..writeln()
+      ..writeln('Despesas por categoria:');
+    r.despesasPorCategoria.forEach((k, v) => b.writeln('  $k: ${_reais(v)}'));
+  }
+  b
+    ..writeln()
+    ..writeln('Em aberto: a receber ${_reais(p.aReceber)} · a pagar ${_reais(p.aPagar)}'
+        '${p.atrasadas > 0 ? ' · ${p.atrasadas} atrasada(s)' : ''}')
+    ..writeln('Dívidas: saldo devedor ${_reais(p.saldoDividas)} · vence em 12 meses ${_reais(p.parcelas12meses)}');
+  return b.toString().trimRight();
+}
+
+/// Relatório financeiro geral em CSV: mês a mês e os lançamentos do ano.
+String planilhaRelatorioFinanceiro(int ano) {
+  final r = relatorioFinanceiro(ano);
+  final pm = r.porMes;
+  return csv(['Mês / Data', 'Tipo', 'Categoria', 'Histórico', 'Receitas', 'Despesas', 'Resultado'], [
+    for (var i = 0; i < 12; i++) ['${_meses[i]}/$ano', 'Resumo do mês', '', '', pm[i].$1, pm[i].$2, pm[i].$1 - pm[i].$2],
+    ['Total $ano', 'Resumo do ano', '', '', r.receitas, r.despesas, r.resultado],
+    for (final m in r.movimentos)
+      [
+        _br(m['pago_em']),
+        m['tipo'],
+        m['categoria'],
+        m['descricao'],
+        m['tipo'] == 'Receita' ? _n(m['valor']) : '',
+        m['tipo'] == 'Receita' ? '' : _n(m['valor']),
+        '',
+      ],
+  ]);
+}
 
 String planilhaLivroCaixa(int ano) => csv(
       ['Data', 'Propriedade', 'Tipo', 'Categoria', 'Histórico', 'Participante', 'CPF/CNPJ', 'Documento', 'Entrada', 'Saída', 'Saldo'],

@@ -74,7 +74,7 @@ class _EquipePageState extends State<EquipePage> {
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c, set) => AlertDialog(
-          title: Text(peao ? 'Criar login de peão' : 'Convidar pelo e-mail'),
+          title: Text(peao ? 'Criar login (peão ou veterinário)' : 'Convidar pelo e-mail'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               campoTexto(nome, 'Nome', foco: true),
@@ -240,7 +240,7 @@ class _EquipePageState extends State<EquipePage> {
                   FilledButton.icon(
                     onPressed: _criarPeao,
                     icon: const Icon(Icons.badge_outlined),
-                    label: const Text('Criar login de peão'),
+                    label: const Text('Criar login (peão ou veterinário)'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _convidar,
@@ -253,7 +253,12 @@ class _EquipePageState extends State<EquipePage> {
               if (lista.isEmpty) const ListTile(title: Text('Ninguém na equipe ainda.')),
               for (final m in lista)
                 ListTile(
-                  leading: Icon(m.papel == 'peao' ? Icons.agriculture_outlined : Icons.manage_accounts_outlined,
+                  leading: Icon(
+                      switch (m.papel) {
+                        'peao' => Icons.agriculture_outlined,
+                        'veterinario' => Icons.medical_services_outlined,
+                        _ => Icons.manage_accounts_outlined,
+                      },
                       color: Cores.oliva),
                   title: Text(m.nome.isEmpty ? m.email : m.nome),
                   subtitle: Text([
@@ -291,7 +296,7 @@ class _TarefasPageState extends State<TarefasPage> {
 
   @override
   Widget build(BuildContext context) {
-    final peao = Db.ehPeao;
+    final peao = Db.ehCampo;
     return Pagina(
       titulo: 'Tarefas',
       fab: peao

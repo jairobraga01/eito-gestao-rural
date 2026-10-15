@@ -4,7 +4,9 @@ rules_version = '2';
 // O dono pode pôr outras pessoas na equipe (usuarios/{dono}/equipe/{uid}):
 // - gerente: lê e grava tudo, menos a equipe;
 // - peão: lê tudo, menos o financeiro; grava só o serviço de campo e só
-//   apaga o que ele mesmo lançou.
+//   apaga o que ele mesmo lançou;
+// - veterinário: como o peão, mas grava a reprodução e a sanidade
+//   (inseminação, protocolos, sêmen, diagnóstico, ECC e aplicações).
 // Convites ficam em convites/{email} e só servem para quem tem esse e-mail
 // confirmado (ou para o login de peão que o dono criou, pelo uid).
 service cloud.firestore {
@@ -41,9 +43,17 @@ service cloud.firestore {
       return t in ['animais', 'pesagens', 'sanidade', 'reproducoes', 'escores', 'ordenhas', 'pastagens',
         'ocorrencias', 'contagens', 'chuvas', 'insumos', 'estoque', 'semens', 'fotos', 'tarefas', 'config'];
     }
-    // Financeiro: o peão não lê.
-    function peaoNaoLe(t) {
+    // Tabelas que o veterinário grava.
+    function vetGrava(t) {
+      return t in ['animais', 'reproducoes', 'protocolos', 'semens', 'sanidade', 'escores', 'pesagens',
+        'ocorrencias', 'fotos', 'tarefas', 'config'];
+    }
+    // Financeiro: o peão e o veterinário não leem.
+    function semFinanceiro(t) {
       return t in ['contas', 'dividas', 'custos'];
+    }
+    function campoGrava(p, t) {
+      return (p == 'peao' && peaoGrava(t)) || (p == 'veterinario' && vetGrava(t));
     }
 
     // O dono: tudo dentro da própria conta.
@@ -63,10 +73,10 @@ service cloud.firestore {
     // Dados do dono para quem está na equipe.
     match /usuarios/{u}/{tabela}/{doc} {
       allow read: if tabela != 'equipe' && membro(u)
-        && !(papel(u) == 'peao' && peaoNaoLe(tabela));
+        && !(papel(u) in ['peao', 'veterinario'] && semFinanceiro(tabela));
       allow write: if tabela != 'equipe' && membro(u) && papel(u) == 'gerente';
-      allow create, update: if tabela != 'equipe' && membro(u) && papel(u) == 'peao' && peaoGrava(tabela);
-      allow delete: if tabela != 'equipe' && membro(u) && papel(u) == 'peao' && peaoGrava(tabela)
+      allow create, update: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela);
+      allow delete: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela)
         && resource.data.get('criado_por', '') == request.auth.uid;
     }
 

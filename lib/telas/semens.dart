@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../dados/db.dart';
 import '../util/util.dart';
 
-/// Cadastro de sêmen (touros): preço por dose e doses no botijão.
+/// Cadastro de sêmen (touros): partida, preço por dose e doses no botijão.
+/// Cada partida do mesmo touro é um cadastro, com o estoque separado.
 /// O Modo Inseminação dá baixa de uma dose a cada inseminação.
 class SemensPage extends StatelessWidget {
   const SemensPage({super.key});
@@ -56,7 +57,11 @@ class _SemenTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final doses = (s['doses'] as num?)?.toInt() ?? 0;
     final linhas = [
-      [if (txt(s['raca']).isNotEmpty) txt(s['raca']), if (txt(s['central']).isNotEmpty) txt(s['central'])].join(' · '),
+      [
+        if (txt(s['partida']).isNotEmpty) 'Partida ${s['partida']}',
+        if (txt(s['raca']).isNotEmpty) txt(s['raca']),
+        if (txt(s['central']).isNotEmpty) txt(s['central']),
+      ].join(' · '),
       [if (s['preco_dose'] is num) '${moeda(s['preco_dose'] as num)}/dose', usoSemen(s)].join(' · '),
     ].where((l) => l.isNotEmpty).toList();
     return ListTile(
@@ -82,6 +87,7 @@ class SemenFormPage extends StatefulWidget {
 class _SemenFormPageState extends State<SemenFormPage> {
   late final s = widget.semen;
   late final touro = TextEditingController(text: txt(s?['touro']));
+  late final partida = TextEditingController(text: txt(s?['partida']));
   late final raca = TextEditingController(text: txt(s?['raca']));
   late final central = TextEditingController(text: txt(s?['central']));
   late final preco = TextEditingController(
@@ -91,7 +97,7 @@ class _SemenFormPageState extends State<SemenFormPage> {
 
   @override
   void dispose() {
-    for (final c in [touro, raca, central, preco, doses, obs]) {
+    for (final c in [touro, partida, raca, central, preco, doses, obs]) {
       c.dispose();
     }
     super.dispose();
@@ -104,6 +110,7 @@ class _SemenFormPageState extends State<SemenFormPage> {
     }
     await Db.salvarSemen({
       'touro': touro.text.trim(),
+      'partida': nulo(partida.text),
       'raca': nulo(raca.text),
       'central': nulo(central.text),
       'preco_dose': lerNumero(preco.text),
@@ -136,6 +143,12 @@ class _SemenFormPageState extends State<SemenFormPage> {
         padding: const EdgeInsets.all(16),
         children: [
           campoTexto(touro, 'Touro *', foco: s == null),
+          gap,
+          campoTexto(partida, 'Partida'),
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text('Partida diferente do mesmo touro? Cadastre de novo, para o estoque ficar separado.'),
+          ),
           gap,
           campoTexto(raca, 'Raça'),
           gap,

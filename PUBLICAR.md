@@ -45,7 +45,7 @@ A pasta `.github` some quando você arrasta arquivos, então este arquivo é cri
 1. No repositório, **Add file** → **Upload files**.
 2. Arraste **o conteúdo** da pasta `eito_gestao_rural` (as pastas `lib`, `web`,
    `assets`, `test` e os arquivos soltos: `pubspec.yaml`, `firebase.json`,
-   `firestore.rules`, `.firebaserc`, `analysis_options.yaml` etc.).
+   `firestore.rules`, `analysis_options.yaml` etc.).
    O GitHub substitui os arquivos com o mesmo nome.
 3. **Commit changes**.
 4. Abra a aba **Actions**: aparece "Publicar o Eito" rodando (cerca de 5 a 8 minutos).

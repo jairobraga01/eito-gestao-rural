@@ -9,6 +9,7 @@ import '../util/util.dart';
 import '../widgets/barra_sincronia.dart';
 import '../widgets/logo_eito.dart';
 import 'animais.dart';
+import 'conta.dart';
 import 'dispositivos.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
@@ -155,6 +156,10 @@ class MenuLateral extends StatelessWidget {
             item(Icons.bluetooth, 'Bastão e balança', () {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
+            }),
+            item(Icons.manage_accounts_outlined, 'Minha conta', () {
+              fechar();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaConta()));
             }),
             item(Icons.logout, 'Sair da conta', () {
               fechar();

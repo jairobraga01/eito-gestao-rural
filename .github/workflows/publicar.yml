@@ -49,10 +49,15 @@ jobs:
           name: eito-web
           path: build/web
 
-      - name: Publicar no Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          projectId: caderneta-rebanho
-          channelId: live
+      - name: Publicar no Firebase (site + regras do Firestore)
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SA" ]; then
+            echo "::warning::Falta o segredo FIREBASE_SERVICE_ACCOUNT (veja PUBLICAR.md). O app foi compilado, mas não publicado."
+            exit 0
+          fi
+          printf '%s' "$FIREBASE_SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only hosting,firestore:rules --project caderneta-rebanho --non-interactive
+          echo "### Publicado em https://caderneta-rebanho.web.app" >> "$GITHUB_STEP_SUMMARY"

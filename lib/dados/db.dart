@@ -126,7 +126,7 @@ class _Mudancas {
   void enviar() {
     const porLote = 450;
     for (var i = 0; i < _ops.length; i += porLote) {
-      final b = FirebaseFirestore.instance.batch();
+      final b = Db._banco.batch();
       for (final (t, id, v, merge) in _ops.skip(i).take(porLote)) {
         final ref = Db._col(t).doc(id);
         if (v == null) {
@@ -187,8 +187,13 @@ class Db {
     });
   }
 
+  /// Banco usado nos testes (um Firestore falso); no app fica nulo.
+  @visibleForTesting
+  static FirebaseFirestore? bancoTeste;
+  static FirebaseFirestore get _banco => bancoTeste ?? FirebaseFirestore.instance;
+
   static CollectionReference<Map<String, dynamic>> _col(String t) =>
-      FirebaseFirestore.instance.collection('usuarios').doc(_uid).collection(t);
+      _banco.collection('usuarios').doc(_uid).collection(t);
 
   // ---------- Identificadores ----------
 

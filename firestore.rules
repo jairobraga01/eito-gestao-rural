@@ -45,8 +45,8 @@ service cloud.firestore {
     }
     // Tabelas que o veterinário grava.
     function vetGrava(t) {
-      return t in ['animais', 'reproducoes', 'protocolos', 'semens', 'sanidade', 'escores', 'pesagens',
-        'ocorrencias', 'fotos', 'tarefas', 'config'];
+      return t in ['animais', 'reproducoes', 'protocolos', 'estacoes', 'semens', 'sanidade', 'escores', 'pesagens',
+        'ocorrencias', 'fotos', 'tarefas', 'config', 'estoque'];
     }
     // Financeiro: o peão e o veterinário não leem.
     function semFinanceiro(t) {

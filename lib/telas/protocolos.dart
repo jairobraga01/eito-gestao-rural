@@ -4,7 +4,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/db.dart';
 import '../dados/iatf.dart';
+import '../dados/estoque.dart' show unidadeInsumo;
 import '../dados/manejo.dart';
+import '../dados/proteinado.dart' show insumos, precoKgInsumo;
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -136,6 +138,62 @@ class ProtocoloResultadoPage extends StatelessWidget {
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ProtocoloResultadoPage(novo)));
   }
 
+  Future<void> _repasse(BuildContext context, Reg p) async {
+    final vacas = vaziasParaRepasse(p);
+    if (vacas.isEmpty) {
+      avisar(context, 'Nenhuma vaca vazia livre para o repasse.');
+      return;
+    }
+    final touro = TextEditingController();
+    var entrada = hojeIso();
+    String? saida;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, set) => AlertDialog(
+          title: Text('Repasse com touro (${vacas.length} vazias)'),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              campoTexto(touro, 'Touro', foco: true),
+              gap,
+              DateField(label: 'Entrada do touro', value: entrada, obrigatorio: true, onChanged: (v) => set(() => entrada = v!)),
+              gap,
+              DateField(label: 'Saída do touro', value: saida, onChanged: (v) => set(() => saida = v)),
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('O parto previsto conta da entrada do touro. O diagnóstico entra na fila do dia.'),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Pôr no repasse')),
+          ],
+        ),
+      ),
+    );
+    final nome = touro.text.trim();
+    touro.dispose();
+    if (ok != true || !context.mounted) return;
+    if (nome.isEmpty) {
+      avisar(context, 'Informe o touro.');
+      return;
+    }
+    final n = await repasseComTouro(p, touro: nome, entrada: entrada, saida: saida);
+    if (context.mounted) avisar(context, '$n vacas no repasse com $nome.');
+  }
+
+  Future<void> _baixa(BuildContext context, Reg p, Map<String, Object?> e) async {
+    final dia = (e['dia'] as num).toInt();
+    final vacas = vacasNoManejo(p).length;
+    if (!await confirmar(context, 'Dar baixa no estoque?',
+        'Produtos do D$dia para $vacas vacas: ${_produtosTexto(e, vacas)}.', ok: 'Dar baixa')) {
+      return;
+    }
+    final n = await darBaixaEtapa(id, dia, Db.dataEtapa(p['inicio'], dia));
+    if (context.mounted) avisar(context, n == 0 ? 'Nada para baixar.' : 'Baixa de $n produto(s) feita.');
+  }
+
   Future<void> _vaca(BuildContext context, Reg p, VacaIatf v) async {
     final op = await showModalBottomSheet<String>(
       context: context,
@@ -216,6 +274,37 @@ class ProtocoloResultadoPage extends StatelessWidget {
                 ),
               ),
             ),
+            if (etapasDe(p).any((e) => produtosDaEtapa(e).isNotEmpty)) ...[
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Text('Hormônios', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+              for (final e in etapasDe(p))
+                if (produtosDaEtapa(e).isNotEmpty)
+                  ListTile(
+                    dense: true,
+                    title: Text('D${e['dia']}: ${_produtosTexto(e, 1)} por vaca'),
+                    subtitle: Text('${moeda(custoEtapaPorVaca(e))}/vaca'),
+                    trailing: baixasFeitas(p).contains((e['dia'] as num).toInt())
+                        ? const Chip(label: Text('Baixado'))
+                        : TextButton(onPressed: () => _baixa(context, p, e), child: const Text('Dar baixa')),
+                  ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Custo dos hormônios: ${moeda(custoHormonal(p).$1)}/vaca · '
+                    '${moeda(custoHormonal(p).$2)} no lote'),
+              ),
+            ],
+            if (resultadoRepasse(p) case (final pr, final vz, final ag) when pr + vz + ag > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Text(
+                  'Repasse: $pr prenhes, $vz vazias${ag > 0 ? ', $ag aguardando DG' : ''}. '
+                  'Final (IATF + repasse): ${r.prenhes + pr} de ${r.inseminadas} '
+                  '(${_pct(r.inseminadas == 0 ? null : (r.prenhes + pr) / r.inseminadas)}).',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: Wrap(spacing: 8, runSpacing: 8, children: [
@@ -223,6 +312,11 @@ class ProtocoloResultadoPage extends StatelessWidget {
                   onPressed: () => _ressinc(context, p),
                   icon: const Icon(Icons.replay),
                   label: Text('Ressincronizar vazias (${vaziasParaRessinc(p).length})'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: () => _repasse(context, p),
+                  icon: const Icon(Icons.pets),
+                  label: Text('Repasse com touro (${vaziasParaRepasse(p).length})'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () => Navigator.push(
@@ -262,6 +356,20 @@ class ProtocoloResultadoPage extends StatelessWidget {
       },
     );
   }
+}
+
+/// "Implante 1 un + Benzoato 2 ml" (quantidade × [vacas]).
+String _produtosTexto(Map<String, Object?> etapa, int vacas) => [
+      for (final x in produtosDaEtapa(etapa))
+        '${txt(Db.registro('insumos', x['insumo_id'])?['nome'])} '
+            '${num1(((x['qtd'] as num?) ?? 0) * vacas)} '
+            '${_unidade(x['insumo_id'])}'
+            .trim(),
+    ].join(' + ');
+
+String _unidade(Object? insumoId) {
+  final i = Db.registro('insumos', insumoId);
+  return i == null ? '' : unidadeInsumo(i);
 }
 
 String nomeTipoDg(int dias) =>
@@ -343,11 +451,15 @@ class ProtocoloFormPage extends StatefulWidget {
 
 /// Etapa em edição: dia (a partir do D0), o que fazer e o horário.
 class _Etapa {
-  _Etapa(int dia, String nome, this.hora)
+  _Etapa(int dia, String nome, this.hora, [List<Map<String, Object?>>? produtos])
       : dia = TextEditingController(text: '$dia'),
-        nome = TextEditingController(text: nome);
+        nome = TextEditingController(text: nome),
+        produtos = produtos ?? [];
   final TextEditingController dia, nome;
   String? hora;
+
+  /// Hormônios do estoque: {insumo_id, qtd por vaca}.
+  final List<Map<String, Object?>> produtos;
   int get d => int.tryParse(dia.text.trim()) ?? 0;
 }
 
@@ -359,7 +471,10 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
   late int dgDias = (p?['dg_dias'] as num?)?.toInt() ?? 30;
   late final List<_Etapa> etapas = p == null
       ? _doModelo(protocolosIatf.keys.first)
-      : [for (final e in etapasDe(p!)) _Etapa((e['dia'] as num?)?.toInt() ?? 0, txt(e['nome']), e['hora'] as String?)];
+      : [
+          for (final e in etapasDe(p!))
+            _Etapa((e['dia'] as num?)?.toInt() ?? 0, txt(e['nome']), e['hora'] as String?, produtosDaEtapa(e)),
+        ];
   late final List<Reg> vacas = [
     for (final id in (p?['femeas'] as List?) ?? const [])
       if (Db.registro('animais', id) case final a?) a,
@@ -407,6 +522,72 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
     }
   }
 
+  /// Escolhe os hormônios da etapa (do estoque de insumos) e a quantidade por vaca.
+  Future<void> _produtos(_Etapa e) async {
+    final lista = insumos();
+    if (lista.isEmpty) {
+      avisar(context, 'Cadastre os hormônios no Estoque de insumos (categoria Medicamento) para usar aqui.');
+      return;
+    }
+    final itens = [for (final x in e.produtos) Map<String, Object?>.from(x)];
+    final qtds = [for (final x in itens) TextEditingController(text: num1((x['qtd'] as num?) ?? 1))];
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, set) => AlertDialog(
+          title: Text('Hormônios do D${e.d}'),
+          content: SizedBox(
+            width: 420,
+            child: ListView(shrinkWrap: true, children: [
+              for (var i = 0; i < itens.length; i++)
+                Row(children: [
+                  Expanded(
+                    flex: 3,
+                    child: escolhaId('Produto', itens[i]['insumo_id'] as int?, lista, (v) => set(() => itens[i]['insumo_id'] = v)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: campoTexto(qtds[i], 'Por vaca', numero: true)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => set(() {
+                      itens.removeAt(i);
+                      qtds.removeAt(i);
+                    }),
+                  ),
+                ]),
+              TextButton.icon(
+                onPressed: () => set(() {
+                  itens.add({'insumo_id': null, 'qtd': 1});
+                  qtds.add(TextEditingController(text: '1'));
+                }),
+                icon: const Icon(Icons.add),
+                label: const Text('Adicionar produto'),
+              ),
+              Text('Preço vem do cadastro do insumo (${lista.where((i) => precoKgInsumo(i) != null).length} com preço).',
+                  style: const TextStyle(color: Colors.black54)),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('OK')),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      setState(() => e.produtos
+        ..clear()
+        ..addAll([
+          for (var i = 0; i < itens.length; i++)
+            if (itens[i]['insumo_id'] != null && (lerNumero(qtds[i].text) ?? 0) > 0)
+              {'insumo_id': itens[i]['insumo_id'], 'qtd': lerNumero(qtds[i].text)},
+        ]));
+    }
+    for (final q in qtds) {
+      q.dispose();
+    }
+  }
+
   Future<void> _adicionar(String codigo) async {
     final a = await Db.buscarPorCodigo(codigo);
     if (!mounted) return;
@@ -449,7 +630,13 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
       nome: nome.text.trim().isEmpty ? 'IATF' : nome.text.trim(),
       inicio: inicio,
       etapas: [
-        for (final e in lista) {'dia': e.d, 'nome': e.nome.text.trim(), if (e.hora != null) 'hora': e.hora},
+        for (final e in lista)
+          {
+            'dia': e.d,
+            'nome': e.nome.text.trim(),
+            if (e.hora != null) 'hora': e.hora,
+            if (e.produtos.isNotEmpty) 'produtos': e.produtos,
+          },
       ],
       femeas: [for (final v in vacas) v['id'] as int],
       extras: {'dg_dias': dgDias, 'veterinario': nulo(veterinario.text)},
@@ -503,6 +690,15 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
               TextButton(
                 onPressed: () => _hora(e),
                 child: Text(e.hora ?? 'Hora'),
+              ),
+              IconButton(
+                tooltip: 'Hormônios do estoque',
+                icon: Badge(
+                  isLabelVisible: e.produtos.isNotEmpty,
+                  label: Text('${e.produtos.length}'),
+                  child: const Icon(Icons.science_outlined),
+                ),
+                onPressed: () => _produtos(e),
               ),
               IconButton(
                 tooltip: 'Tirar etapa',

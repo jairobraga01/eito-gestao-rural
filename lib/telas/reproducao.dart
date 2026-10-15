@@ -4,9 +4,13 @@ import '../dados/db.dart';
 import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
+import 'concepcao.dart';
+import 'estacao_monta.dart';
 import 'modo_inseminacao.dart';
+import 'protocolos.dart';
 import 'ranking_matrizes.dart';
 import 'semens.dart';
+import 'vacas_problema.dart';
 
 const tiposServico = ['IATF', 'IA', 'Monta natural', 'TE (embrião)'];
 
@@ -89,6 +93,19 @@ class _ReproducaoPageState extends State<ReproducaoPage> {
             tooltip: 'Modo Inseminação',
             icon: const Icon(Icons.favorite_border),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ModoInseminacao())),
+          ),
+          PopupMenuButton<Widget Function()>(
+            tooltip: 'Mais',
+            onSelected: (abrir) => Navigator.push(context, MaterialPageRoute(builder: (_) => abrir())),
+            itemBuilder: (_) => [
+              for (final (titulo, icone, abrir) in <(String, IconData, Widget Function())>[
+                ('Estação de monta e partos previstos', Icons.date_range, () => const EstacoesPage()),
+                ('Protocolos de IATF', Icons.event_note, () => const ProtocolosPage()),
+                ('Concepção por fator', Icons.insights, () => const ConcepcaoPage()),
+                ('Vacas problema', Icons.warning_amber, () => const VacasProblemaPage()),
+              ])
+                PopupMenuItem(value: abrir, child: ListTile(leading: Icon(icone), title: Text(titulo))),
+            ],
           ),
         ],
         corpo: Column(

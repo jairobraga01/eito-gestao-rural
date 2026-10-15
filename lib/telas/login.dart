@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -17,6 +18,7 @@ class TelaLogin extends StatefulWidget {
 class _TelaLoginState extends State<TelaLogin> {
   final _email = TextEditingController();
   final _senha = TextEditingController();
+  final _indicacao = TextEditingController();
   bool _criando = false;
   bool _ocupado = false;
   bool _verSenha = false;
@@ -26,6 +28,7 @@ class _TelaLoginState extends State<TelaLogin> {
   void dispose() {
     _email.dispose();
     _senha.dispose();
+    _indicacao.dispose();
     super.dispose();
   }
 
@@ -44,6 +47,7 @@ class _TelaLoginState extends State<TelaLogin> {
       if (_criando) {
         final cred = await auth.createUserWithEmailAndPassword(email: email, password: senha);
         await cred.user?.sendEmailVerification();
+        await _guardarIndicacao(cred.user);
       } else {
         // Peão entra só com o usuário (sem @).
         await auth.signInWithEmailAndPassword(email: emailDoLogin(email), password: senha);
@@ -52,6 +56,23 @@ class _TelaLoginState extends State<TelaLogin> {
       setState(() => _erro = _mensagem(e));
     } finally {
       if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  /// Guarda o código de indicação em usuarios/{uid} para filtrar as adesões
+  /// no console do Firebase (campo "indicacao").
+  Future<void> _guardarIndicacao(User? user) async {
+    final codigo = codigoIndicacao(_indicacao.text);
+    if (user == null || codigo.isEmpty) return;
+    try {
+      await FirebaseFirestore.instance.collection('usuarios').doc(user.uid).set({
+        'indicacao': codigo,
+        'email': user.email,
+        'criadoEm': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      // A conta já foi criada; sem o código ela continua valendo.
+      debugPrint('Eito: não deu para guardar a indicação: $e');
     }
   }
 
@@ -170,6 +191,21 @@ class _TelaLoginState extends State<TelaLogin> {
                           ),
                         ),
                       ),
+                      if (_criando) ...[
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: _indicacao,
+                          textInputAction: TextInputAction.done,
+                          autocorrect: false,
+                          onSubmitted: (_) => _enviar(),
+                          style: const TextStyle(fontSize: 20),
+                          decoration: const InputDecoration(
+                            labelText: 'Código de indicação (opcional)',
+                            hintText: 'Ex.: pequeno',
+                            prefixIcon: Icon(Icons.card_giftcard_outlined),
+                          ),
+                        ),
+                      ],
                       if (_erro != null) ...[
                         const SizedBox(height: 12),
                         Text(_erro!, style: const TextStyle(color: Cores.alerta, fontSize: 16, fontWeight: FontWeight.w600)),
@@ -208,33 +244,82 @@ class _TelaLoginState extends State<TelaLogin> {
   }
 }
 
-/// Logomarca com as frases, num cartão claro igual ao fundo da imagem.
+/// Promoção, logomarca e frases, em cartões claros como o fundo da imagem.
 class _Marca extends StatelessWidget {
   const _Marca();
 
   @override
   Widget build(BuildContext context) {
     const frase = TextStyle(color: Cores.tinta, fontSize: 17, height: 1.35);
+    return Column(children: [
+      const _Promocao(),
+      const SizedBox(height: 16),
+      Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+        decoration: BoxDecoration(color: const Color(0xFFFAFBFA), borderRadius: BorderRadius.circular(20)),
+        child: Column(children: [
+          Image.asset('assets/logo/eito_logomarca.png', width: 230, semanticLabel: Marca.nome),
+          const SizedBox(height: 14),
+          Container(width: 56, height: 3, decoration: BoxDecoration(color: Cores.laranja, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 14),
+          const Text(Marca.slogan,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Cores.olivaEscuro, fontSize: 20, height: 1.3, fontWeight: FontWeight.w700)),
+          for (final t in Marca.apresentacao) ...[
+            const SizedBox(height: 12),
+            Text(t, textAlign: TextAlign.center, style: frase),
+          ],
+          const SizedBox(height: 14),
+          const Text(Marca.fechamento,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Cores.olivaEscuro, fontSize: 18, fontWeight: FontWeight.w800)),
+        ]),
+      ),
+    ]);
+  }
+}
+
+/// Faixa da promoção de assinatura, no topo da tela de login.
+class _Promocao extends StatelessWidget {
+  const _Promocao();
+
+  @override
+  Widget build(BuildContext context) {
+    Widget preco(String valor, String periodo) => Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+            child: Column(children: [
+              Text('R\$ $valor',
+                  style: const TextStyle(color: Cores.olivaEscuro, fontSize: 24, fontWeight: FontWeight.w900)),
+              Text(periodo, style: const TextStyle(color: Cores.tinta, fontSize: 16, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        );
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-      decoration: BoxDecoration(color: const Color(0xFFFAFBFA), borderRadius: BorderRadius.circular(20)),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Cores.laranja, borderRadius: BorderRadius.circular(20)),
       child: Column(children: [
-        Image.asset('assets/logo/eito_logomarca.png', width: 230, semanticLabel: Marca.nome),
-        const SizedBox(height: 14),
-        Container(width: 56, height: 3, decoration: BoxDecoration(color: Cores.laranja, borderRadius: BorderRadius.circular(2))),
-        const SizedBox(height: 14),
-        const Text(Marca.slogan,
+        const Text('ASSINE HOJE',
+            style: TextStyle(color: Cores.olivaEscuro, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
+        const SizedBox(height: 10),
+        Row(children: [
+          preco('9,90', 'mensal'),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 10),
+            child: Text('ou', style: TextStyle(color: Cores.olivaEscuro, fontSize: 17, fontWeight: FontWeight.w700)),
+          ),
+          preco('99,90', 'anual'),
+        ]),
+        const SizedBox(height: 10),
+        const Text('Promoção por tempo limitado.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Cores.olivaEscuro, fontSize: 20, height: 1.3, fontWeight: FontWeight.w700)),
-        for (final t in Marca.apresentacao) ...[
-          const SizedBox(height: 12),
-          Text(t, textAlign: TextAlign.center, style: frase),
-        ],
-        const SizedBox(height: 14),
-        const Text(Marca.fechamento,
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Cores.olivaEscuro, fontSize: 18, fontWeight: FontWeight.w800)),
+            style: TextStyle(color: Cores.olivaEscuro, fontSize: 16, fontWeight: FontWeight.w700)),
       ]),
     );
   }
 }
+
+/// Código de indicação sem espaços e em minúsculas: " Carol Nutroeste " vira "carolnutroeste".
+String codigoIndicacao(String digitado) => digitado.replaceAll(RegExp(r'\s+'), '').toLowerCase();

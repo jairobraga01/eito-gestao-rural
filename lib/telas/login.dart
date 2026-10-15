@@ -171,7 +171,7 @@ class _TelaLoginState extends State<TelaLogin> {
                       ],
                       const SizedBox(height: 20),
                       FilledButton(
-                        style: FilledButton.styleFrom(backgroundColor: Cores.laranja),
+                        style: FilledButton.styleFrom(backgroundColor: Cores.laranja, foregroundColor: Cores.azul),
                         onPressed: _ocupado ? null : _enviar,
                         child: _ocupado
                             ? const SizedBox(

@@ -220,7 +220,7 @@ class _ManejoEmSerieState extends State<ManejoEmSerie> {
               style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
           const SizedBox(height: 18),
           FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: Cores.laranja, minimumSize: const Size.fromHeight(68)),
+            style: FilledButton.styleFrom(backgroundColor: Cores.laranja, foregroundColor: Cores.azul, minimumSize: const Size.fromHeight(68)),
             onPressed: _digitarBrinco,
             icon: const Icon(Icons.dialpad, size: 30),
             label: const Text('DIGITAR Nº DO BRINCO'),
@@ -273,7 +273,7 @@ class _ManejoEmSerieState extends State<ManejoEmSerie> {
         ValueListenableBuilder<String>(
           valueListenable: _peso,
           builder: (context, v, _) => FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: Cores.laranja, minimumSize: const Size.fromHeight(80)),
+            style: FilledButton.styleFrom(backgroundColor: Cores.laranja, foregroundColor: Cores.azul, minimumSize: const Size.fromHeight(80)),
             onPressed: v.isEmpty ? null : _confirmarPeso,
             icon: const Icon(Icons.check, size: 36),
             label: const Text('CONFIRMAR PESO'),

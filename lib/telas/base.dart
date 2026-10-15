@@ -61,6 +61,15 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23;
 
+/// Menu lateral agrupado por tópico (índices de [itensMenu]).
+const gruposMenu = <(String, IconData, List<int>)>[
+  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secLeite, secEntradas, secVendas]),
+  ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa, secChuva]),
+  ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
+  ('Financeiro', Icons.attach_money, [secCustos, secContas, secDividas, secCotacao, secVender]),
+  ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secBackup]),
+];
+
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).
 void abrirModoCurral(BuildContext context) =>
     Navigator.push(context, MaterialPageRoute(builder: (_) => const ModoCurral()));
@@ -186,11 +195,25 @@ class MenuLateral extends StatelessWidget {
                 ),
               ),
             ),
-            for (var i = 1; i < itensMenu.length; i++)
-              item(itensMenu[i].$2, itensMenu[i].$1, () {
-                fechar();
-                Nav.ir(i);
-              }, atual: i == atual),
+            for (final (titulo, icone, itens) in gruposMenu)
+              Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  key: PageStorageKey('menu_$titulo'),
+                  leading: Icon(icone, color: itens.contains(atual) ? Cores.laranja : Cores.oliva),
+                  title: Text(titulo,
+                      style: const TextStyle(fontSize: 16, color: Cores.tinta, fontWeight: FontWeight.w800)),
+                  initiallyExpanded: itens.contains(atual),
+                  childrenPadding: const EdgeInsets.only(left: 12),
+                  children: [
+                    for (final i in itens)
+                      item(itensMenu[i].$2, itensMenu[i].$1, () {
+                        fechar();
+                        Nav.ir(i);
+                      }, atual: i == atual),
+                  ],
+                ),
+              ),
             const Divider(),
             item(Icons.bluetooth, 'Bastão e balança', () {
               fechar();

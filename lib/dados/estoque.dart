@@ -123,16 +123,42 @@ String _fmt(double v) => v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1
 int cabecasDoLote(int? loteId) =>
     Db.registros('animais').where((a) => a['status'] == 'Ativo' && _int(a['lote_id']) == loteId).length;
 
+/// Animais ativos no piquete/pasto.
+List<Reg> animaisDoPiquete(int? piqueteId) => [
+      for (final a in Db.registros('animais'))
+        if (a['status'] == 'Ativo' && piqueteId != null && _int(a['piquete_id']) == piqueteId) a,
+    ];
+
+/// Dieta do cocho de um piquete/pasto. Dietas antigas, feitas por lote,
+/// continuam valendo pelo lote até serem passadas para um piquete.
 class Dieta {
   Dieta(this.reg)
-      : lote = Db.registro('lotes', reg['lote_id']),
+      : piquete = Db.registro('piquetes', reg['piquete_id']),
+        lote = reg['piquete_id'] == null ? Db.registro('lotes', reg['lote_id']) : null,
         formula = Db.registro('formulas', reg['formula_id']),
         insumo = Db.registro('insumos', reg['insumo_id']);
   final Reg reg;
-  final Reg? lote, formula, insumo;
+  final Reg? piquete, lote, formula, insumo;
 
   String get nome => formula != null ? 'Proteinado ${formula!['nome']}' : _t(insumo?['nome']);
-  int get cabecas => cabecasDoLote(_int(reg['lote_id']));
+
+  /// Onde fica o cocho: o piquete/pasto (ou o lote, nas dietas antigas).
+  String get local => piquete != null
+      ? _t(piquete!['nome'])
+      : lote != null
+          ? 'Lote ${_t(lote!['nome'])}'
+          : 'Sem piquete';
+
+  int get cabecas =>
+      reg['piquete_id'] != null ? animaisDoPiquete(_int(reg['piquete_id'])).length : cabecasDoLote(_int(reg['lote_id']));
+
+  /// Lote que leva o custo do trato: o das dietas antigas ou, no piquete, o lote
+  /// de todos os animais que estão nele (se forem de lotes diferentes, nenhum).
+  int? get loteDoCusto {
+    if (reg['piquete_id'] == null) return _int(reg['lote_id']);
+    final lotes = {for (final a in animaisDoPiquete(_int(reg['piquete_id']))) _int(a['lote_id'])};
+    return lotes.length == 1 ? lotes.first : null;
+  }
 
   /// Kg por cabeça por dia.
   double get kgCabDia => _n(reg['kg_cab_dia']);
@@ -175,23 +201,23 @@ class Dieta {
 List<Dieta> dietas() => [
       for (final d in Db.registros('dietas'))
         if (_int(d['propriedade_id']) == Db.pid) Dieta(d),
-    ]..sort((a, b) => _t(a.lote?['nome']).compareTo(_t(b.lote?['nome'])));
+    ]..sort((a, b) => a.local.toLowerCase().compareTo(b.local.toLowerCase()));
 
-/// Lança o trato de [dias] dias: custo em Ração e sal para o lote e baixa no estoque.
+/// Lança o trato de [dias] dias: custo em Ração e sal e baixa no estoque.
 Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) async {
   final kg = d.kgDia * dias;
   if (kg <= 0) return null;
-  final texto = 'Trato ${d.nome} · ${_fmt(kg)} kg em $dias dia(s) (${d.cabecas} cab.)';
+  final texto = 'Trato ${d.nome} · ${d.local} · ${_fmt(kg)} kg em $dias dia(s) (${d.cabecas} cab.)';
   if (d.formula != null) {
     final c = CalculoFormula(d.formula!);
     if (c.kgBatida <= 0) return null;
-    return registrarBatida(d.formula!, data: data, batidas: kg / c.kgBatida, loteId: _int(d.reg['lote_id']), descricao: texto);
+    return registrarBatida(d.formula!, data: data, batidas: kg / c.kgBatida, loteId: d.loteDoCusto, descricao: texto);
   }
   final ins = d.insumo;
   if (ins == null) return null;
   final id = await Db.inserir('custos', {
     'propriedade_id': Db.pid,
-    'lote_id': d.reg['lote_id'],
+    'lote_id': d.loteDoCusto,
     'categoria': 'Ração e sal',
     'descricao': texto,
     'valor': double.parse((kg * (precoKgInsumo(ins) ?? 0)).toStringAsFixed(2)),
@@ -255,9 +281,29 @@ List<VendaLote> venderOuEsperar({
   final (rend, arrobaSalva) = ajustesArroba();
   final preco = arroba ?? arrobaSalva;
   if (preco == null || preco <= 0) return [];
+  // Custo diário de cocho por cabeça em cada lote: dietas antigas pelo lote;
+  // dietas de piquete pela média dos animais do lote que estão nesses piquetes.
   final custoDieta = <int?, double>{};
+  final porPiquete = <int, double>{};
   for (final d in dietas()) {
-    custoDieta[_int(d.reg['lote_id'])] = (custoDieta[_int(d.reg['lote_id'])] ?? 0) + d.custoCabDia;
+    final q = _int(d.reg['piquete_id']);
+    if (q == null) {
+      custoDieta[_int(d.reg['lote_id'])] = (custoDieta[_int(d.reg['lote_id'])] ?? 0) + d.custoCabDia;
+    } else {
+      porPiquete[q] = (porPiquete[q] ?? 0) + d.custoCabDia;
+    }
+  }
+  if (porPiquete.isNotEmpty) {
+    final soma = <int?, double>{}, cab = <int?, int>{};
+    for (final a in Db.registros('animais')) {
+      if (a['status'] != 'Ativo' || _int(a['propriedade_id']) != Db.pid) continue;
+      final l = _int(a['lote_id']);
+      cab[l] = (cab[l] ?? 0) + 1;
+      soma[l] = (soma[l] ?? 0) + (porPiquete[_int(a['piquete_id'])] ?? 0);
+    }
+    for (final e in soma.entries) {
+      custoDieta[e.key] = (custoDieta[e.key] ?? 0) + e.value / cab[e.key]!;
+    }
   }
   final lotesPorNome = {for (final l in Db.registros('lotes')) if (_int(l['propriedade_id']) == Db.pid) _t(l['nome']): _int(l['id'])};
   final r = <VendaLote>[];

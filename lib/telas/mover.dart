@@ -129,7 +129,7 @@ class _MoverAnimaisPageState extends State<MoverAnimaisPage> {
           _destino('Lote', lote, lotes, (v) => setState(() => lote = v),
               podeManter: mesmaPropriedade, nenhum: 'Sem lote'),
           gap,
-          _destino('Piquete', piquete, piquetes, (v) => setState(() => piquete = v),
+          _destino('Piquete/Pasto', piquete, piquetes, (v) => setState(() => piquete = v),
               podeManter: mesmaPropriedade, nenhum: 'Fora de piquete'),
           gap,
           DateField(label: 'Data da mudança', value: data, obrigatorio: true,

@@ -29,7 +29,7 @@ class PiquetesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Pagina(
-      titulo: 'Piquetes',
+      titulo: 'Piquete/Pasto',
       fab: FloatingActionButton(
         heroTag: null,
         tooltip: 'Adicionar piquete',
@@ -144,7 +144,7 @@ class _PiqueteFormPageState extends State<PiqueteFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(p == null ? 'ADICIONAR PIQUETE' : 'EDITAR PIQUETE')),
+      appBar: AppBar(title: Text(p == null ? 'ADICIONAR PIQUETE/PASTO' : 'EDITAR PIQUETE/PASTO')),
       bottomNavigationBar: BotaoSalvar(onPressed: salvar),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -448,9 +448,9 @@ class _PastagemFormPageState extends State<PastagemFormPage> {
           if (piquetes.isEmpty)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
-              child: Text('Cadastre um piquete primeiro (menu > Piquetes).'),
+              child: Text('Cadastre um piquete primeiro (menu > Piquete/Pasto).'),
             ),
-          escolhaId('Piquete *', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Escolha'),
+          escolhaId('Piquete/Pasto *', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Escolha'),
           gap,
           escolha('Tipo de manejo', tipo, tiposPastagem, (v) => setState(() => tipo = v)),
           gap,

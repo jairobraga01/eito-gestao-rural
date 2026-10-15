@@ -146,7 +146,7 @@ class _InicioPageState extends State<InicioPage> {
                   _Botao('Lote', Icons.workspaces_outline, () => Nav.ir(secLotes)),
                   _Botao('Reprodução', Icons.favorite_border, () => Nav.ir(secReproducao)),
                   _Botao('Sanidade', Icons.vaccines_outlined, () => Nav.ir(secSanidade)),
-                  _Botao('Piquete', Icons.fence, () => Nav.ir(secPiquetes)),
+                  _Botao('Piquete/Pasto', Icons.fence, () => Nav.ir(secPiquetes)),
                   _Botao('Pastagem', Icons.grass, () => Nav.ir(secPastagem)),
                 ],
               ),

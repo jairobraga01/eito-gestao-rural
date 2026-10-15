@@ -1,4 +1,5 @@
 // Dados do Eito no Firestore, em usuarios/{uid}/{tabela}/{id}.
+// Quem entra pela equipe (gerente ou peão) usa os dados do dono: usuarios/{dono}.
 //
 // Como funciona:
 // - Ao entrar, o app "escuta" todas as tabelas do usuário. O Firestore guarda
@@ -118,6 +119,7 @@ class _Mudancas {
 
   void gravar(String tabela, Reg v) {
     final id = '${v['id']}';
+    v = Db._carimbar(tabela, Db._dados[tabela]?[id], v);
     Db._dados[tabela]?[id] = Map.of(v);
     _ops.add((tabela, id, Map.of(v), false));
   }
@@ -125,6 +127,7 @@ class _Mudancas {
   void mesclar(String tabela, Object id, Reg v) {
     final atual = Db._dados[tabela]?['$id'];
     if (atual == null) return; // registro já não existe
+    v = Db._carimbar(tabela, atual, v, mesclando: true);
     Db._dados[tabela]!['$id'] = {...atual, ...v};
     _ops.add((tabela, '$id', Map.of(v), true));
   }
@@ -189,6 +192,7 @@ class Db {
     'cotacoes',
     'estoque',
     'dietas',
+    'tarefas',
     'animais',
     'reproducoes',
     'sanidade',
@@ -198,7 +202,40 @@ class Db {
     'config',
   ];
 
+  /// Dono dos dados abertos (o próprio usuário ou quem o pôs na equipe).
   static String? _uid;
+
+  /// Papel de quem está usando: 'dono', 'gerente' ou 'peao'.
+  static final papel = ValueNotifier<String>('dono');
+  static bool get ehDono => papel.value == 'dono';
+  static bool get ehPeao => papel.value == 'peao';
+
+  /// Quem está lançando. Vai gravado em cada registro (quem lançou o quê).
+  static ({String uid, String nome})? autor;
+
+  /// Tabelas que o peão não lê (financeiro). As regras do Firestore bloqueiam.
+  static const tabelasSemPeao = {'contas', 'dividas', 'custos'};
+
+  /// Marca quem lançou (registro novo) ou quem alterou (registro existente).
+  static Reg _carimbar(String tabela, Reg? atual, Reg v, {bool mesclando = false}) {
+    final a = autor;
+    if (a == null || tabela == 'config') return v;
+    final agora = DateTime.now().toIso8601String();
+    if (atual == null && !mesclando) {
+      return {...v, 'criado_por': a.uid, 'criado_nome': a.nome, 'criado_em': agora};
+    }
+    return {
+      ...v,
+      if (!mesclando && atual?['criado_por'] != null) ...{
+        'criado_por': atual!['criado_por'],
+        'criado_nome': atual['criado_nome'],
+        'criado_em': atual['criado_em'],
+      },
+      'alterado_por': a.uid,
+      'alterado_nome': a.nome,
+      'alterado_em': agora,
+    };
+  }
   static final List<StreamSubscription<QuerySnapshot<Map<String, dynamic>>>> _subs = [];
   static final Map<String, Map<String, Reg>> _dados = {};
   static final Map<String, int> _pendentesPorTabela = {};
@@ -229,6 +266,9 @@ class Db {
   static FirebaseFirestore? bancoTeste;
   static FirebaseFirestore get _banco => bancoTeste ?? FirebaseFirestore.instance;
 
+  /// Firestore em uso (o falso nos testes). Para o que fica fora das tabelas, como a equipe.
+  static FirebaseFirestore get banco => _banco;
+
   static CollectionReference<Map<String, dynamic>> _col(String t) =>
       _banco.collection('usuarios').doc(_uid).collection(t);
 
@@ -249,12 +289,16 @@ class Db {
   // ---------- Início e fim da sessão ----------
 
   /// Liga a escuta das tabelas do usuário e carrega a propriedade selecionada.
-  static Future<void> iniciar(String uid) async {
+  /// [dono] e [papel] vêm da equipe; [nome] marca os lançamentos.
+  static Future<void> iniciar(String uid, {String? dono, String papel = 'dono', String? nome}) async {
     await encerrar();
-    _uid = uid;
+    _uid = dono ?? uid;
+    Db.papel.value = papel;
+    if (nome != null) autor = (uid: uid, nome: nome);
     final prontos = <Future<void>>[];
     for (final t in tabelas) {
       _dados[t] = {};
+      if (ehPeao && tabelasSemPeao.contains(t)) continue;
       final pronto = Completer<void>();
       _subs.add(_col(t).snapshots(includeMetadataChanges: true).listen(
         (s) {
@@ -287,6 +331,8 @@ class Db {
     pendentes.value = 0;
     prop.value = null;
     _uid = null;
+    papel.value = 'dono';
+    autor = null;
   }
 
   static void _receber(String t, QuerySnapshot<Map<String, dynamic>> s) {
@@ -330,6 +376,7 @@ class Db {
   static Future<void> _carregarPropriedade() async {
     var props = _todos('propriedades');
     if (props.isEmpty) {
+      if (!ehDono) return; // a equipe não cria propriedade no lugar do dono
       await inserir('propriedades', {'nome': 'Minha propriedade'});
       props = _todos('propriedades');
     }
@@ -342,6 +389,7 @@ class Db {
     final r = _reg('propriedades', id);
     if (r == null) return;
     prop.value = Map.of(r);
+    if (!ehDono) return; // a escolha do dono fica guardada só para ele
     final m = _Mudancas();
     if (_reg('config', 'app') == null) {
       _dados['config']?['app'] = {'propriedade': id};
@@ -417,7 +465,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas']) {
+        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
@@ -460,6 +508,9 @@ class Db {
         }
         for (final c in _todos('contagens').where((x) => _int(x['piquete_id']) == id)) {
           m.apagar('contagens', c['id']!);
+        }
+        for (final d in _todos('dietas').where((x) => _int(x['piquete_id']) == id)) {
+          m.apagar('dietas', d['id']!);
         }
         for (final o in _todos('ocorrencias').where((x) => _int(x['piquete_id']) == id)) {
           m.mesclar('ocorrencias', o['id']!, {'piquete_id': null});

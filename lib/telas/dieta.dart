@@ -9,7 +9,7 @@ import 'base.dart';
 
 String _q(double v, [int casas = 1]) => numeroBr(v, casas: v % 1 == 0 ? 0 : casas);
 
-/// Dieta do cocho: o que cada lote come por dia, custo e consumo previsto do mês.
+/// Dieta do cocho: o que se põe no cocho de cada piquete/pasto por dia, custo e consumo previsto do mês.
 class DietaPage extends StatelessWidget {
   const DietaPage({super.key});
 
@@ -27,12 +27,12 @@ class DietaPage extends StatelessWidget {
         carregar: () async => dietas(),
         builder: (context, ds) {
           if (ds.isEmpty) {
-            return const Vazio('Nenhuma dieta. Diga o que cada lote come no cocho (proteinado, sal, ração) e quanto por cabeça.',
+            return const Vazio('Nenhuma dieta. Diga o que vai no cocho de cada piquete/pasto (proteinado, sal, ração) e quanto por cabeça.',
                 icone: Icons.restaurant_outlined);
           }
-          final porLote = <String, List<Dieta>>{};
+          final porLocal = <String, List<Dieta>>{};
           for (final d in ds) {
-            porLote.putIfAbsent(txt(d.lote?['nome']).isEmpty ? 'Sem lote' : txt(d.lote!['nome']), () => []).add(d);
+            porLocal.putIfAbsent(d.local, () => []).add(d);
           }
           final kgMes = ds.fold<double>(0, (s, d) => s + d.kgMes);
           final custoMes = ds.fold<double>(0, (s, d) => s + d.custoMes);
@@ -47,13 +47,13 @@ class DietaPage extends StatelessWidget {
                 ]),
               ),
             ),
-            for (final e in porLote.entries) ...[
+            for (final e in porLocal.entries) ...[
               Secao('${e.key} · ${e.value.first.cabecas} cab.'),
               for (final d in e.value) _DietaCard(d),
             ],
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Text('Mês = 30 dias com as cabeças de hoje. "Lançar trato" põe o custo no lote e tira do estoque.'),
+              child: Text('Mês = 30 dias com as cabeças de hoje. "Lançar trato" põe o custo em Custos (no lote, quando o gado do piquete é todo de um lote) e tira do estoque.'),
             ),
           ]);
         },
@@ -114,6 +114,9 @@ class _DietaCard extends StatelessWidget {
             Text('Por dia: ${kg(d.kgDia)} · ${moeda(d.custoDia)} (${moeda(d.custoCabDia)} por cabeça)'),
             Text('No mês: ${kg(d.kgMes)} · ${moeda(d.custoMes)}'
                 '${d.batidasMes == null ? '' : ' · ${_q(d.batidasMes!)} batida(s)'}'),
+            if (d.lote != null)
+              const Text('Dieta antiga, feita por lote: toque para passar para um piquete/pasto.',
+                  style: TextStyle(color: Cores.alerta)),
             if (d.precoKg == null) const Text('Sem preço: informe o preço do insumo.', style: TextStyle(color: Cores.alerta)),
             if (estoque != null)
               Text('Estoque dá para ${estoque.floor().clamp(0, 99999)} dia(s)',
@@ -139,18 +142,18 @@ class DietaFormPage extends StatefulWidget {
 
 class _DietaFormPageState extends State<DietaFormPage> {
   Reg? get d => widget.dieta;
-  late int? lote = d?['lote_id'] as int?;
+  late int? piquete = d?['piquete_id'] as int?;
   late String origem = d?['insumo_id'] != null ? 'Insumo' : 'Proteinado';
   late int? formula = d?['formula_id'] as int?;
   late int? insumo = d?['insumo_id'] as int?;
   late final gramas = TextEditingController(
       text: d?['kg_cab_dia'] is num ? numeroBr((d!['kg_cab_dia'] as num) * 1000, casas: 0) : '');
-  List<Reg> lotes = [];
+  List<Reg> piquetes = [];
 
   @override
   void initState() {
     super.initState();
-    Db.lotes(soAtivos: true).then((l) => mounted ? setState(() => lotes = l) : null);
+    Db.piquetes().then((l) => mounted ? setState(() => piquetes = l) : null);
   }
 
   @override
@@ -162,11 +165,12 @@ class _DietaFormPageState extends State<DietaFormPage> {
   Future<void> _salvar() async {
     final g = lerNumero(gramas.text);
     final item = origem == 'Proteinado' ? formula : insumo;
-    if (lote == null || item == null || g == null || g <= 0) {
-      return avisar(context, 'Escolha o lote, o que vai no cocho e quanto por cabeça.');
+    if (piquete == null || item == null || g == null || g <= 0) {
+      return avisar(context, 'Escolha o piquete/pasto, o que vai no cocho e quanto por cabeça.');
     }
     final dados = {
-      'lote_id': lote,
+      'piquete_id': piquete,
+      'lote_id': null,
       'formula_id': origem == 'Proteinado' ? formula : null,
       'insumo_id': origem == 'Insumo' ? insumo : null,
       'kg_cab_dia': g / 1000,
@@ -193,7 +197,7 @@ class _DietaFormPageState extends State<DietaFormPage> {
         actions: [if (d != null) IconButton(tooltip: 'Excluir', icon: const Icon(Icons.delete_outline), onPressed: _excluir)],
       ),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        escolhaId('Lote', lote, lotes, (v) => setState(() => lote = v), vazio: '—'),
+        escolhaId('Piquete/Pasto', piquete, piquetes, (v) => setState(() => piquete = v), vazio: '—'),
         gap,
         SegmentedButton<String>(
           segments: const [
@@ -214,10 +218,10 @@ class _DietaFormPageState extends State<DietaFormPage> {
           escolhaId('Insumo (sal, ração...)', insumo, insumos(), (v) => setState(() => insumo = v), vazio: '—'),
         gap,
         campoTexto(gramas, 'Quanto por cabeça por dia', numero: true, sufixo: 'g'),
-        if (lote != null)
+        if (piquete != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text('${cabecasDoLote(lote)} cabeça(s) no lote hoje.'),
+            child: Text('${animaisDoPiquete(piquete).length} cabeça(s) no piquete/pasto hoje.'),
           ),
         const SizedBox(height: 16),
         BotaoSalvar(onPressed: _salvar),

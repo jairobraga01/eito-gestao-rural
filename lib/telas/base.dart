@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/equipe.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -11,6 +12,7 @@ import '../widgets/logo_eito.dart';
 import 'animais.dart';
 import 'conta.dart';
 import 'dispositivos.dart';
+import 'equipe.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
 import 'modo_inseminacao.dart';
@@ -36,7 +38,7 @@ const itensMenu = <(String, IconData)>[
   ('Reprodução', Icons.favorite_border),
   ('Sanidade e pesagens', Icons.vaccines_outlined),
   ('Produção leiteira', Icons.local_drink_outlined),
-  ('Piquetes', Icons.fence),
+  ('Piquete/Pasto', Icons.fence),
   ('Pastagem', Icons.grass),
   ('Mapa e ocorrências', Icons.map_outlined),
   ('Compras e entradas', Icons.arrow_circle_down_outlined),
@@ -53,13 +55,16 @@ const itensMenu = <(String, IconData)>[
   ('Relatórios', Icons.bar_chart),
   ('Exportações (contador, LCDPR, GTA)', Icons.ios_share),
   ('Backup', Icons.backup_outlined),
+  ('Tarefas', Icons.task_alt),
+  ('Quem lançou o quê', Icons.history),
 ];
 
 // Índices usados pelos atalhos.
 const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secReproducao = 4,
     secSanidade = 5, secLeite = 6, secPiquetes = 7, secPastagem = 8, secMapa = 9, secEntradas = 10, secVendas = 11,
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
-    secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23;
+    secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
+    secTarefas = 24, secHistorico = 25;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -67,8 +72,16 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa, secChuva]),
   ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
   ('Financeiro', Icons.attach_money, [secCustos, secContas, secDividas, secCotacao, secVender]),
-  ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secBackup]),
+  ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),
 ];
+
+/// Seções que o peão vê: o serviço de campo, sem financeiro nem cadastros da fazenda.
+const secoesPeao = {
+  secPainel, secRebanho, secReproducao, secSanidade, secLeite, secPiquetes, secPastagem, secMapa, secChuva, secTarefas,
+};
+
+/// Se quem está usando pode abrir a seção (o dono e o gerente veem tudo).
+bool podeVer(int secao) => !Db.ehPeao || secoesPeao.contains(secao);
 
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).
 void abrirModoCurral(BuildContext context) =>
@@ -150,6 +163,11 @@ class MenuLateral extends StatelessWidget {
                   ),
                   if (Nav.usuario?.email != null)
                     Text(Nav.usuario!.email!, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  if (Equipe.atual != null)
+                    Text(
+                        '${papeis[Equipe.atual!.papel] ?? ''} · fazenda de '
+                        '${Equipe.atual!.donoNome.isEmpty ? 'outra conta' : Equipe.atual!.donoNome}',
+                        style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 ],
               ),
             ),
@@ -195,7 +213,12 @@ class MenuLateral extends StatelessWidget {
                 ),
               ),
             ),
-            for (final (titulo, icone, itens) in gruposMenu)
+            item(itensMenu[secTarefas].$2, itensMenu[secTarefas].$1, () {
+              fechar();
+              Nav.ir(secTarefas);
+            }, atual: atual == secTarefas),
+            for (final (titulo, icone, todos) in gruposMenu)
+              if (todos.where(podeVer).toList() case final itens when itens.isNotEmpty)
               Theme(
                 data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
@@ -219,6 +242,11 @@ class MenuLateral extends StatelessWidget {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
             }),
+            if (Db.ehDono)
+              item(Icons.group_outlined, 'Equipe e permissões', () {
+                fechar();
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const EquipePage()));
+              }),
             item(Icons.manage_accounts_outlined, 'Minha conta', () {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaConta()));
@@ -294,12 +322,14 @@ Future<void> escolherPropriedade(BuildContext context) async {
               subtitle: Text('${p['qtd']} animal(is)${txt(p['uf']).isEmpty ? '' : ' · ${p['uf']}'}'),
               onTap: () => Navigator.pop(c, p['id']),
             ),
+          if (!Db.ehPeao) ...[
           const Divider(),
           ListTile(
             leading: const Icon(Icons.add),
             title: const Text('Adicionar propriedade'),
             onTap: () => Navigator.pop(c, 'nova'),
           ),
+          ],
         ],
       ),
     ),
@@ -387,7 +417,9 @@ class AcoesFab extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    for (final (i, it) in _itens.indexed)
+                    for (final (i, it) in _itens
+                        .where((it) => !Db.ehPeao || (it.$1 != 'Propriedade' && it.$1 != 'Lote'))
+                        .indexed)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12, right: 4),
                         child: InkWell(

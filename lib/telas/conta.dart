@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/equipe.dart';
 import '../tema.dart';
 import '../util/util.dart';
 
@@ -86,10 +87,27 @@ class _TelaContaState extends State<TelaConta> {
         if (digitado?.trim().toUpperCase() != 'EXCLUIR') return;
         if (!await _reautenticar()) return;
         final u = _usuario!;
+        if (Equipe.atual != null) await Equipe.sair(u.uid, u.email ?? '');
         await apagarDadosDoUsuario(u.uid);
         await Db.encerrar();
         await u.delete();
         // O login volta sozinho: main.dart escuta authStateChanges().
+        if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+      });
+
+  Future<void> _sairDaEquipe() => _executar(() async {
+        final a = Equipe.atual!;
+        final ok = await confirmar(
+          context,
+          'Sair da equipe?',
+          'Você deixa de ver os dados da fazenda de ${a.donoNome}. Para voltar, o dono precisa convidar de novo.',
+          ok: 'Sair da equipe',
+        );
+        if (!ok) return;
+        final u = _usuario!;
+        await Equipe.sair(u.uid, u.email ?? '');
+        await Db.encerrar();
+        await FirebaseAuth.instance.signOut();
         if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
       });
 
@@ -118,6 +136,8 @@ class _TelaContaState extends State<TelaConta> {
   @override
   Widget build(BuildContext context) {
     final email = _usuario?.email ?? '';
+    final peao = ehLoginDePeao(email);
+    final acesso = Equipe.atual;
     return Scaffold(
       appBar: AppBar(title: const Text('Minha conta')),
       body: AbsorbPointer(
@@ -129,12 +149,26 @@ class _TelaContaState extends State<TelaConta> {
             title: const Text('E-mail'),
             subtitle: Text(email, style: const TextStyle(fontSize: 16)),
           ),
+          if (acesso != null) ...[
+            ListTile(
+              leading: const Icon(Icons.group_outlined, color: Cores.oliva),
+              title: Text('${papeis[acesso.papel] ?? acesso.papel} na fazenda de '
+                  '${acesso.donoNome.isEmpty ? 'outra conta' : acesso.donoNome}'),
+              subtitle: Text(descricaoPapel[acesso.papel] ?? ''),
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_remove_outlined, color: Cores.alerta),
+              title: const Text('Sair da equipe'),
+              onTap: _sairDaEquipe,
+            ),
+          ],
           const Divider(),
           ListTile(
             leading: const Icon(Icons.lock_reset, color: Cores.oliva),
             title: const Text('Trocar a senha'),
             onTap: _trocarSenha,
           ),
+          if (!peao)
           ListTile(
             leading: const Icon(Icons.alternate_email, color: Cores.oliva),
             title: const Text('Trocar o e-mail'),
@@ -144,8 +178,8 @@ class _TelaContaState extends State<TelaConta> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Cores.alerta),
-            title: const Text('Excluir a conta e todos os dados',
-                style: TextStyle(color: Cores.alerta, fontWeight: FontWeight.w700)),
+            title: Text(acesso == null ? 'Excluir a conta e todos os dados' : 'Excluir a minha conta',
+                style: const TextStyle(color: Cores.alerta, fontWeight: FontWeight.w700)),
             subtitle: const Text('Não dá para desfazer. Precisa de internet.'),
             onTap: _excluirConta,
           ),
@@ -159,6 +193,7 @@ class _TelaContaState extends State<TelaConta> {
 Future<void> apagarDadosDoUsuario(String uid) async {
   final banco = FirebaseFirestore.instance;
   final raiz = banco.collection('usuarios').doc(uid);
+  await Equipe.apagarTudo(uid);
   for (final t in Db.tabelas) {
     final docs = (await raiz.collection(t).get(const GetOptions(source: Source.server))).docs;
     // Um lote do Firestore aceita no máximo 500 operações.

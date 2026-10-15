@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 
-/// Identidade visual do Eito.
-/// Verde oliva = raiz, terra, campo. Laranja = tecnologia, precisão.
-/// (Para trocar o laranja por azul elétrico, mude só [Cores.laranja],
-/// por exemplo para Color(0xFF1F6BFF), e o ícone em assets/logo.)
+/// Identidade visual do Eito: cores da bandeira do Brasil.
+/// Os nomes antigos foram mantidos para não mexer no app inteiro:
+/// [oliva] = verde da bandeira, [laranja] = amarelo (destaque),
+/// [azul] = azul da bandeira. Texto sobre o amarelo vai em azul.
 class Cores {
-  static const oliva = Color(0xFF3F4B1F);
-  static const olivaEscuro = Color(0xFF262E12);
-  static const olivaClaro = Color(0xFF6B7A3A);
-  static const laranja = Color(0xFFFF6A13);
-  static const palha = Color(0xFFF4F1E6); // fundo claro, legível no sol
-  static const tinta = Color(0xFF1B1F10);
+  static const oliva = Color(0xFF009C3B); // verde da bandeira
+  static const olivaEscuro = Color(0xFF00602A); // verde escuro (barras do topo)
+  static const olivaClaro = Color(0xFF1E8449);
+  static const laranja = Color(0xFFFFDF00); // amarelo da bandeira
+  static const azul = Color(0xFF002776); // azul da bandeira
+  static const palha = Color(0xFFF5F8F3); // fundo claro, legível no sol
+  static const tinta = Color(0xFF0B1F14);
   static const alerta = Color(0xFFB3261E);
   static const sucesso = Color(0xFF2E7D32);
 }
@@ -20,6 +21,7 @@ ThemeData temaEito() {
     seedColor: Cores.oliva,
     primary: Cores.oliva,
     secondary: Cores.laranja,
+    onSecondary: Cores.azul,
     surface: Cores.palha,
   );
   final base = ThemeData(useMaterial3: true, colorScheme: esquema);
@@ -43,12 +45,12 @@ ThemeData temaEito() {
     ),
     tabBarTheme: const TabBarThemeData(
       labelColor: Cores.oliva,
-      indicatorColor: Cores.laranja,
+      indicatorColor: Cores.oliva,
       labelStyle: TextStyle(fontWeight: FontWeight.w800),
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
       backgroundColor: Cores.laranja,
-      foregroundColor: Colors.white,
+      foregroundColor: Cores.azul,
     ),
     // Altura grande, mas largura mínima finita: com Size.fromHeight o botão
     // tenta ocupar largura infinita e quebra dentro de diálogos e linhas.

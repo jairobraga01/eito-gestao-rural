@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
+import '../dados/resumo_periodo.dart';
 import '../util/util.dart';
 import 'base.dart';
 
@@ -93,49 +94,26 @@ Map<String, int> _contagem(List<Reg> animais, String Function(Reg) chave) {
 
 // ---------- Relatório ----------
 
-class _Rel {
+/// Situação de hoje: rebanho, partos e sanidade próximos, carência e GMD.
+class _Atual {
   late int ativos;
   late Map<String, int> porCategoria, porLote, porSexo;
-  int servicos = 0, prenhes = 0, vazias = 0, pendentes = 0, paridas = 0;
   late List<Reg> partos;
   late List<Reg> proximas;
   late List<Reg> carencia;
   final gmds = <(Reg, double, int)>[];
-  late List<Reg> saidasAno;
-
-  double? get taxaPrenhez {
-    final diag = prenhes + vazias;
-    return diag == 0 ? null : prenhes / diag;
-  }
 
   double? get gmdMedio =>
       gmds.isEmpty ? null : gmds.map((g) => g.$2).reduce((a, b) => a + b) / gmds.length;
 }
 
-Future<_Rel> _carregar() async {
-  final r = _Rel();
-  final hoje = hojeIso();
+Future<_Atual> _carregarAtual() async {
+  final r = _Atual();
   final ativos = await Db.animais(soAtivos: true);
   r.porCategoria = _contagem(ativos, (a) => txt(a['categoria']).trim().isEmpty ? 'Sem categoria' : txt(a['categoria']).trim());
   r.porLote = _contagem(ativos, (a) => txt(a['lote_nome']).isEmpty ? 'Sem lote' : txt(a['lote_nome']));
   r.porSexo = _contagem(ativos, (a) => a['sexo'] == 'F' ? 'Fêmeas' : 'Machos');
   r.ativos = ativos.length;
-
-  // Reprodução: serviços dos últimos 12 meses.
-  final desde = somaDias(hoje, -365);
-  for (final x in await Db.reproducoes()) {
-    if (txt(x['data']).compareTo(desde) < 0) continue;
-    r.servicos++;
-    if (x['parto_data'] != null) r.paridas++;
-    switch (x['diagnostico']) {
-      case 'Prenhe':
-        r.prenhes++;
-      case 'Vazia':
-        r.vazias++;
-      default:
-        r.pendentes++;
-    }
-  }
   r.partos = await partosPrevistos(90);
   r.proximas = await aplicacoesProximas(30);
   r.carencia = await animaisEmCarencia();
@@ -159,124 +137,214 @@ Future<_Rel> _carregar() async {
     r.gmds.add((l.last, ganho / dias, dias));
   }
   r.gmds.sort((a, b) => b.$2.compareTo(a.$2));
-
-  // Saídas do ano, por tipo.
-  final inicioAno = '${DateTime.now().year}-01-01';
-  final porTipo = <String, Reg>{};
-  for (final s in await Db.saidas()) {
-    if (txt(s['data']).compareTo(inicioAno) < 0) continue;
-    final t = txt(s['tipo']);
-    final a = porTipo[t] ?? {'tipo': t, 'qtd': 0, 'valor': null, 'peso': null};
-    a['qtd'] = (a['qtd'] as int) + ((s['quantidade'] as num?)?.toInt() ?? 0);
-    if (s['valor_total'] is num) a['valor'] = ((a['valor'] as num?) ?? 0) + (s['valor_total'] as num);
-    if (s['peso_total'] is num) a['peso'] = ((a['peso'] as num?) ?? 0) + (s['peso_total'] as num);
-    porTipo[t] = a;
-  }
-  r.saidasAno = porTipo.values.toList()..sort((a, b) => (b['qtd'] as int).compareTo(a['qtd'] as int));
   return r;
 }
 
-class RelatoriosPage extends StatelessWidget {
+String _pct(double? v) => v == null ? '-' : '${(v * 100).toStringAsFixed(0)}%';
+
+class RelatoriosPage extends StatefulWidget {
   const RelatoriosPage({super.key});
+
+  @override
+  State<RelatoriosPage> createState() => _RelatoriosPageState();
+}
+
+class _RelatoriosPageState extends State<RelatoriosPage> {
+  bool anual = false;
+  int ano = DateTime.now().year;
+  int mes = DateTime.now().month;
+
+  void _andar(int passo) => setState(() {
+        if (anual) {
+          ano += passo;
+          return;
+        }
+        final d = DateTime(ano, mes + passo);
+        ano = d.year;
+        mes = d.month;
+      });
 
   @override
   Widget build(BuildContext context) {
     return Pagina(
       titulo: 'Relatórios',
-      corpo: AoMudar<_Rel>(
-        carregar: _carregar,
-        builder: (context, r) {
-          final taxa = r.taxaPrenhez;
-          final media = r.gmdMedio;
-          final venda = r.saidasAno.where((s) => s['tipo'] == 'Venda').firstOrNull;
+      corpo: AoMudar<(ResumoPeriodo, List<ResumoPeriodo>?, _Atual)>(
+        carregar: () async => (
+          anual ? ResumoPeriodo.ano(ano) : ResumoPeriodo.mes(ano, mes),
+          anual ? ResumoPeriodo.mesesDoAno(ano) : null,
+          await _carregarAtual(),
+        ),
+        builder: (context, d) {
+          final (p, meses, r) = d;
           return ListView(
             padding: const EdgeInsets.only(bottom: 32),
             children: [
-              Secao('Rebanho ativo: ${r.ativos} cabeças'),
-              Barras({for (final e in r.porSexo.entries) e.key: e.value}),
-              const Secao('Por categoria'),
-              Barras({for (final e in r.porCategoria.entries) e.key: e.value}),
-              const Secao('Por lote / pasto'),
-              Barras({for (final e in r.porLote.entries) e.key: e.value}),
-
-              const Secao('Reprodução (últimos 12 meses)'),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 1.6,
-                  children: [
-                    Kpi('Serviços', '${r.servicos}', icone: Icons.favorite_border),
-                    Kpi('Taxa de prenhez', taxa == null ? '-' : '${(taxa * 100).toStringAsFixed(0)}%',
-                        icone: Icons.percent, cor: Colors.green),
-                    Kpi('Prenhes / vazias', '${r.prenhes} / ${r.vazias}', icone: Icons.favorite),
-                    Kpi('Sem diagnóstico', '${r.pendentes}', icone: Icons.hourglass_empty, cor: Colors.orange),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Mensal')),
+                    ButtonSegment(value: true, label: Text('Anual')),
                   ],
+                  selected: {anual},
+                  onSelectionChanged: (s) => setState(() => anual = s.first),
                 ),
               ),
-              Secao('Partos previstos (próximos 90 dias): ${r.partos.length}'),
-              if (r.partos.isEmpty)
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Nenhum.')),
-              for (final p in r.partos)
-                ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.event),
-                  title: Text(rotulo(p)),
-                  trailing: Text(br(p['parto_previsto'])),
+              Row(children: [
+                IconButton(tooltip: 'Anterior', icon: const Icon(Icons.chevron_left), onPressed: () => _andar(-1)),
+                Expanded(
+                  child: Text(anual ? '$ano' : '${nomesMeses[mes - 1]} de $ano',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                 ),
-
-              const Secao('Desenvolvimento (GMD)'),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(media == null
-                    ? 'São necessárias ao menos duas pesagens por animal.'
-                    : 'GMD médio: ${gmd(media)} (${r.gmds.length} animais)'),
-              ),
-              for (final g in r.gmds.take(15))
-                ListTile(
-                  dense: true,
-                  title: Text(rotulo(g.$1)),
-                  subtitle: Text('Último peso ${kg(g.$1['peso'] as num)} · ${g.$3} dias'),
-                  trailing: Text(gmd(g.$2)),
-                ),
-
-              Secao('Sanidade – próximos 30 dias: ${r.proximas.length}'),
-              for (final s in r.proximas)
-                ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.vaccines_outlined),
-                  title: Text('${s['produto']} (${s['qtd']} animais)'),
-                  trailing: Text(br(s['proxima'])),
-                ),
-              Secao('Em carência: ${r.carencia.length}'),
-              for (final c in r.carencia)
-                ListTile(
-                  dense: true,
-                  leading: const Icon(Icons.block, color: Colors.red),
-                  title: Text('${rotulo(c)} · ${c['produto']}'),
-                  trailing: Text('libera ${br(c['libera'])}'),
-                ),
-
-              Secao('Saídas em ${DateTime.now().year}'),
-              if (r.saidasAno.isEmpty)
-                const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Nenhuma.')),
-              for (final s in r.saidasAno)
-                ListTile(
-                  dense: true,
-                  title: Text('${s['tipo']}: ${s['qtd'] ?? 0} cab.'),
-                  trailing: s['valor'] == null ? null : Text(moeda(s['valor'] as num)),
-                ),
-              if (venda != null && venda['valor'] != null && (venda['qtd'] as int? ?? 0) > 0)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                      'Média por cabeça vendida: ${moeda((venda['valor'] as num) / (venda['qtd'] as int))}'),
-                ),
+                IconButton(tooltip: 'Próximo', icon: const Icon(Icons.chevron_right), onPressed: () => _andar(1)),
+              ]),
+              ..._periodo(context, p),
+              if (meses != null) ...[
+                const Secao('Mês a mês'),
+                _MesAMes(meses),
+              ],
+              ..._atual(r),
             ],
           );
         },
+      ),
+    );
+  }
+
+  List<Widget> _periodo(BuildContext context, ResumoPeriodo p) {
+    final media = p.gmdMedio;
+    final custo = p.custoPorPrenhez;
+    return [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: GridView.count(
+          crossAxisCount: MediaQuery.sizeOf(context).width >= 720 ? 4 : 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 1.6,
+          children: [
+            Kpi('Nascimentos', '${p.nascimentos}', icone: Icons.child_friendly_outlined),
+            Kpi('Vacas inseminadas', '${p.inseminadas}', icone: Icons.favorite_border),
+            Kpi('Taxa de prenhez', _pct(p.taxaPrenhez), icone: Icons.percent, cor: Colors.green),
+            Kpi('Partos previstos', '${p.partosPrevistos}', icone: Icons.event),
+            Kpi('Vacinações', '${p.vacinacoes}', icone: Icons.vaccines_outlined),
+            Kpi('GMD médio', media == null ? '-' : gmd(media), icone: Icons.monitor_weight_outlined),
+            Kpi('Saídas', '${p.saidas} cab.', icone: Icons.sell_outlined, cor: Colors.orange),
+            Kpi('Custo por prenhez', custo == null ? '-' : moeda(custo), icone: Icons.science_outlined),
+          ],
+        ),
+      ),
+      const Secao('Reprodução'),
+      _linha('Nascimentos', '${p.nascimentos} (${p.nascMachos} machos, ${p.nascFemeas} fêmeas)'),
+      _linha('Serviços (IA, IATF, TE e monta)', '${p.servicos}'),
+      _linha('Prenhes / vazias / sem diagnóstico', '${p.prenhes} / ${p.vazias} / ${p.pendentes}'),
+      _linha('Gasto com sêmen', moeda(p.custoSemen)),
+      const Secao('Sanidade e pesagens'),
+      _linha('Manejos sanitários', '${p.manejosSanitarios}'),
+      if (p.vacinasPorProduto.isNotEmpty) Barras(_ordenado(p.vacinasPorProduto)),
+      _linha('Pesagens', '${p.pesagens}'),
+      _linha('GMD médio', media == null ? 'precisa de 2 pesagens no período' : '${gmd(media)} (${p.gmds.length} animais)'),
+      const Secao('Saídas'),
+      if (p.saidasPorTipo.isEmpty) _linha('Nenhuma', ''),
+      for (final e in _ordenado(p.saidasPorTipo).entries) _linha(e.key, '${e.value} cab.'),
+      if (p.cabecasVendidas > 0 && p.valorVendas > 0) ...[
+        _linha('Valor das vendas', moeda(p.valorVendas)),
+        _linha('Média por cabeça vendida', moeda(p.valorVendas / p.cabecasVendidas)),
+      ],
+    ];
+  }
+
+  Widget _linha(String rotulo, String valor) => ListTile(dense: true, title: Text(rotulo), trailing: Text(valor));
+
+  Map<String, int> _ordenado(Map<String, int> m) =>
+      {for (final e in m.entries.toList()..sort((a, b) => b.value.compareTo(a.value))) e.key: e.value};
+
+  List<Widget> _atual(_Atual r) {
+    final media = r.gmdMedio;
+    return [
+      const Divider(height: 32),
+      Secao('Hoje: ${r.ativos} cabeças ativas'),
+      Barras({for (final e in r.porSexo.entries) e.key: e.value}),
+      const Secao('Por categoria'),
+      Barras({for (final e in r.porCategoria.entries) e.key: e.value}),
+      const Secao('Por lote / pasto'),
+      Barras({for (final e in r.porLote.entries) e.key: e.value}),
+      Secao('Partos previstos (próximos 90 dias): ${r.partos.length}'),
+      if (r.partos.isEmpty) const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Nenhum.')),
+      for (final p in r.partos)
+        ListTile(
+          dense: true,
+          leading: const Icon(Icons.event),
+          title: Text(rotulo(p)),
+          trailing: Text(br(p['parto_previsto'])),
+        ),
+      const Secao('Desenvolvimento (GMD de todo o histórico)'),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Text(media == null
+            ? 'São necessárias ao menos duas pesagens por animal.'
+            : 'GMD médio: ${gmd(media)} (${r.gmds.length} animais)'),
+      ),
+      for (final g in r.gmds.take(15))
+        ListTile(
+          dense: true,
+          title: Text(rotulo(g.$1)),
+          subtitle: Text('Último peso ${kg(g.$1['peso'] as num)} · ${g.$3} dias'),
+          trailing: Text(gmd(g.$2)),
+        ),
+      Secao('Sanidade – próximos 30 dias: ${r.proximas.length}'),
+      for (final s in r.proximas)
+        ListTile(
+          dense: true,
+          leading: const Icon(Icons.vaccines_outlined),
+          title: Text('${s['produto']} (${s['qtd']} animais)'),
+          trailing: Text(br(s['proxima'])),
+        ),
+      Secao('Em carência: ${r.carencia.length}'),
+      for (final c in r.carencia)
+        ListTile(
+          dense: true,
+          leading: const Icon(Icons.block, color: Colors.red),
+          title: Text('${rotulo(c)} · ${c['produto']}'),
+          trailing: Text('libera ${br(c['libera'])}'),
+        ),
+    ];
+  }
+}
+
+/// Tabela do ano, um mês por linha.
+class _MesAMes extends StatelessWidget {
+  const _MesAMes(this.meses);
+  final List<ResumoPeriodo> meses;
+
+  @override
+  Widget build(BuildContext context) {
+    const colunas = ['Mês', 'Nasc.', 'Insem.', 'Prenhes', 'Prenhez', 'Vacin.', 'Pesag.', 'Saídas'];
+    Widget cel(String t, {bool negrito = false}) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Text(t, textAlign: TextAlign.right, style: negrito ? const TextStyle(fontWeight: FontWeight.w700) : null),
+        );
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Table(
+        defaultColumnWidth: const IntrinsicColumnWidth(),
+        border: TableBorder(horizontalInside: BorderSide(color: Theme.of(context).dividerColor)),
+        children: [
+          TableRow(children: [for (final c in colunas) cel(c, negrito: true)]),
+          for (final (i, m) in meses.indexed)
+            TableRow(children: [
+              cel(nomesMeses[i].substring(0, 3)),
+              cel('${m.nascimentos}'),
+              cel('${m.inseminadas}'),
+              cel('${m.prenhes}'),
+              cel(_pct(m.taxaPrenhez)),
+              cel('${m.vacinacoes}'),
+              cel('${m.pesagens}'),
+              cel('${m.saidas}'),
+            ]),
+        ],
       ),
     );
   }

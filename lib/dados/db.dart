@@ -19,6 +19,9 @@ import 'package:flutter/foundation.dart';
 
 typedef Reg = Map<String, Object?>;
 
+/// Duração média da gestação bovina (dias). Zebuínos (Nelore) ~290; taurinos ~283.
+const diasGestacao = 290;
+
 /// Situação do animal conforme o tipo de saída.
 const statusPorSaida = {
   'Venda': 'Vendido',
@@ -52,6 +55,8 @@ const _camposInteiros = {
   'femea_id',
   'cria_id',
   'animal_id',
+  'semen_id',
+  'doses',
   'quantidade',
   'carencia',
   'propriedade',
@@ -118,6 +123,15 @@ class _Mudancas {
     _ops.add((tabela, '$id', Map.of(v), true));
   }
 
+  /// Soma [delta] a um campo numérico. Na nuvem vai como incremento, para
+  /// não perder baixas feitas em sequência ou em dois aparelhos.
+  void somar(String tabela, Object id, String campo, int delta) {
+    final atual = Db._dados[tabela]?['$id'];
+    if (atual == null) return;
+    Db._dados[tabela]!['$id'] = {...atual, campo: (_int(atual[campo]) ?? 0) + delta};
+    _ops.add((tabela, '$id', {campo: FieldValue.increment(delta)}, true));
+  }
+
   void apagar(String tabela, Object id) {
     Db._dados[tabela]?.remove('$id');
     _ops.add((tabela, '$id', null, false));
@@ -154,6 +168,7 @@ class Db {
     'piquetes',
     'pastagens',
     'saidas',
+    'semens',
     'animais',
     'reproducoes',
     'sanidade',
@@ -376,6 +391,9 @@ class Db {
         for (final s in _todos('saidas').where((x) => _int(x['propriedade_id']) == id)) {
           _apagarCascata(m, 'saidas', _int(s['id'])!);
         }
+        for (final s in _todos('semens').where((x) => _int(x['propriedade_id']) == id)) {
+          m.apagar('semens', s['id']!);
+        }
       case 'lotes':
         for (final a in _todos('animais').where((x) => _int(x['lote_id']) == id)) {
           m.mesclar('animais', a['id']!, {'lote_id': null});
@@ -391,6 +409,14 @@ class Db {
         for (final a in _todos('animais').where((x) => _int(x['saida_id']) == id)) {
           m.mesclar('animais', a['id']!, {'saida_id': null});
         }
+      case 'semens':
+        for (final r in _todos('reproducoes').where((x) => _int(x['semen_id']) == id)) {
+          m.mesclar('reproducoes', r['id']!, {'semen_id': null});
+        }
+      case 'reproducoes':
+        // Lançamento apagado (ex.: vaca errada): a dose volta para o estoque.
+        final semen = _reg('semens', _reg('reproducoes', id)?['semen_id']);
+        if (semen != null) m.somar('semens', semen['id']!, 'doses', 1);
       case 'animais':
         for (final r in _todos('reproducoes').where((x) => _int(x['femea_id']) == id)) {
           m.apagar('reproducoes', r['id']!);
@@ -866,6 +892,95 @@ class Db {
     }
     m.enviar();
     return criaId;
+  }
+
+  /// Data prevista do parto para um serviço feito em [dataServico].
+  static String? partoPrevisto(Object? dataServico) {
+    final d = DateTime.tryParse('${dataServico ?? ''}');
+    if (d == null) return null;
+    final p = DateTime(d.year, d.month, d.day + diasGestacao);
+    return '${p.year.toString().padLeft(4, '0')}-${p.month.toString().padLeft(2, '0')}-${p.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Registra IA, IATF ou TE e dá baixa de uma dose do sêmen escolhido.
+  /// Se a fêmea tinha serviço aguardando diagnóstico, ele fica como vazia
+  /// (repasse). Fêmea já prenhe não recebe novo serviço.
+  static Future<int> registrarInseminacao({
+    required int femeaId,
+    required String data,
+    required String tipo,
+    int? semenId,
+    String? inseminador,
+    String? protocolo,
+    String? obs,
+  }) async {
+    final m = _Mudancas();
+    final aberto = _servicoAberto(femeaId);
+    if (aberto != null) {
+      if (aberto['diagnostico'] == 'Prenhe') {
+        throw RegistroDuplicado('Esta fêmea já está prenhe (parto previsto ${aberto['parto_previsto'] ?? '-'}).');
+      }
+      m.mesclar('reproducoes', aberto['id']!, {'diagnostico': 'Vazia', 'data_diagnostico': data, 'parto_previsto': null});
+    }
+    final semen = _reg('semens', semenId);
+    final id = novoId();
+    m.gravar('reproducoes', {
+      'id': id,
+      'femea_id': femeaId,
+      'tipo': tipo,
+      'data': data,
+      'semen_id': semen == null ? null : semenId,
+      'touro': semen?['touro'],
+      'custo_dose': semen?['preco_dose'],
+      'inseminador': inseminador,
+      'protocolo': protocolo,
+      'diagnostico': 'Pendente',
+      'data_diagnostico': null,
+      'parto_previsto': null,
+      'obs': obs,
+    });
+    if (semen != null) m.somar('semens', semenId!, 'doses', -1);
+    m.enviar();
+    return id;
+  }
+
+  /// Lança o diagnóstico de gestação e calcula o parto previsto.
+  static Future<void> lancarDiagnostico(int reproducaoId, String diagnostico, String data) async {
+    final r = _reg('reproducoes', reproducaoId);
+    if (r == null) return;
+    await atualizar('reproducoes', reproducaoId, {
+      'diagnostico': diagnostico,
+      'data_diagnostico': diagnostico == 'Pendente' ? null : data,
+      'parto_previsto': diagnostico == 'Prenhe' ? partoPrevisto(r['data']) : null,
+    });
+  }
+
+  // ---------- Sêmen ----------
+
+  /// Sêmen (touros) cadastrado nesta propriedade, com o uso de cada um:
+  /// usadas, prenhes, vazias e custo das doses usadas.
+  static Future<List<Reg>> semens() async {
+    final uso = <int, Map<String, num>>{};
+    for (final r in _todos('reproducoes')) {
+      final s = _int(r['semen_id']);
+      if (s == null) continue;
+      final u = uso.putIfAbsent(s, () => {'usadas': 0, 'prenhes': 0, 'vazias': 0, 'custo': 0});
+      u['usadas'] = u['usadas']! + 1;
+      if (r['diagnostico'] == 'Prenhe') u['prenhes'] = u['prenhes']! + 1;
+      if (r['diagnostico'] == 'Vazia') u['vazias'] = u['vazias']! + 1;
+      if (r['custo_dose'] is num) u['custo'] = u['custo']! + (r['custo_dose'] as num);
+    }
+    return [
+      for (final s in _todos('semens'))
+        if (_int(s['propriedade_id']) == pid)
+          {...s, 'usadas': 0, 'prenhes': 0, 'vazias': 0, 'custo': 0, ...?uso[_int(s['id'])]},
+    ]..sort((a, b) => _comparaNome(a['touro'], b['touro']));
+  }
+
+  static Future<int> salvarSemen(Reg v, {int? id}) async {
+    if (id == null) return inserir('semens', {...v, 'propriedade_id': pid});
+    await atualizar('semens', id, v);
+    return id;
   }
 
   // ---------- Sanidade ----------

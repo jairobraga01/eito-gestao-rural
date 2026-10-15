@@ -36,8 +36,8 @@ A pasta `.github` some quando você arrasta arquivos, então este arquivo é cri
 1. No repositório, clique em **Add file** → **Create new file**.
 2. No nome, digite exatamente: `.github/workflows/publicar.yml`
    (ao digitar a `/` o GitHub cria as pastas).
-3. Abra o arquivo **`publicar-github.yml`** (na pasta do projeto, no seu computador)
-   com o Bloco de Notas, copie todo o conteúdo e cole no GitHub.
+3. Copie todo o conteúdo do arquivo `.github/workflows/publicar.yml` deste projeto
+   e cole no GitHub.
 4. **Commit changes…** → **Commit changes**.
 
 ## Parte 3 — Enviar os arquivos e publicar (a cada versão)

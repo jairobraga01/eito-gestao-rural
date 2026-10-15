@@ -4,6 +4,8 @@ import '../dados/db.dart';
 import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
+import 'modo_inseminacao.dart';
+import 'semens.dart';
 
 const tiposServico = ['IATF', 'IA', 'Monta natural', 'TE (embrião)'];
 
@@ -71,6 +73,18 @@ class _ReproducaoPageState extends State<ReproducaoPage> {
       child: Pagina(
         titulo: 'Reprodução',
         fab: const AcoesFab(),
+        acoes: [
+          IconButton(
+            tooltip: 'Sêmen e touros',
+            icon: const Icon(Icons.science_outlined),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SemensPage())),
+          ),
+          IconButton(
+            tooltip: 'Modo Inseminação',
+            icon: const Icon(Icons.favorite_border),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ModoInseminacao())),
+          ),
+        ],
         corpo: Column(
           children: [
             const TabBar(tabs: [Tab(text: 'INSEMINAÇÃO'), Tab(text: 'MONTA NATURAL')]),
@@ -103,7 +117,11 @@ class ReproducaoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final sit = situacaoServico(r);
     final linhas = <String>[
-      '${br(r['data'])}${txt(r['touro']).isEmpty ? '' : ' · ${r['touro']}'}',
+      [
+        br(r['data']),
+        if (txt(r['touro']).isNotEmpty) txt(r['touro']),
+        if (txt(r['protocolo']).isNotEmpty) txt(r['protocolo']),
+      ].join(' · '),
       if (sit == 'Prenhe' && r['parto_previsto'] != null) 'Parto previsto: ${br(r['parto_previsto'])}',
       if (sit == 'Parida') 'Pariu em ${br(r['parto_data'])}${r['cria_brinco'] == null ? '' : ' · cria ${r['cria_brinco']}'}',
     ];
@@ -216,7 +234,7 @@ class _ReproducaoFormPageState extends State<ReproducaoFormPage> {
       'inseminador': nulo(inseminador.text),
       'diagnostico': diagnostico,
       'data_diagnostico': diagnostico == 'Pendente' ? null : (dataDiag ?? hojeIso()),
-      'parto_previsto': diagnostico == 'Prenhe' ? somaDias(data, diasGestacao) : null,
+      'parto_previsto': diagnostico == 'Prenhe' ? Db.partoPrevisto(data) : null,
       'obs': nulo(obs.text),
     };
     if (r == null) {

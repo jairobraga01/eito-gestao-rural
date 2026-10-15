@@ -4,10 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../dados/db.dart';
 
+export '../dados/db.dart' show diasGestacao;
 export 'formato.dart';
 
-/// Duração média da gestação bovina (dias). Zebuínos (Nelore) ~290; taurinos ~283.
-const diasGestacao = 290;
 
 const categoriasF = ['Bezerra', 'Novilha', 'Vaca'];
 const categoriasM = ['Bezerro', 'Garrote', 'Boi', 'Touro'];

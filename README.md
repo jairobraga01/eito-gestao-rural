@@ -77,6 +77,7 @@ lib/
   firebase_options.dart     configuração do projeto (caderneta-rebanho)
   marca.dart / tema.dart    nome, slogan, cores (verde oliva + laranja)
   dados/db.dart             dados: cópia local + Firestore, mesmas funções da Caderneta
+  dados/resumo_periodo.dart números do mês ou do ano para os relatórios
   dispositivos/leitor_teclado.dart   bastão RFID e balança (HID)
   util/util.dart            datas, números, campos, seletor de animais
   util/formato.dart         formatos e leitura de balança
@@ -88,11 +89,13 @@ lib/
     modo_curral.dart        Modo Curral (atalho)
     ficha_animal.dart       ficha rápida do curral e escolha do produto
     manejo_em_serie.dart    pesagem e sanidade em série
+    modo_inseminacao.dart   IA/IATF e diagnóstico em série, com baixa da dose
+    semens.dart             cadastro de sêmen: preço por dose e estoque
     login.dart, dispositivos.dart
   widgets/                  botões grandes, teclado numérico, faixa de sincronia, logo
 web/                        PWA: index.html, manifest, ícones, sw.js (offline)
 assets/                     logo e foto de fundo
-.github/workflows/publicar.yml  compila e publica (cópia em publicar-github.yml)
+.github/workflows/publicar.yml  compila, testa e publica
 ```
 
 Arquivos antigos que ficaram vazios e podem ser apagados:

@@ -8,8 +8,15 @@ const CACHE = 'eito-v1';
 const ESSENCIAIS = ['./', 'index.html', 'manifest.json', 'flutter_bootstrap.js', 'main.dart.js', 'favicon.svg'];
 
 // Scripts do Firebase e fontes vêm de servidores do Google: guardar também,
-// senão o app não abre sem internet.
-const EXTERNOS = ['https://www.gstatic.com', 'https://fonts.gstatic.com', 'https://fonts.googleapis.com'];
+// senão o app não abre sem internet. Os pedaços do mapa (satélite e ruas) já
+// vistos também ficam guardados, para o mapa abrir no pasto sem sinal.
+const EXTERNOS = [
+  'https://www.gstatic.com',
+  'https://fonts.gstatic.com',
+  'https://fonts.googleapis.com',
+  'https://server.arcgisonline.com',
+  'https://tile.openstreetmap.org',
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ESSENCIAIS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));

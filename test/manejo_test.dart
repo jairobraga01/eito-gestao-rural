@@ -40,6 +40,9 @@ void main() {
         {'dia': 8, 'nome': 'Retirada'},
         {'dia': 10, 'nome': 'IATF'},
       ], femeas: [lote]);
+      final piquete = await Db.inserir('piquetes', {'propriedade_id': pid, 'nome': 'Pasto 1'});
+      await Db.moverParaPiquete([Db.registro('animais', boi)!], piquete, '2026-10-01');
+      await pumpEventQueue();
 
       final fila = filaDoDia('2026-10-15');
       expect(fila.map((i) => i.tipo).toSet(), TipoFila.values.toSet());
@@ -48,6 +51,7 @@ void main() {
       expect(fila.firstWhere((i) => i.tipo == TipoFila.protocolo).titulo, 'D8 · Retirada');
       expect(fila.firstWhere((i) => i.tipo == TipoFila.diagnostico).detalhe, 'IATF há 44 dias');
       expect(fila.firstWhere((i) => i.tipo == TipoFila.parto).detalhe, 'previsto em 3 dias');
+      expect(fila.firstWhere((i) => i.tipo == TipoFila.pasto).titulo, 'Trocar o gado · Pasto 1');
 
       // Vacina refeita sai da fila.
       await Db.lancarSanidade([boi], {'data': '2026-10-15', 'tipo': 'Vacinação', 'produto': 'Aftosa'});

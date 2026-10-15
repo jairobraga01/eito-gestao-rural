@@ -7,6 +7,7 @@ import '../util/util.dart';
 import 'calendario_sanitario.dart';
 import 'modo_inseminacao.dart';
 import 'manejo_em_serie.dart';
+import 'mapa.dart' show RodizioPage;
 import 'protocolos.dart';
 
 const _titulos = {
@@ -14,6 +15,7 @@ const _titulos = {
   TipoFila.sanidade: ('Vacinas e remédios', Icons.vaccines_outlined),
   TipoFila.diagnostico: ('Diagnóstico de gestação', Icons.search),
   TipoFila.parto: ('Partos', Icons.child_friendly_outlined),
+  TipoFila.pasto: ('Rodízio de pastejo', Icons.autorenew),
 };
 
 /// Lista do que fazer hoje no curral, para ir riscando.
@@ -26,6 +28,7 @@ class FilaDoDiaPage extends StatelessWidget {
       TipoFila.sanidade => const ManejoEmSerie(modo: ModoSerie.sanidade),
       TipoFila.diagnostico => const ModoInseminacao(etapa: EtapaIa.diagnostico),
       TipoFila.parto => null,
+      TipoFila.pasto => const RodizioPage(),
     };
     if (tela != null) Navigator.push(context, MaterialPageRoute(builder: (_) => tela));
   }

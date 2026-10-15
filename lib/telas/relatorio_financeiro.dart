@@ -4,10 +4,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/db.dart';
 import '../dados/financeiro.dart';
+import '../dados/negocio.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
 import 'financeiro.dart' show entregarArquivo;
+
+/// App do gado de Guaraí (compras, vendas, despesas e pesagens), aberto pelo relatório.
+const siteGadoGuarai = 'https://gado-guarai-jairo.web.app';
 
 const _meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
@@ -45,12 +49,18 @@ class _RelatorioFinanceiroPageState extends State<RelatorioFinanceiroPage> {
           onPressed: () => entregarArquivo(context, 'relatorio-financeiro-$ano.csv', planilhaRelatorioFinanceiro(ano)),
         ),
       ],
-      corpo: AoMudar<(RelatorioFinanceiro, PosicaoFinanceira)>(
-        carregar: () async => (relatorioFinanceiro(ano), PosicaoFinanceira(hojeIso())),
+      corpo: AoMudar<(RelatorioFinanceiro, PosicaoFinanceira, ResumoGado)>(
+        carregar: () async => (relatorioFinanceiro(ano), PosicaoFinanceira(hojeIso()), resumoGado(ano)),
         builder: (context, d) {
-          final (r, p) = d;
+          final (r, p, g) = d;
           final pm = r.porMes;
           return ListView(padding: const EdgeInsets.only(bottom: 32), children: [
+            ListTile(
+              leading: const Icon(Icons.open_in_new),
+              title: const Text('Abrir o Gado Guaraí'),
+              subtitle: const Text('Resumo, compras, vendas, despesas e pesagens de Guaraí'),
+              onTap: () => launchUrl(Uri.parse(siteGadoGuarai), mode: LaunchMode.externalApplication),
+            ),
             Row(children: [
               IconButton(tooltip: 'Ano anterior', icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => ano--)),
               Expanded(
@@ -73,6 +83,28 @@ class _RelatorioFinanceiroPageState extends State<RelatorioFinanceiroPage> {
               child: Text('Entram as contas pagas no ano e as vendas, compras e custos lançados que ainda não viraram conta.',
                   style: TextStyle(color: Colors.black54)),
             ),
+            if (g.cabecasCompradas > 0 || g.cabecasVendidas > 0) ...[
+              const Secao('Compra e venda de gado'),
+              ListTile(
+                dense: true,
+                title: Text('Compras · ${g.cabecasCompradas} cab.'),
+                subtitle: g.cabecasCompradas > 0 ? Text('Média ${moeda(g.totalCompras / g.cabecasCompradas)} por cabeça') : null,
+                trailing: Text(moeda(g.totalCompras)),
+              ),
+              ListTile(
+                dense: true,
+                title: Text('Vendas (líquido) · ${g.cabecasVendidas} cab.'),
+                trailing: Text(moeda(g.liquidoVendas)),
+              ),
+              if (g.temLucro)
+                ListTile(
+                  dense: true,
+                  title: Text(g.lucroVendas >= 0 ? 'Lucro das vendas' : 'Prejuízo das vendas'),
+                  subtitle: const Text('Líquido menos o custo médio do lote de cada animal'),
+                  trailing: Text(moeda(g.lucroVendas),
+                      style: TextStyle(fontWeight: FontWeight.w700, color: g.lucroVendas < 0 ? Cores.alerta : Colors.green)),
+                ),
+            ],
             if (r.receitasPorCategoria.isNotEmpty) ...[
               const Secao('Receitas por categoria'),
               for (final e in r.receitasPorCategoria.entries)

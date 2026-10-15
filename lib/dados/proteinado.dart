@@ -5,7 +5,22 @@ int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
 double _n(Object? v) => v is num ? v.toDouble() : 0;
 String _t(Object? v) => v == null ? '' : '$v';
 
-const tiposProteinado = ['Baixo consumo', 'Alto consumo', 'Creep'];
+/// Tipos fixos, nesta ordem. A fórmula pode ter outro tipo, digitado.
+const tiposProteinado = ['Alto consumo', 'Médio consumo', 'Baixo consumo', 'Ração creep', 'Ração leite'];
+
+/// Tipo da fórmula (nomes antigos viram os atuais).
+String tipoFormula(Reg f) {
+  final t = _t(f['tipo']).trim();
+  if (t.isEmpty) return 'Outras';
+  if (t.toLowerCase() == 'creep') return 'Ração creep';
+  return tiposProteinado.firstWhere((x) => x.toLowerCase() == t.toLowerCase(), orElse: () => t);
+}
+
+/// Tipos em uso: os fixos e os criados pelo usuário, em ordem.
+List<String> tiposEmUso() {
+  final extras = {for (final f in formulas()) tipoFormula(f)}..removeAll(tiposProteinado);
+  return [...tiposProteinado, ...extras.toList()..sort()];
+}
 
 /// Matérias-primas da propriedade: preço do saco e peso do saco.
 List<Reg> insumos() => [
@@ -17,8 +32,15 @@ List<Reg> formulas() => [
       for (final f in Db.registros('formulas'))
         if (_int(f['propriedade_id']) == Db.pid) f,
     ]..sort((a, b) {
-        final t = tiposProteinado.indexOf(_t(a['tipo'])).compareTo(tiposProteinado.indexOf(_t(b['tipo'])));
-        return t != 0 ? t : _t(a['nome']).compareTo(_t(b['nome']));
+        int ordem(Reg f) {
+          final i = tiposProteinado.indexOf(tipoFormula(f));
+          return i < 0 ? tiposProteinado.length : i;
+        }
+
+        final t = ordem(a).compareTo(ordem(b));
+        if (t != 0) return t;
+        final x = tipoFormula(a).compareTo(tipoFormula(b));
+        return x != 0 ? x : _t(a['nome']).compareTo(_t(b['nome']));
       });
 
 /// Preço do quilo de um insumo (preço do saco ÷ peso do saco), ou null sem preço.
@@ -99,6 +121,7 @@ const _insumosPlanilha = <(String, double?, double)>[
   ('Núcleo', 97, 25),
   ('Núcleo Guedcy', 97, 30),
   ('Núcleo creep', 230, 40),
+  ('Núcleo leite', null, 25),
   ('Calcário calcítico', null, 25),
   ('Fosfato bicálcico', null, 25),
   ('Sal branco', 20, 25),
@@ -118,10 +141,13 @@ const _formulasPlanilha = <(String, String, Map<String, double>, double, double,
   ('Guedcy', 'Alto consumo', {'Núcleo Guedcy': 34.29, 'Sal branco': 114.29, 'Farelo de soja': 57.14, 'Farelo de arroz/torta de algodão': 22.86, 'Milho': 171.43}, 2000, 4, 0, 0),
   ('Nutroeste 2', 'Alto consumo', {'Núcleo': 24, 'Sal branco': 28, 'Farelo de soja': 20, 'Milho': 308, 'Ureia': 20}, 2500, 4, 0, 0),
   ('Agrocria', 'Alto consumo', {'Núcleo': 12, 'Calcário calcítico': 6, 'Fosfato bicálcico': 20, 'Sal branco': 100, 'Farelo de soja': 24, 'Milho': 220, 'Ureia': 18}, 1000, 4, 0, 0),
-  ('Nutroeste', 'Creep', {'Núcleo creep': 40, 'Milho': 360}, 4000, 4, 0, 0),
+  ('Nutroeste', 'Ração creep', {'Núcleo creep': 40, 'Milho': 360}, 4000, 4, 0, 0),
+  // Referências para ajustar com o nutricionista (não vieram da planilha).
+  ('Médio consumo', 'Médio consumo', {'Núcleo': 40, 'Sal branco': 60, 'Farelo de soja': 100, 'Milho': 180, 'Ureia': 20}, 700, 4, 0, 0),
+  ('Concentrado leite', 'Ração leite', {'Núcleo leite': 12, 'Farelo de soja': 120, 'Milho': 260, 'Ureia': 8}, 3000, 12, 0, 0),
 ];
 
-/// Cria os insumos e as fórmulas da planilha que ainda não existem na propriedade.
+/// Cria os insumos e as fórmulas prontas (planilha e referências) que ainda não existem na propriedade.
 Future<int> carregarPlanilhaProteinado() async {
   final pid = Db.pid;
   final ids = {for (final i in insumos()) _t(i['nome']).toLowerCase(): _int(i['id'])!};
@@ -129,7 +155,7 @@ Future<int> carregarPlanilhaProteinado() async {
     if (ids.containsKey(nome.toLowerCase())) continue;
     ids[nome.toLowerCase()] = await Db.inserir('insumos', {'propriedade_id': pid, 'nome': nome, 'preco_saco': preco, 'kg_saco': kg});
   }
-  final existentes = {for (final f in formulas()) '${f['tipo']}|${f['nome']}'.toLowerCase()};
+  final existentes = {for (final f in formulas()) '${tipoFormula(f)}|${f['nome']}'.toLowerCase()};
   var novas = 0;
   for (final (nome, tipo, itens, g, meses, sacos, mo) in _formulasPlanilha) {
     if (existentes.contains('$tipo|$nome'.toLowerCase())) continue;

@@ -4,6 +4,7 @@ import '../dados/db.dart';
 import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
+import '../widgets/bandeira.dart';
 import '../widgets/barra_sincronia.dart';
 import '../widgets/botao_curral.dart';
 import '../widgets/teclado_grande.dart';
@@ -60,7 +61,11 @@ class _ModoCurralState extends State<ModoCurral> {
     final largura = MediaQuery.sizeOf(context).width;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Modo Curral'),
+        title: const Row(mainAxisSize: MainAxisSize.min, children: [
+          BandeiraBrasil(),
+          SizedBox(width: 10),
+          Text('Modo Curral'),
+        ]),
         actions: [
           IconButton(
             tooltip: 'Bastão e balança',
@@ -75,7 +80,7 @@ class _ModoCurralState extends State<ModoCurral> {
           valueListenable: Db.prop,
           builder: (context, p, _) => Container(
             width: double.infinity,
-            color: Cores.oliva,
+            color: Cores.azul,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(txt(p?['nome']).toUpperCase(),
                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, letterSpacing: 0.4)),
@@ -98,7 +103,7 @@ class _ModoCurralState extends State<ModoCurral> {
                   BotaoCurral(
                     icone: Icons.monitor_weight_outlined,
                     rotulo: 'Pesagem\nem série',
-                    cor: Cores.laranja,
+                    cor: Cores.azul,
                     aoTocar: () => _ir(const ManejoEmSerie(modo: ModoSerie.pesagem)),
                   ),
                   BotaoCurral(
@@ -180,7 +185,7 @@ class _PainelLeitura extends StatelessWidget {
             textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 17)),
         const SizedBox(height: 16),
         FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: Cores.laranja, minimumSize: const Size.fromHeight(68)),
+          style: FilledButton.styleFrom(backgroundColor: Cores.laranja, foregroundColor: Cores.azul, minimumSize: const Size.fromHeight(68)),
           onPressed: aoDigitar,
           icon: const Icon(Icons.dialpad, size: 30),
           label: const Text('DIGITAR Nº DO BRINCO'),

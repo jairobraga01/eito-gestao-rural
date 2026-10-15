@@ -14,13 +14,17 @@ import 'telas/base.dart';
 import 'telas/ficha_animal.dart';
 import 'telas/chuva.dart';
 import 'telas/custos.dart';
+import 'telas/cotacao_arroba.dart';
+import 'telas/dividas.dart';
 import 'telas/entradas.dart';
 import 'telas/inicio.dart';
 import 'telas/login.dart';
 import 'telas/lotes.dart';
 import 'telas/animais.dart';
 import 'telas/piquetes.dart';
+import 'telas/producao_leite.dart';
 import 'telas/propriedades.dart';
+import 'telas/proteinado.dart';
 import 'telas/relatorios.dart';
 import 'telas/reproducao.dart';
 import 'telas/sanidade.dart';
@@ -173,11 +177,15 @@ class _InicioState extends State<Inicio> {
         secRebanho => const AnimaisPage(),
         secReproducao => const ReproducaoPage(),
         secSanidade => const SanidadePage(),
+        secLeite => const ProducaoLeitePage(),
         secPiquetes => const PiquetesPage(),
         secPastagem => const PastagemPage(),
         secEntradas => const EntradasPage(),
         secVendas => const SaidasPage(),
         secCustos => const CustosPage(),
+        secDividas => const DividasPage(),
+        secProteinado => const ProteinadoPage(),
+        secCotacao => const CotacaoArrobaPage(),
         secChuva => const ChuvaPage(),
         secRelatorios => const RelatoriosPage(),
         secBackup => const BackupPage(),

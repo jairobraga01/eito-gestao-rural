@@ -35,11 +35,15 @@ const itensMenu = <(String, IconData)>[
   ('Rebanho', Icons.pets_outlined),
   ('Reprodução', Icons.favorite_border),
   ('Sanidade e pesagens', Icons.vaccines_outlined),
+  ('Produção leiteira', Icons.local_drink_outlined),
   ('Piquetes', Icons.fence),
   ('Pastagem', Icons.grass),
   ('Compras e entradas', Icons.arrow_circle_down_outlined),
   ('Vendas e saídas', Icons.arrow_circle_up_outlined),
   ('Custos e margem', Icons.attach_money),
+  ('Dívidas e ônus reais', Icons.account_balance_outlined),
+  ('Proteinado', Icons.agriculture_outlined),
+  ('Cotação da arroba', Icons.trending_up),
   ('Chuva', Icons.water_drop_outlined),
   ('Relatórios', Icons.bar_chart),
   ('Backup', Icons.backup_outlined),
@@ -47,8 +51,9 @@ const itensMenu = <(String, IconData)>[
 
 // Índices usados pelos atalhos.
 const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secReproducao = 4,
-    secSanidade = 5, secPiquetes = 6, secPastagem = 7, secEntradas = 8, secVendas = 9, secCustos = 10,
-    secChuva = 11, secRelatorios = 12, secBackup = 13;
+    secSanidade = 5, secLeite = 6, secPiquetes = 7, secPastagem = 8, secEntradas = 9, secVendas = 10,
+    secCustos = 11, secDividas = 12, secProteinado = 13, secCotacao = 14, secChuva = 15, secRelatorios = 16,
+    secBackup = 17;
 
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).
 void abrirModoCurral(BuildContext context) =>

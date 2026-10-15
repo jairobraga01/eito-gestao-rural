@@ -1,0 +1,282 @@
+// Estoque de insumos (vacinas, remédios, sal, ração), dieta do cocho e a conta
+// de vender agora ou esperar.
+import 'db.dart';
+import 'gestao.dart' show ajustesArroba;
+import 'manejo.dart';
+import 'proteinado.dart';
+
+int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
+double _n(Object? v) => v is num ? v.toDouble() : 0;
+String _t(Object? v) => v == null ? '' : '$v';
+String _dia(Object? v) => _t(v).length >= 10 ? _t(v).substring(0, 10) : _t(v);
+
+int _dias(String de, String ate) {
+  final a = DateTime.parse(de.substring(0, 10)), b = DateTime.parse(ate.substring(0, 10));
+  return DateTime.utc(b.year, b.month, b.day).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
+}
+
+String _menosDias(String iso, int dias) => Db.dataEtapa(iso, -dias);
+
+// ---------- Estoque ----------
+
+const categoriasInsumo = ['Vacina', 'Medicamento e vermífugo', 'Sal mineral', 'Ração e ingredientes', 'Outros'];
+const unidadesInsumo = ['kg', 'dose', 'ml', 'un'];
+
+/// Unidade sugerida para a categoria.
+String unidadePadrao(String categoria) => switch (categoria) {
+      'Vacina' => 'dose',
+      'Medicamento e vermífugo' => 'ml',
+      'Outros' => 'un',
+      _ => 'kg',
+    };
+
+String categoriaInsumo(Reg i) => _t(i['categoria']).isEmpty ? 'Ração e ingredientes' : _t(i['categoria']);
+String unidadeInsumo(Reg i) => _t(i['unidade']).isEmpty ? unidadePadrao(categoriaInsumo(i)) : _t(i['unidade']);
+
+List<Reg> movimentos(int insumoId) => [
+      for (final e in Db.registros('estoque'))
+        if (_int(e['insumo_id']) == insumoId) e,
+    ]..sort((a, b) {
+        final c = _t(b['data']).compareTo(_t(a['data']));
+        return c != 0 ? c : (_int(b['id']) ?? 0).compareTo(_int(a['id']) ?? 0);
+      });
+
+/// Saldo do insumo: entradas menos saídas.
+double saldo(int insumoId) => movimentos(insumoId).fold(0, (s, e) => s + _n(e['qtd']));
+
+/// Gasto médio por dia nos últimos [janela] dias (só saídas).
+double consumoDiario(int insumoId, String hoje, {int janela = 30}) {
+  final de = _menosDias(hoje, janela);
+  final saidas = movimentos(insumoId).where((e) =>
+      _n(e['qtd']) < 0 && e['ajuste'] != true && _dia(e['data']).compareTo(de) > 0 && _dia(e['data']).compareTo(hoje) <= 0);
+  return -saidas.fold<double>(0, (s, e) => s + _n(e['qtd'])) / janela;
+}
+
+Future<int> entradaEstoque(int insumoId, double qtd, {required String data, String? validade, String? obs}) async {
+  final id = await Db.inserir('estoque', {
+    'propriedade_id': Db.pid,
+    'insumo_id': insumoId,
+    'data': data,
+    'qtd': qtd,
+    'motivo': obs ?? 'Entrada',
+  });
+  if (validade != null) await Db.atualizar('insumos', insumoId, {'validade': validade});
+  return id;
+}
+
+/// Acerta o saldo pela contagem feita no depósito.
+Future<void> ajustarSaldo(int insumoId, double contado, {required String data}) async {
+  final dif = contado - saldo(insumoId);
+  if (dif.abs() < 1e-9) return;
+  await Db.inserir('estoque', {
+    'propriedade_id': Db.pid,
+    'insumo_id': insumoId,
+    'data': data,
+    'qtd': dif,
+    'motivo': 'Ajuste de contagem',
+    'ajuste': true,
+  });
+}
+
+class AlertaEstoque {
+  AlertaEstoque(this.insumo, this.texto, {this.grave = false});
+  final Reg insumo;
+  final String texto;
+  final bool grave;
+}
+
+/// Insumos abaixo do mínimo, acabando em 15 dias, vencidos ou vencendo em 30 dias.
+List<AlertaEstoque> alertasEstoque(String hoje) {
+  final r = <AlertaEstoque>[];
+  for (final i in insumos()) {
+    final id = _int(i['id'])!;
+    final un = unidadeInsumo(i);
+    final s = saldo(id);
+    final minimo = i['estoque_min'] is num ? _n(i['estoque_min']) : null;
+    final usa = movimentos(id).isNotEmpty;
+    if (usa && s <= 0) {
+      r.add(AlertaEstoque(i, 'Sem estoque', grave: true));
+    } else if (minimo != null && s <= minimo) {
+      r.add(AlertaEstoque(i, 'Abaixo do mínimo (${_fmt(s)} de ${_fmt(minimo)} $un)'));
+    } else {
+      final c = consumoDiario(id, hoje);
+      if (c > 0 && s / c < 15) r.add(AlertaEstoque(i, 'Acaba em ${(s / c).floor()} dia(s)'));
+    }
+    final v = _dia(i['validade']);
+    if (v.length == 10 && s > 0) {
+      final falta = _dias(hoje, v);
+      if (falta < 0) {
+        r.add(AlertaEstoque(i, 'Vencido desde ${v.substring(8)}/${v.substring(5, 7)}/${v.substring(0, 4)}', grave: true));
+      } else if (falta <= 30) {
+        r.add(AlertaEstoque(i, 'Vence em $falta dia(s)'));
+      }
+    }
+  }
+  return r;
+}
+
+String _fmt(double v) => v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1).replaceAll('.', ',');
+
+// ---------- Dieta do cocho ----------
+
+/// Animais ativos do lote.
+int cabecasDoLote(int? loteId) =>
+    Db.registros('animais').where((a) => a['status'] == 'Ativo' && _int(a['lote_id']) == loteId).length;
+
+class Dieta {
+  Dieta(this.reg)
+      : lote = Db.registro('lotes', reg['lote_id']),
+        formula = Db.registro('formulas', reg['formula_id']),
+        insumo = Db.registro('insumos', reg['insumo_id']);
+  final Reg reg;
+  final Reg? lote, formula, insumo;
+
+  String get nome => formula != null ? 'Proteinado ${formula!['nome']}' : _t(insumo?['nome']);
+  int get cabecas => cabecasDoLote(_int(reg['lote_id']));
+
+  /// Kg por cabeça por dia.
+  double get kgCabDia => _n(reg['kg_cab_dia']);
+  double get kgDia => kgCabDia * cabecas;
+  double get kgMes => kgDia * 30;
+
+  double? get precoKg => formula != null ? CalculoFormula(formula!).precoKg : precoKgInsumo(insumo);
+  double get custoDia => kgDia * (precoKg ?? 0);
+  double get custoMes => custoDia * 30;
+  double get custoCabDia => kgCabDia * (precoKg ?? 0);
+
+  /// Dias que o estoque aguenta (pelo insumo que acaba primeiro), ou null sem estoque lançado.
+  double? get diasDeEstoque {
+    if (kgDia <= 0) return null;
+    if (insumo != null) {
+      final id = _int(insumo!['id'])!;
+      return movimentos(id).isEmpty ? null : saldo(id) / kgDia;
+    }
+    if (formula == null) return null;
+    final c = CalculoFormula(formula!);
+    if (c.kgBatida <= 0) return null;
+    double? menor;
+    for (final l in c.linhas) {
+      final id = _int(l.insumo?['id']);
+      if (id == null || movimentos(id).isEmpty) continue;
+      final d = saldo(id) / (kgDia * l.kg / c.kgBatida);
+      if (menor == null || d < menor) menor = d;
+    }
+    return menor;
+  }
+
+  /// Batidas da fórmula por mês.
+  double? get batidasMes {
+    if (formula == null) return null;
+    final kg = CalculoFormula(formula!).kgBatida;
+    return kg <= 0 ? null : kgMes / kg;
+  }
+}
+
+List<Dieta> dietas() => [
+      for (final d in Db.registros('dietas'))
+        if (_int(d['propriedade_id']) == Db.pid) Dieta(d),
+    ]..sort((a, b) => _t(a.lote?['nome']).compareTo(_t(b.lote?['nome'])));
+
+/// Lança o trato de [dias] dias: custo em Ração e sal para o lote e baixa no estoque.
+Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) async {
+  final kg = d.kgDia * dias;
+  if (kg <= 0) return null;
+  final texto = 'Trato ${d.nome} · ${_fmt(kg)} kg em $dias dia(s) (${d.cabecas} cab.)';
+  if (d.formula != null) {
+    final c = CalculoFormula(d.formula!);
+    if (c.kgBatida <= 0) return null;
+    return registrarBatida(d.formula!, data: data, batidas: kg / c.kgBatida, loteId: _int(d.reg['lote_id']), descricao: texto);
+  }
+  final ins = d.insumo;
+  if (ins == null) return null;
+  final id = await Db.inserir('custos', {
+    'propriedade_id': Db.pid,
+    'lote_id': d.reg['lote_id'],
+    'categoria': 'Ração e sal',
+    'descricao': texto,
+    'valor': double.parse((kg * (precoKgInsumo(ins) ?? 0)).toStringAsFixed(2)),
+    'data': data,
+  });
+  await Db.inserir('estoque', {
+    'propriedade_id': Db.pid,
+    'insumo_id': ins['id'],
+    'data': data,
+    'qtd': -double.parse(kg.toStringAsFixed(3)),
+    'motivo': texto,
+    'grupo': '$id',
+  });
+  return id;
+}
+
+// ---------- Vender agora ou esperar ----------
+
+class CenarioVenda {
+  CenarioVenda(this.dias, this.peso, this.valor, this.custo, this.ganho, this.arrobaEmpate);
+  final int dias;
+
+  /// Peso médio previsto, valor por cabeça, custo por cabeça no período e
+  /// ganho de esperar em relação a vender hoje (por cabeça).
+  final double peso, valor, custo, ganho;
+
+  /// Arroba mínima na data para esperar não dar prejuízo.
+  final double arrobaEmpate;
+}
+
+class VendaLote {
+  VendaLote(this.lote, this.loteId, this.cabecas, this.peso, this.gmd, this.valorHoje, this.custoDia, this.cenarios);
+  final String lote;
+  final int? loteId;
+  final int cabecas;
+  final double peso;
+  final double? gmd;
+  final double valorHoje, custoDia;
+  final List<CenarioVenda> cenarios;
+
+  /// Melhor prazo (0 = vender agora).
+  int get melhor {
+    var m = 0;
+    var g = 0.0;
+    for (final c in cenarios) {
+      if (c.ganho > g) (m, g) = (c.dias, c.ganho);
+    }
+    return m;
+  }
+}
+
+/// Conta de cada lote pesado: vale mais vender hoje ou daqui a 30, 60 e 90 dias,
+/// pelo GMD, pelo custo diário (dieta do cocho + [custoFixoDia] por cabeça) e
+/// pela arroba (com [variacaoArroba] em % até o fim de cada prazo, proporcional).
+List<VendaLote> venderOuEsperar({
+  double? arroba,
+  double custoFixoDia = 0,
+  double variacaoArroba = 0,
+  List<int> prazos = const [30, 60, 90],
+}) {
+  final (rend, arrobaSalva) = ajustesArroba();
+  final preco = arroba ?? arrobaSalva;
+  if (preco == null || preco <= 0) return [];
+  final custoDieta = <int?, double>{};
+  for (final d in dietas()) {
+    custoDieta[_int(d.reg['lote_id'])] = (custoDieta[_int(d.reg['lote_id'])] ?? 0) + d.custoCabDia;
+  }
+  final lotesPorNome = {for (final l in Db.registros('lotes')) if (_int(l['propriedade_id']) == Db.pid) _t(l['nome']): _int(l['id'])};
+  final r = <VendaLote>[];
+  for (final p in projecaoAbate(1e9)) {
+    final loteId = lotesPorNome[p.nome];
+    final peso = p.pesoMedio, gmd = p.gmdMedio;
+    final custoDia = (custoDieta[loteId] ?? 0) + custoFixoDia;
+    final hoje = valorArroba(peso, rend, preco);
+    final cenarios = <CenarioVenda>[];
+    if (gmd != null) {
+      for (final d in prazos) {
+        final pf = peso + gmd * d;
+        final pr = preco * (1 + variacaoArroba / 100 * d / prazos.last);
+        final v = valorArroba(pf, rend, pr);
+        final custo = custoDia * d;
+        cenarios.add(CenarioVenda(d, pf, v, custo, v - custo - hoje, (hoje + custo) * 15 / (pf * rend)));
+      }
+    }
+    r.add(VendaLote(p.nome, loteId, p.animais.length, peso, gmd, hoje, custoDia, cenarios));
+  }
+  return r;
+}

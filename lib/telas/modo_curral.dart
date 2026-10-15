@@ -11,6 +11,7 @@ import '../widgets/teclado_grande.dart';
 import 'animais.dart';
 import 'dispositivos.dart';
 import 'ficha_animal.dart';
+import 'lancamento_voz.dart';
 import 'manejo_em_serie.dart';
 import 'modo_inseminacao.dart';
 import 'mover.dart';
@@ -112,6 +113,13 @@ class _ModoCurralState extends State<ModoCurral> {
                     detalhe: fila == 0 ? 'nada pendente' : '$fila para fazer',
                     cor: fila == 0 ? Cores.olivaClaro : Cores.alerta,
                     aoTocar: () => _ir(const FilaDoDiaPage()),
+                  ),
+                  BotaoCurral(
+                    icone: Icons.mic,
+                    rotulo: 'Lançar\npor voz',
+                    detalhe: 'peso, vacina, diagnóstico',
+                    cor: Cores.oliva,
+                    aoTocar: () => _ir(const LancamentoVozPage()),
                   ),
                   BotaoCurral(
                     icone: Icons.monitor_weight_outlined,

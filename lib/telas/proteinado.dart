@@ -5,6 +5,7 @@ import '../dados/proteinado.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'estoque.dart';
 
 const _outro = 'Outro tipo…';
 
@@ -28,9 +29,9 @@ class ProteinadoPage extends StatelessWidget {
       titulo: 'Proteinado',
       acoes: [
         IconButton(
-          tooltip: 'Insumos e preços',
+          tooltip: 'Insumos, preços e estoque',
           icon: const Icon(Icons.inventory_2_outlined),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InsumosPage())),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EstoquePage())),
         ),
         PopupMenuButton<String>(
           onSelected: (_) => _planilha(context),
@@ -362,88 +363,5 @@ class _FormulaPageState extends State<FormulaPage> {
       Text(b, textAlign: TextAlign.right, style: s),
       Text(c, textAlign: TextAlign.right, style: s),
     ]);
-  }
-}
-
-/// Insumos do proteinado: preço e peso do saco.
-class InsumosPage extends StatelessWidget {
-  const InsumosPage({super.key});
-
-  Future<void> _editar(BuildContext context, [Reg? i]) async {
-    final nome = TextEditingController(text: txt(i?['nome']));
-    final preco = TextEditingController(text: _n(i?['preco_saco']));
-    final peso = TextEditingController(text: _n(i?['kg_saco']));
-    final op = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(i == null ? 'Novo insumo' : 'Editar insumo'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          campoTexto(nome, 'Nome', foco: i == null),
-          gap,
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: preco,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Preço do saco', prefixText: r'R$ '),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: campoTexto(peso, 'Peso do saco', numero: true, sufixo: 'kg')),
-          ]),
-        ]),
-        actions: [
-          if (i != null) TextButton(onPressed: () => Navigator.pop(ctx, 'excluir'), child: const Text('Excluir')),
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, 'salvar'), child: const Text('Salvar')),
-        ],
-      ),
-    );
-    final dados = {'nome': nulo(nome.text), 'preco_saco': lerNumero(preco.text), 'kg_saco': lerNumero(peso.text)};
-    for (final c in [nome, preco, peso]) {
-      c.dispose();
-    }
-    if (op == 'excluir') {
-      await Db.excluir('insumos', i!['id'] as int);
-    } else if (op == 'salvar' && dados['nome'] != null) {
-      if (i == null) {
-        await Db.inserir('insumos', {...dados, 'propriedade_id': Db.pid});
-      } else {
-        await Db.atualizar('insumos', i['id'] as int, dados);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Insumos e preços')),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: null,
-        icon: const Icon(Icons.add),
-        label: const Text('Novo insumo'),
-        onPressed: () => _editar(context),
-      ),
-      body: AoMudar<List<Reg>>(
-        carregar: () async => insumos(),
-        builder: (context, ins) => ins.isEmpty
-            ? const Vazio('Nenhum insumo. Carregue as fórmulas da planilha ou cadastre aqui.', icone: Icons.inventory_2_outlined)
-            : ListView(padding: const EdgeInsets.only(bottom: 88), children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text('Mude o preço do saco aqui e todas as fórmulas se refazem.'),
-                ),
-                for (final i in ins)
-                  ListTile(
-                    title: Text(txt(i['nome'])),
-                    subtitle: Text(i['preco_saco'] is num
-                        ? '${moeda(i['preco_saco'] as num)} o saco de ${_n(i['kg_saco'])} kg'
-                        : 'Sem preço'),
-                    trailing: Text(precoKgInsumo(i) == null ? '-' : '${moeda(precoKgInsumo(i))}/kg'),
-                    onTap: () => _editar(context, i),
-                  ),
-              ]),
-      ),
-    );
   }
 }

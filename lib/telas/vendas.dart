@@ -4,6 +4,7 @@ import '../dados/db.dart';
 import '../dados/indicadores.dart';
 import '../dados/negocio.dart';
 import '../util/util.dart';
+import '../widgets/prazo.dart';
 import 'base.dart';
 
 class SaidasPage extends StatelessWidget {
@@ -102,6 +103,7 @@ class SaidasPage extends StatelessWidget {
         'O registro será apagado e os animais voltarão a ficar ativos no rebanho.',
         ok: 'Excluir')) {
       await Db.excluirSaida(s['id'] as int);
+      await apagarParcelasAbertas('saida:${s['id']}');
     }
   }
 }
@@ -129,6 +131,9 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
   final nota = TextEditingController();
   final frete = TextEditingController();
   final outros = TextEditingController();
+  bool aPrazo = false;
+  final parcelas = TextEditingController(text: '1');
+  late String primeiro = vencimentoSugerido(data);
   final destino = TextEditingController();
   final obs = TextEditingController();
   bool salvando = false;
@@ -143,7 +148,7 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
 
   @override
   void dispose() {
-    for (final c in [peso, valor, rendimento, funrural, fundepec, nota, frete, outros, destino, obs]) {
+    for (final c in [peso, valor, parcelas, rendimento, funrural, fundepec, nota, frete, outros, destino, obs]) {
       c.dispose();
     }
     super.dispose();
@@ -233,7 +238,7 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
         if (conta.porArroba) 'rendimento_pct': conta.rendimentoPct,
       });
     }
-    await Db.registrarSaida({
+    final id = await Db.registrarSaida({
       'tipo': tipo,
       'data': data,
       'peso_total': lerNumero(peso.text),
@@ -253,6 +258,17 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
       'destino': nulo(destino.text),
       'obs': nulo(obs.text),
     }, [for (final a in animais) a['id'] as int]);
+    if (conta != null && aPrazo) {
+      await lancarParcelas(
+        receita: true,
+        origem: 'saida:$id',
+        total: conta.liquido,
+        parcelas: (int.tryParse(parcelas.text.trim()) ?? 1).clamp(1, 120),
+        primeiro: primeiro,
+        descricao: 'Venda de ${animais.length} cab.${destino.text.trim().isEmpty ? '' : ' para ${destino.text.trim()}'}',
+        participante: nulo(destino.text),
+      );
+    }
     if (!mounted) return;
     avisar(context, 'Saída registrada.');
     Navigator.pop(context, true);
@@ -272,7 +288,14 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
         children: [
           escolha('Tipo', tipo, statusPorSaida.keys.toList(), (x) => setState(() => tipo = x)),
           gap,
-          DateField(label: 'Data', value: data, obrigatorio: true, onChanged: (x) => setState(() => data = x!)),
+          DateField(
+              label: 'Data',
+              value: data,
+              obrigatorio: true,
+              onChanged: (x) => setState(() {
+                    data = x!;
+                    primeiro = vencimentoSugerido(data);
+                  })),
           gap,
           OutlinedButton.icon(
             icon: const Icon(Icons.checklist),
@@ -356,6 +379,15 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
               const SizedBox(width: 8),
               Expanded(child: _numero(outros, 'Outros', prefixo: r'R$ ')),
             ]),
+            CamposPrazo(
+              receita: true,
+              aPrazo: aPrazo,
+              parcelas: parcelas,
+              primeiro: primeiro,
+              onAPrazo: (x) => setState(() => aPrazo = x),
+              onPrimeiro: (x) => setState(() => primeiro = x),
+              onMudou: () => setState(() {}),
+            ),
           ],
           gap,
           campoTexto(destino, venda ? 'Comprador' : 'Destino / causa'),

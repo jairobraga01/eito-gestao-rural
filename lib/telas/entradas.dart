@@ -4,6 +4,7 @@ import '../dados/db.dart';
 import '../dados/negocio.dart';
 import '../dados/numeracao.dart';
 import '../util/util.dart';
+import '../widgets/prazo.dart';
 import 'base.dart';
 
 const tiposEntrada = ['Compra', 'Rebanho existente', 'Transferência', 'Doação', 'Outro'];
@@ -108,6 +109,7 @@ class EntradasPage extends StatelessWidget {
     );
     if (op == null) return;
     await Db.excluirEntrada(e['id'] as int, apagarAnimais: op == 'apagar');
+    await apagarParcelasAbertas('entrada:${e['id']}');
   }
 }
 
@@ -137,6 +139,9 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
   late final comissao = TextEditingController(text: num1(comissaoPadrao()));
   final nota = TextEditingController();
   final frete = TextEditingController();
+  bool aPrazo = false;
+  final parcelas = TextEditingController(text: '1');
+  late String primeiro = vencimentoSugerido(data);
   final origem = TextEditingController();
   final gta = TextEditingController();
   final obs = TextEditingController();
@@ -173,7 +178,7 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
 
   @override
   void dispose() {
-    for (final c in [brincos, raca, peso, valor, comissao, nota, frete, origem, gta, obs, quantidade, prefixo, inicio]) {
+    for (final c in [brincos, raca, peso, valor, parcelas, comissao, nota, frete, origem, gta, obs, quantidade, prefixo, inicio]) {
       c.dispose();
     }
     super.dispose();
@@ -209,7 +214,7 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
     final conta = _conta(lista.length);
     if (conta != null) await lembrarAjustesNegocio({'comissao_pct': conta.comissaoPct});
     try {
-      await Db.registrarEntrada({
+      final id = await Db.registrarEntrada({
         'tipo': tipo,
         'data': data,
         'peso_total': lerNumero(peso.text),
@@ -231,6 +236,17 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
         'lote_id': loteId,
         'nascimento': nascimento,
       });
+      if (conta != null && aPrazo) {
+        await lancarParcelas(
+          receita: false,
+          origem: 'entrada:$id',
+          total: conta.total,
+          parcelas: (int.tryParse(parcelas.text.trim()) ?? 1).clamp(1, 120),
+          primeiro: primeiro,
+          descricao: 'Compra de ${lista.length} cab.${origem.text.trim().isEmpty ? '' : ' de ${origem.text.trim()}'}',
+          participante: nulo(origem.text),
+        );
+      }
     } on RegistroDuplicado catch (e) {
       setState(() => salvando = false);
       if (mounted) avisar(context, e.mensagem);
@@ -279,6 +295,7 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
               obrigatorio: true,
               onChanged: (x) => setState(() {
                     data = x!;
+                    primeiro = vencimentoSugerido(data);
                     _sugerir();
                   })),
           SwitchListTile(
@@ -391,6 +408,15 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
               const SizedBox(width: 8),
               Expanded(child: _numero(frete, 'Frete', prefixo: r'R$ ')),
             ]),
+            CamposPrazo(
+              receita: false,
+              aPrazo: aPrazo,
+              parcelas: parcelas,
+              primeiro: primeiro,
+              onAPrazo: (x) => setState(() => aPrazo = x),
+              onPrimeiro: (x) => setState(() => primeiro = x),
+              onMudou: () => setState(() {}),
+            ),
           ],
           gap,
           campoTexto(origem, compra ? 'Vendedor' : 'Origem'),

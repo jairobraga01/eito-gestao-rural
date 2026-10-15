@@ -1,7 +1,7 @@
 // Contas da compra e da venda de gado (comissão, nota, frete, Funrural,
-// Fundepec) e lucro de cada venda, nas regras da planilha de compra de gado.
+// Fundepec), lucro de cada venda com custo por cabeça-dia e parcelas a prazo.
 import 'db.dart';
-import 'gestao.dart';
+import 'dividas.dart';
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
 double? _num(Object? v) => v is num ? v.toDouble() : null;
@@ -59,27 +59,84 @@ double comissaoPadrao() => _num(ajustesNegocio()['comissao_pct']) ?? 2;
 double funruralPadrao() => _num(ajustesNegocio()['funrural_pct']) ?? 1.5;
 double rendimentoVendaPadrao() => _num(ajustesNegocio()['rendimento_pct']) ?? 100;
 
-/// Custo dos animais de uma venda (custo médio por cabeça do lote de cada um,
-/// com compra, custos e sêmen) e o lucro: líquido − custo. Null quando não há
-/// custo para comparar.
-({double custo, double lucro})? lucroDaVenda(Reg saida) {
-  final liquido = _num(saida['valor_total']);
-  if (saida['tipo'] != 'Venda' || liquido == null) return null;
-  final medias = {
-    for (final c in contasPorLote())
-      if (c.cabecas > 0) c.loteId: c.custoTotal / c.cabecas,
-  };
-  var custo = 0.0;
-  var algum = false;
-  for (final a in Db.registros('animais')) {
-    if (_int(a['saida_id']) != _int(saida['id'])) continue;
-    final m = medias[_int(a['lote_id'])] ?? medias[null];
-    if (m != null && m > 0) {
-      custo += m;
-      algum = true;
+String _dia(Object? v) {
+  final t = v == null ? '' : '$v';
+  return t.length >= 10 ? t.substring(0, 10) : t;
+}
+
+int _dias(String de, String ate) {
+  final a = DateTime.tryParse(de), b = DateTime.tryParse(ate);
+  if (a == null || b == null) return 1;
+  final d = DateTime.utc(b.year, b.month, b.day).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
+  return d < 1 ? 1 : d;
+}
+
+String _hojeIso() {
+  final d = DateTime.now();
+  return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+/// Dias que o animal ficou (ou está) na fazenda: da entrada (ou nascimento,
+/// ou cadastro) até a saída ou [hoje].
+int diasNaFazenda(Reg a, String hoje) {
+  final e = Db.registro('entradas', a['entrada_id']);
+  final de = [_dia(e?['data']), _dia(a['nascimento']), _dia(a['criado_em'])].firstWhere((x) => x.length == 10,
+      orElse: () => hoje);
+  final s = Db.registro('saidas', a['saida_id']);
+  return _dias(de, s != null && _dia(s['data']).length == 10 ? _dia(s['data']) : hoje);
+}
+
+/// Custo de cada animal da propriedade aberta: a compra dele, o sêmen e as
+/// despesas divididas por cabeça-dia (as do lote entre os animais do lote,
+/// as gerais entre todos), de modo que quem ficou mais tempo leva mais custo.
+Map<int, double> custoPorAnimal({String? hoje}) {
+  final h = hoje ?? _hojeIso();
+  final animais = [
+    for (final a in Db.registros('animais'))
+      if (_int(a['propriedade_id']) == Db.pid && _int(a['id']) != null) a,
+  ];
+  final dias = {for (final a in animais) _int(a['id'])!: diasNaFazenda(a, h)};
+  final custo = <int, double>{};
+  for (final a in animais) {
+    final id = _int(a['id'])!;
+    final e = Db.registro('entradas', a['entrada_id']);
+    final q = _int(e?['quantidade']) ?? 0;
+    custo[id] = e != null && e['tipo'] == 'Compra' && q > 0 ? (_num(e['valor_total']) ?? 0) / q : 0;
+  }
+  for (final r in Db.registros('reproducoes')) {
+    final f = _int(r['femea_id']);
+    if (custo.containsKey(f) && r['custo_dose'] is num) custo[f!] = custo[f]! + (r['custo_dose'] as num);
+  }
+  final porLote = <int?, double>{};
+  for (final c in Db.registros('custos')) {
+    if (_int(c['propriedade_id']) == Db.pid && c['valor'] is num) {
+      porLote[_int(c['lote_id'])] = (porLote[_int(c['lote_id'])] ?? 0) + (c['valor'] as num);
     }
   }
-  return algum ? (custo: custo, lucro: liquido - custo) : null;
+  for (final MapEntry(key: lote, value: total) in porLote.entries) {
+    var grupo = lote == null ? animais : animais.where((a) => _int(a['lote_id']) == lote).toList();
+    if (grupo.isEmpty) grupo = animais; // lote sem animais: entra como custo geral
+    final somaDias = grupo.fold<int>(0, (s, a) => s + dias[_int(a['id'])]!);
+    if (somaDias == 0) continue;
+    for (final a in grupo) {
+      final id = _int(a['id'])!;
+      custo[id] = custo[id]! + total * dias[id]! / somaDias;
+    }
+  }
+  return custo;
+}
+
+/// Custo dos animais de uma venda (compra + despesas por cabeça-dia + sêmen)
+/// e o lucro: líquido − custo. Null quando não há custo para comparar.
+({double custo, double lucro})? lucroDaVenda(Reg saida, {Map<int, double>? custos, String? hoje}) {
+  final liquido = _num(saida['valor_total']);
+  if (saida['tipo'] != 'Venda' || liquido == null) return null;
+  final cpa = custos ?? custoPorAnimal(hoje: hoje);
+  var custo = 0.0;
+  for (final a in Db.registros('animais')) {
+    if (_int(a['saida_id']) == _int(saida['id'])) custo += cpa[_int(a['id'])] ?? 0;
+  }
+  return custo > 0 ? (custo: custo, lucro: liquido - custo) : null;
 }
 
 /// Compras e vendas de gado do ano na propriedade aberta, com o lucro das vendas.
@@ -97,15 +154,59 @@ ResumoGado resumoGado(int ano) {
     r.cabecasCompradas += _int(e['quantidade']) ?? 0;
     r.totalCompras += _num(e['valor_total']) ?? 0;
   }
+  final custos = custoPorAnimal();
   for (final s in Db.registros('saidas')) {
     if (s['tipo'] != 'Venda' || !doAno(s)) continue;
     r.cabecasVendidas += _int(s['quantidade']) ?? 0;
     r.liquidoVendas += _num(s['valor_total']) ?? 0;
-    final l = lucroDaVenda(s);
+    final l = lucroDaVenda(s, custos: custos);
     if (l != null) {
       r.lucroVendas += l.lucro;
       r.temLucro = true;
     }
   }
   return r;
+}
+
+// ---------- Venda e compra a prazo ----------
+
+/// Cria as parcelas (em aberto) de uma venda ou compra a prazo nas contas a
+/// receber ou a pagar, uma por mês a partir de [primeiro]. A [origem]
+/// (saida:id / entrada:id) evita que o "trazer do rebanho" conte de novo.
+Future<void> lancarParcelas({
+  required bool receita,
+  required String origem,
+  required double total,
+  required int parcelas,
+  required String primeiro,
+  required String descricao,
+  String? participante,
+}) async {
+  final ps = gerarParcelas(total, parcelas, primeiro, intervaloMeses: 1);
+  for (final (i, p) in ps.indexed) {
+    await Db.inserir('contas', {
+      'propriedade_id': Db.pid,
+      'tipo': receita ? 'Receita' : 'Despesa',
+      'categoria': receita ? 'Venda de gado' : 'Compra de gado',
+      'descricao': ps.length > 1 ? '$descricao (${i + 1}/${ps.length})' : descricao,
+      'participante': participante,
+      'valor': p['valor'],
+      'vencimento': p['vencimento'],
+      'pago': false,
+      'tipo_doc': 1,
+      'origem': origem,
+    });
+  }
+}
+
+/// Apaga as parcelas ainda em aberto de uma venda ou compra excluída.
+Future<int> apagarParcelasAbertas(String origem) async {
+  var n = 0;
+  for (final c in Db.registros('contas')) {
+    if ('${c['origem'] ?? ''}' == origem && c['pago'] != true && _int(c['id']) != null) {
+      await Db.excluir('contas', _int(c['id'])!);
+      n++;
+    }
+  }
+  return n;
 }

@@ -41,6 +41,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
   String _hora = _agora();
   bool _fichaPorVaca = true;
   Reg _ficha = {};
+  String? _sexoFeto; // sexagem fetal no diagnóstico
   final _obs = TextEditingController();
   final _peso = TextEditingController();
   final _temperatura = TextEditingController();
@@ -132,6 +133,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
       setState(() {
         _atual = a;
         _servico = aberto;
+        _sexoFeto = aberto['sexo_feto'] as String?;
         _mensagem = null;
       });
       return;
@@ -249,7 +251,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
   Future<void> _confirmar(bool prenhe) async {
     final a = _atual, s = _servico;
     if (a == null || s == null) return;
-    await Db.lancarConfirmacao(s['id'] as int, prenhe, _data);
+    await Db.lancarConfirmacao(s['id'] as int, prenhe, _data, sexoFeto: prenhe ? _sexoFeto : null);
     _feitos.add(a['id'] as int);
     if (!mounted) return;
     setState(() {
@@ -263,7 +265,8 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
   Future<void> _diagnosticar(String diagnostico) async {
     final a = _atual, s = _servico;
     if (a == null || s == null) return;
-    await Db.lancarDiagnostico(s['id'] as int, diagnostico, _data);
+    await Db.lancarDiagnostico(s['id'] as int, diagnostico, _data,
+        sexoFeto: diagnostico == 'Prenhe' ? _sexoFeto : null);
     _feitos.add(a['id'] as int);
     if (!mounted) return;
     setState(() {
@@ -272,7 +275,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
     });
     _avisar(
         diagnostico == 'Prenhe'
-            ? '✔ Brinco ${a['brinco']}: PRENHE · parto previsto ${br(Db.partoPrevisto(s['data']))}'
+            ? '✔ Brinco ${a['brinco']}: PRENHE${_sexoFeto == null ? '' : ' ($_sexoFeto)'} · parto previsto ${br(Db.partoPrevisto(s['data']))}'
             : '✔ Brinco ${a['brinco']}: VAZIA',
         cor: diagnostico == 'Prenhe' ? Cores.sucesso : Cores.alerta);
   }
@@ -464,7 +467,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
           ),
         ]),
       ),
-      const SizedBox(height: 14),
+      _sexagem(),
       FilledButton.icon(
         style: FilledButton.styleFrom(backgroundColor: Cores.sucesso, minimumSize: const Size.fromHeight(80)),
         onPressed: () => _diagnosticar('Prenhe'),
@@ -620,6 +623,20 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
     ]);
   }
 
+  /// Sexagem fetal (opcional): marca o sexo antes de tocar em PRENHE.
+  Widget _sexagem() => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          const Text('Sexagem:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          for (final x in ['Fêmea', 'Macho'])
+            ChoiceChip(
+              label: Text(x, style: const TextStyle(fontSize: 18)),
+              selected: _sexoFeto == x,
+              onSelected: (sel) => setState(() => _sexoFeto = sel ? x : null),
+            ),
+        ]),
+      );
+
   Widget _painelConfirmacao(Reg a, Reg s) {
     final dias = diasEntre(txt(s['data']), _data);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -627,7 +644,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
         '2º diagnóstico · ${s['tipo']} em ${br(s['data'])} ($dias dias)',
         if (txt(s['touro']).isNotEmpty) txt(s['touro']),
       ].join(' · ')),
-      const SizedBox(height: 14),
+      _sexagem(),
       FilledButton.icon(
         style: FilledButton.styleFrom(backgroundColor: Cores.sucesso, minimumSize: const Size.fromHeight(80)),
         onPressed: () => _confirmar(true),

@@ -4,6 +4,7 @@ import 'db.dart';
 import 'financeiro.dart' show csv;
 import 'indicadores.dart' show eccEm, faixasEcc, lancarEcc;
 import 'manejo.dart' show partosDaVaca;
+import 'proteinado.dart' show precoKgInsumo;
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
 String _t(Object? v) => v == null ? '' : '$v';
@@ -405,4 +406,103 @@ String planilhaProtocolo(Reg p) {
         v.servico?['obs'],
       ],
   ]);
+}
+
+// ---------- Hormônios do protocolo ----------
+
+/// Produtos de uma etapa: insumo do estoque e quantidade por vaca.
+List<Map<String, Object?>> produtosDaEtapa(Map<String, Object?> etapa) =>
+    [for (final p in (etapa['produtos'] as List?) ?? const []) Map<String, Object?>.from(p as Map)];
+
+/// Vacas do protocolo que fazem as etapas (sem as descartadas).
+List<int> vacasNoManejo(Reg p) {
+  final descartes = {for (final d in (p['descartes'] as List?) ?? const []) _int(d)};
+  return [
+    for (final f in (p['femeas'] as List?) ?? const [])
+      if (!descartes.contains(_int(f)) && Db.registro('animais', f) != null) _int(f)!,
+  ];
+}
+
+/// Custo dos produtos de uma etapa por vaca (preço do insumo × quantidade).
+double custoEtapaPorVaca(Map<String, Object?> etapa) => produtosDaEtapa(etapa).fold(0.0, (s, x) {
+      final preco = precoKgInsumo(Db.registro('insumos', x['insumo_id']));
+      return s + (preco ?? 0) * (x['qtd'] is num ? (x['qtd'] as num).toDouble() : 0);
+    });
+
+/// Custo dos hormônios do protocolo por vaca e no total do lote.
+(double porVaca, double total) custoHormonal(Reg p) {
+  final porVaca = etapasDe(p).fold(0.0, (s, e) => s + custoEtapaPorVaca(e));
+  return (porVaca, porVaca * vacasNoManejo(p).length);
+}
+
+/// Etapas (pelo dia) que já tiveram baixa no estoque.
+Set<int> baixasFeitas(Reg p) => {for (final d in (p['baixas'] as List?) ?? const []) _int(d)!};
+
+/// Dá baixa no estoque dos produtos da etapa [dia] para as vacas do lote.
+/// Retorna quantos produtos baixou (0 se já tinha baixado ou não há produtos).
+Future<int> darBaixaEtapa(int protocoloId, int dia, String data) async {
+  final p = Db.registro('protocolos', protocoloId);
+  if (p == null || baixasFeitas(p).contains(dia)) return 0;
+  final etapa = etapasDe(p).where((e) => _int(e['dia']) == dia).firstOrNull;
+  if (etapa == null) return 0;
+  final vacas = vacasNoManejo(p).length;
+  var n = 0;
+  for (final x in produtosDaEtapa(etapa)) {
+    final qtd = x['qtd'] is num ? (x['qtd'] as num).toDouble() : 0.0;
+    if (_int(x['insumo_id']) == null || qtd <= 0 || vacas == 0) continue;
+    await Db.inserir('estoque', {
+      'propriedade_id': Db.pid,
+      'insumo_id': _int(x['insumo_id']),
+      'data': data,
+      'qtd': -qtd * vacas,
+      'motivo': '${p['nome']} D$dia ($vacas vacas)',
+      'grupo': 'prot_${protocoloId}_$dia',
+    });
+    n++;
+  }
+  await Db.atualizar('protocolos', protocoloId, {'baixas': [...baixasFeitas(p), dia]});
+  return n;
+}
+
+// ---------- Repasse com touro ----------
+
+/// Vazias do protocolo que podem ir para o repasse (ativas, não descartadas e sem serviço aberto).
+List<int> vaziasParaRepasse(Reg p) => [
+      for (final id in vaziasParaRessinc(p))
+        if (!Db.registros('reproducoes').any((r) =>
+            _int(r['femea_id']) == id && r['parto_data'] == null && (r['diagnostico'] == 'Pendente' || r['diagnostico'] == 'Prenhe')))
+          id,
+    ];
+
+/// Põe as vazias do protocolo com o touro de repasse (monta natural) a partir de [entrada].
+/// O parto previsto conta da entrada do touro.
+Future<int> repasseComTouro(Reg p, {required String touro, required String entrada, String? saida}) async {
+  final vacas = vaziasParaRepasse(p);
+  for (final v in vacas) {
+    await Db.registrarInseminacao(
+      femeaId: v,
+      data: entrada,
+      tipo: 'Monta natural',
+      touro: touro,
+      ficha: {...fichaAutomatica(v, entrada), 'repasse_de': p['id'], 'saida_touro': saida},
+    );
+  }
+  return vacas.length;
+}
+
+/// Resultado do repasse de um protocolo: (prenhes, vazias, aguardando).
+(int, int, int) resultadoRepasse(Reg p) {
+  var pr = 0, vz = 0, ag = 0;
+  for (final r in Db.registros('reproducoes')) {
+    if (_int(r['repasse_de']) != _int(p['id'])) continue;
+    switch (situacaoServico(r)) {
+      case SituacaoIatf.prenhe:
+        pr++;
+      case SituacaoIatf.aguardando:
+        ag++;
+      default:
+        vz++;
+    }
+  }
+  return (pr, vz, ag);
 }

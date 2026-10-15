@@ -64,6 +64,8 @@ const _camposInteiros = {
   'ordem',
   'dias_parida',
   'dg_dias',
+  'repasse_de',
+  'insumo_id',
   'ponto_id',
   'esperado',
   'contado',
@@ -189,6 +191,7 @@ class Db {
     'entradas',
     'semens',
     'protocolos',
+    'estacoes',
     'custos',
     'chuvas',
     'insumos',
@@ -475,7 +478,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas']) {
+        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
@@ -1055,6 +1058,7 @@ class Db {
     String? inseminador,
     String? protocolo,
     String? obs,
+    String? touro,
     Reg? ficha,
   }) async {
     final m = _Mudancas();
@@ -1076,7 +1080,7 @@ class Db {
       'tipo': tipo,
       'data': data,
       'semen_id': semen == null ? null : semenId,
-      'touro': semen?['touro'],
+      'touro': semen?['touro'] ?? touro,
       'partida': semen?['partida'],
       'custo_dose': semen?['preco_dose'],
       'inseminador': inseminador,
@@ -1094,21 +1098,23 @@ class Db {
 
   /// 2º diagnóstico (confirmação, por volta de 60 dias). Prenhe que deu vazia
   /// na confirmação é perda embrionária: fica vazia e marcada como perda.
-  static Future<void> lancarConfirmacao(int reproducaoId, bool prenhe, String data) async {
+  static Future<void> lancarConfirmacao(int reproducaoId, bool prenhe, String data, {String? sexoFeto}) async {
     if (_reg('reproducoes', reproducaoId) == null) return;
     await atualizar(
         'reproducoes',
         reproducaoId,
         prenhe
-            ? {'confirmado': true, 'perda': false, 'data_confirmacao': data}
+            ? {'confirmado': true, 'perda': false, 'data_confirmacao': data, if (sexoFeto != null) 'sexo_feto': sexoFeto}
             : {'confirmado': false, 'perda': true, 'data_confirmacao': data, 'diagnostico': 'Vazia', 'parto_previsto': null});
   }
 
   /// Lança o diagnóstico de gestação e calcula o parto previsto.
-  static Future<void> lancarDiagnostico(int reproducaoId, String diagnostico, String data) async {
+  /// [sexoFeto]: 'Fêmea' ou 'Macho' quando foi feita a sexagem fetal.
+  static Future<void> lancarDiagnostico(int reproducaoId, String diagnostico, String data, {String? sexoFeto}) async {
     final r = _reg('reproducoes', reproducaoId);
     if (r == null) return;
     await atualizar('reproducoes', reproducaoId, {
+      if (sexoFeto != null) 'sexo_feto': sexoFeto,
       'diagnostico': diagnostico,
       'data_diagnostico': diagnostico == 'Pendente' ? null : data,
       'parto_previsto': diagnostico == 'Prenhe' ? partoPrevisto(r['data']) : null,

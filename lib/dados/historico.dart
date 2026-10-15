@@ -14,6 +14,7 @@ const nomesTabela = {
   'entradas': 'Entrada',
   'semens': 'Sêmen',
   'protocolos': 'Protocolo',
+  'estacoes': 'Estação de monta',
   'custos': 'Custo',
   'chuvas': 'Chuva',
   'insumos': 'Insumo',

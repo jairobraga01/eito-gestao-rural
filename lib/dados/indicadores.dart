@@ -54,53 +54,66 @@ List<Carencia> emCarencia(Iterable<int> animalIds, String data) {
   return pior.values.toList()..sort((a, b) => a.libera.compareTo(b.libera));
 }
 
-// ---------- Declaração de rebanho ----------
+// ---------- Declaração de rebanho (formato SIDAGO / Agrodefesa) ----------
 
-/// Faixas de idade usadas nas declarações de rebanho e de vacinação dos estados.
-const faixasDeclaracao = ['0 a 12 meses', '13 a 24 meses', '25 a 36 meses', 'Acima de 36 meses', 'Sem nascimento'];
+/// Colunas do saldo do SIDAGO (Agrodefesa-GO): faixa de idade e sexo.
+const colunasSidago = ['0-12M', '0-12F', '13-24M', '13-24F', '25-36M', '25-36F', '>36M', '>36F'];
 
-String _faixa(int? meses) {
-  if (meses == null) return faixasDeclaracao[4];
-  if (meses <= 12) return faixasDeclaracao[0];
-  if (meses <= 24) return faixasDeclaracao[1];
-  if (meses <= 36) return faixasDeclaracao[2];
-  return faixasDeclaracao[3];
+/// Faixa pela idade em meses completos. Como no SIDAGO, quem completa 12
+/// meses passa para 13-24 (e assim por diante).
+String _faixaMeses(int meses) => meses < 12 ? '0-12' : (meses < 24 ? '13-24' : (meses < 36 ? '25-36' : '>36'));
+
+/// Sem nascimento, a faixa vem da categoria.
+String _faixaCategoria(Object? categoria) => switch (categoria) {
+      'Bezerro' || 'Bezerra' => '0-12',
+      'Garrote' || 'Novilha' => '13-24',
+      _ => '>36',
+    };
+
+class Declaracao {
+  Declaracao(this.data);
+  final String data;
+  final saldo = {for (final c in colunasSidago) c: 0};
+
+  /// Animais sem data de nascimento, contados pela categoria.
+  final semNascimento = <Reg>[];
+  int get total => saldo.values.fold(0, (s, v) => s + v);
 }
 
-class LinhaDeclaracao {
-  LinhaDeclaracao(this.faixa);
-  final String faixa;
-  int machos = 0, femeas = 0;
-  int get total => machos + femeas;
-}
-
-/// Animais ativos da propriedade por faixa de idade e sexo na data [data].
-List<LinhaDeclaracao> declaracaoRebanho(String data) {
-  final linhas = {for (final f in faixasDeclaracao) f: LinhaDeclaracao(f)};
+/// Animais ativos da propriedade nas colunas do SIDAGO, com a idade na data [data].
+Declaracao declaracaoRebanho(String data) {
+  final d = Declaracao(data);
   for (final a in _animaisDaProp()) {
     if (a['status'] != 'Ativo') continue;
-    final l = linhas[_faixa(_meses(a, data))]!;
-    if (a['sexo'] == 'M') {
-      l.machos++;
-    } else {
-      l.femeas++;
-    }
+    final meses = _meses(a, data);
+    if (meses == null) d.semNascimento.add(a);
+    final faixa = meses == null ? _faixaCategoria(a['categoria']) : _faixaMeses(meses);
+    final col = '$faixa${a['sexo'] == 'M' ? 'M' : 'F'}';
+    d.saldo[col] = d.saldo[col]! + 1;
   }
-  return linhas.values.where((l) => l.total > 0 || l.faixa != faixasDeclaracao[4]).toList();
+  return d;
 }
 
+/// Saldo do SIDAGO digitado pelo produtor, para conferir com o Eito.
+Map<String, int>? saldoSidago() {
+  final c = Db.registro('config', 'sidago');
+  if (c == null) return null;
+  return {for (final k in colunasSidago) k: _int(c[k]) ?? 0};
+}
+
+Future<void> salvarSaldoSidago(Map<String, int> saldo, String data) =>
+    Db.salvarConfig('sidago', {...saldo, 'data': data});
+
 /// Texto da declaração para copiar ou mandar ao escritório.
-String textoDeclaracao(String data, List<LinhaDeclaracao> linhas) {
+String textoDeclaracao(Declaracao d) {
   final nome = _t(Db.prop.value?['nome']);
-  final b = StringBuffer('Declaração de rebanho${nome.isEmpty ? '' : ' – $nome'}\n'
+  final data = d.data;
+  final b = StringBuffer('Saldo do rebanho bovino${nome.isEmpty ? '' : ' – $nome'}\n'
       'Data: ${data.substring(8, 10)}/${data.substring(5, 7)}/${data.substring(0, 4)}\n\n');
-  var m = 0, f = 0;
-  for (final l in linhas) {
-    b.writeln('${l.faixa}: ${l.machos} machos, ${l.femeas} fêmeas (${l.total})');
-    m += l.machos;
-    f += l.femeas;
+  for (final c in colunasSidago) {
+    b.writeln('$c: ${d.saldo[c]}');
   }
-  b.write('\nTotal: $m machos, $f fêmeas (${m + f} cabeças)');
+  b.write('Total: ${d.total}');
   return b.toString();
 }
 

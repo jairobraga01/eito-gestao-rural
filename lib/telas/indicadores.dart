@@ -6,7 +6,8 @@ import '../util/util.dart';
 
 String _pct(double? v) => v == null ? '-' : '${(v * 100).round()}%';
 
-/// Rebanho ativo por faixa de idade e sexo, como pedem as declarações estaduais.
+/// Saldo do rebanho nas colunas do SIDAGO (Agrodefesa-GO), com conferência
+/// contra o saldo que o produtor vê no sistema do estado.
 class DeclaracaoRebanhoPage extends StatefulWidget {
   const DeclaracaoRebanhoPage({super.key});
 
@@ -17,51 +18,108 @@ class DeclaracaoRebanhoPage extends StatefulWidget {
 class _DeclaracaoRebanhoPageState extends State<DeclaracaoRebanhoPage> {
   String data = hojeIso();
 
+  Future<void> _digitarSidago(Map<String, int>? atual) async {
+    final campos = {for (final c in colunasSidago) c: TextEditingController(text: atual == null ? '' : '${atual[c]}')};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Saldo no SIDAGO'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('Copie a última linha do Relatório de Movimentação (ou o saldo da propriedade).'),
+            for (final col in colunasSidago)
+              TextField(
+                controller: campos[col],
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: col),
+              ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Salvar')),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await salvarSaldoSidago({for (final e in campos.entries) e.key: lerNumero(e.value.text)?.round() ?? 0}, hojeIso());
+    }
+    for (final c in campos.values) {
+      c.dispose();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Declaração de rebanho')),
-      body: AoMudar<List<LinhaDeclaracao>>(
-        carregar: () async => declaracaoRebanho(data),
-        builder: (context, linhas) {
-          final texto = textoDeclaracao(data, linhas);
-          final m = linhas.fold(0, (s, l) => s + l.machos), f = linhas.fold(0, (s, l) => s + l.femeas);
+      body: AoMudar<(Declaracao, Map<String, int>?)>(
+        carregar: () async => (declaracaoRebanho(data), saldoSidago()),
+        builder: (context, dados) {
+          final (d, sidago) = dados;
+          final texto = textoDeclaracao(d);
+          const negrito = TextStyle(fontWeight: FontWeight.w700);
+          Widget cel(String t, {TextStyle? estilo, Color? cor}) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(t, textAlign: TextAlign.right, style: (estilo ?? const TextStyle()).copyWith(color: cor)),
+              );
+          Widget linha(String rotulo, int eito, int? estado, {bool total = false}) {
+            final dif = estado == null ? null : eito - estado;
+            return Row(children: [
+              Expanded(flex: 2, child: Text(rotulo, style: total ? negrito : null)),
+              Expanded(child: cel('$eito', estilo: total ? negrito : null)),
+              if (sidago != null) ...[
+                Expanded(child: cel('$estado', estilo: total ? negrito : null)),
+                Expanded(
+                    child: cel(dif == 0 ? '–' : (dif! > 0 ? '+$dif' : '$dif'),
+                        estilo: negrito, cor: dif == 0 ? null : Colors.red)),
+              ],
+            ]);
+          }
+
+          final totalSidago = sidago?.values.fold(0, (s, v) => s + v);
           return ListView(padding: const EdgeInsets.all(16), children: [
             DateField(label: 'Idade calculada em', value: data, obrigatorio: true, onChanged: (x) => setState(() => data = x!)),
             const SizedBox(height: 8),
-            const Text('Animais ativos hoje, com a idade na data escolhida. Confira com o saldo do órgão de defesa do seu estado.'),
-            const SizedBox(height: 8),
-            Table(
-              columnWidths: const {0: FlexColumnWidth(2)},
-              children: [
-                const TableRow(children: [
-                  Text('Faixa', style: TextStyle(fontWeight: FontWeight.w700)),
-                  Text('Machos', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w700)),
-                  Text('Fêmeas', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w700)),
-                  Text('Total', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.w700)),
-                ]),
-                for (final l in linhas)
-                  TableRow(children: [
-                    Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Text(l.faixa)),
-                    Text('${l.machos}', textAlign: TextAlign.right),
-                    Text('${l.femeas}', textAlign: TextAlign.right),
-                    Text('${l.total}', textAlign: TextAlign.right),
-                  ]),
-                TableRow(children: [
-                  const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
-                      child: Text('Total', style: TextStyle(fontWeight: FontWeight.w700))),
-                  Text('$m', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text('$f', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text('${m + f}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w700)),
-                ]),
+            const Text('Mesmas colunas do saldo do SIDAGO (Agrodefesa-GO): faixa de idade em meses, M = machos e F = fêmeas.'),
+            const SizedBox(height: 12),
+            Row(children: [
+              const Expanded(flex: 2, child: Text('Faixa', style: negrito)),
+              Expanded(child: cel('Eito', estilo: negrito)),
+              if (sidago != null) ...[
+                Expanded(child: cel('SIDAGO', estilo: negrito)),
+                Expanded(child: cel('Dif.', estilo: negrito)),
               ],
-            ),
+            ]),
+            const Divider(),
+            for (final c in colunasSidago) linha(c, d.saldo[c]!, sidago?[c]),
+            const Divider(),
+            linha('Total', d.total, totalSidago, total: true),
+            if (sidago != null && totalSidago != d.total)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('Diferença em vermelho: confira nascimentos, mortes e GTAs que faltam lançar no Eito ou no SIDAGO.'),
+              ),
+            if (d.semNascimento.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  '${d.semNascimento.length} animal(is) sem data de nascimento entraram pela categoria: '
+                  '${d.semNascimento.take(10).map((a) => a['brinco']).join(', ')}${d.semNascimento.length > 10 ? '…' : ''}',
+                  style: const TextStyle(color: Colors.orange),
+                ),
+              ),
             const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () => _digitarSidago(sidago),
+              icon: const Icon(Icons.edit_note),
+              label: Text(sidago == null ? 'Conferir com o saldo do SIDAGO' : 'Atualizar saldo do SIDAGO'),
+            ),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: texto));
-                if (context.mounted) avisar(context, 'Declaração copiada.');
+                if (context.mounted) avisar(context, 'Saldo copiado.');
               },
               icon: const Icon(Icons.copy),
               label: const Text('Copiar texto'),

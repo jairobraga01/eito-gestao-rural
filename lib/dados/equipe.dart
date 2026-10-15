@@ -13,13 +13,15 @@ import 'package:flutter/foundation.dart';
 
 import 'db.dart';
 
-const papeis = {'gerente': 'Gerente', 'peao': 'Peão'};
+const papeis = {'gerente': 'Gerente', 'peao': 'Peão', 'veterinario': 'Veterinário'};
 
 /// O que cada papel pode fazer (mostrado na tela da equipe).
 const descricaoPapel = {
   'gerente': 'Vê e lança tudo, menos a equipe.',
   'peao': 'Lança o serviço de campo (curral, pesagem, sanidade, reprodução, pasto, chuva e tarefas). '
       'Não vê o financeiro e só apaga o que ele mesmo lançou.',
+  'veterinario': 'Lança a reprodução e a sanidade (inseminação, protocolos, sêmen, diagnóstico, ECC e aplicações) '
+      'e vê o rebanho. Não vê o financeiro e só apaga o que ele mesmo lançou.',
 };
 
 /// Domínio dos logins de peão (não recebe e-mail; serve só para entrar).

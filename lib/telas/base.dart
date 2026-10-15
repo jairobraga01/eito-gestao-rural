@@ -57,6 +57,7 @@ const itensMenu = <(String, IconData)>[
   ('Backup', Icons.backup_outlined),
   ('Tarefas', Icons.task_alt),
   ('Quem lançou o quê', Icons.history),
+  ('Relatório financeiro', Icons.summarize_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -64,14 +65,15 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secSanidade = 5, secLeite = 6, secPiquetes = 7, secPastagem = 8, secMapa = 9, secEntradas = 10, secVendas = 11,
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
-    secTarefas = 24, secHistorico = 25;
+    secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
   ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secLeite, secEntradas, secVendas]),
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa, secChuva]),
   ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
-  ('Financeiro', Icons.attach_money, [secCustos, secContas, secDividas, secCotacao, secVender]),
+  ('Financeiro', Icons.attach_money,
+      [secRelatorioFinanceiro, secCustos, secContas, secDividas, secCotacao, secVender]),
   ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),
 ];
 
@@ -80,8 +82,18 @@ const secoesPeao = {
   secPainel, secRebanho, secReproducao, secSanidade, secLeite, secPiquetes, secPastagem, secMapa, secChuva, secTarefas,
 };
 
-/// Se quem está usando pode abrir a seção (o dono e o gerente veem tudo).
-bool podeVer(int secao) => !Db.ehPeao || secoesPeao.contains(secao);
+/// Seções que o veterinário vê: rebanho, reprodução e sanidade.
+const secoesVeterinario = {secPainel, secRebanho, secReproducao, secSanidade, secTarefas};
+
+/// Seções só do dono (nem o gerente vê).
+const secoesDono = {secRelatorioFinanceiro};
+
+/// Se quem está usando pode abrir a seção (o dono vê tudo; o gerente, tudo menos o que é só do dono).
+bool podeVer(int secao) {
+  if (Db.ehPeao) return secoesPeao.contains(secao);
+  if (Db.ehVeterinario) return secoesVeterinario.contains(secao);
+  return Db.ehDono || !secoesDono.contains(secao);
+}
 
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).
 void abrirModoCurral(BuildContext context) =>
@@ -322,7 +334,7 @@ Future<void> escolherPropriedade(BuildContext context) async {
               subtitle: Text('${p['qtd']} animal(is)${txt(p['uf']).isEmpty ? '' : ' · ${p['uf']}'}'),
               onTap: () => Navigator.pop(c, p['id']),
             ),
-          if (!Db.ehPeao) ...[
+          if (!Db.ehCampo) ...[
           const Divider(),
           ListTile(
             leading: const Icon(Icons.add),
@@ -418,7 +430,7 @@ class AcoesFab extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     for (final (i, it) in _itens
-                        .where((it) => !Db.ehPeao || (it.$1 != 'Propriedade' && it.$1 != 'Lote'))
+                        .where((it) => !Db.ehCampo || (it.$1 != 'Propriedade' && it.$1 != 'Lote'))
                         .indexed)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12, right: 4),

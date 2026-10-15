@@ -58,6 +58,12 @@ const _camposInteiros = {
   'cria_id',
   'animal_id',
   'semen_id',
+  'protocolo_id',
+  'origem_id',
+  'rodada',
+  'ordem',
+  'dias_parida',
+  'dg_dias',
   'ponto_id',
   'esperado',
   'contado',
@@ -205,15 +211,19 @@ class Db {
   /// Dono dos dados abertos (o próprio usuário ou quem o pôs na equipe).
   static String? _uid;
 
-  /// Papel de quem está usando: 'dono', 'gerente' ou 'peao'.
+  /// Papel de quem está usando: 'dono', 'gerente', 'peao' ou 'veterinario'.
   static final papel = ValueNotifier<String>('dono');
   static bool get ehDono => papel.value == 'dono';
   static bool get ehPeao => papel.value == 'peao';
+  static bool get ehVeterinario => papel.value == 'veterinario';
+
+  /// Peão e veterinário: não veem o financeiro nem os cadastros da fazenda.
+  static bool get ehCampo => ehPeao || ehVeterinario;
 
   /// Quem está lançando. Vai gravado em cada registro (quem lançou o quê).
   static ({String uid, String nome})? autor;
 
-  /// Tabelas que o peão não lê (financeiro). As regras do Firestore bloqueiam.
+  /// Tabelas que o peão e o veterinário não leem (financeiro). As regras do Firestore bloqueiam.
   static const tabelasSemPeao = {'contas', 'dividas', 'custos'};
 
   /// Marca quem lançou (registro novo) ou quem alterou (registro existente).
@@ -298,7 +308,7 @@ class Db {
     final prontos = <Future<void>>[];
     for (final t in tabelas) {
       _dados[t] = {};
-      if (ehPeao && tabelasSemPeao.contains(t)) continue;
+      if (ehCampo && tabelasSemPeao.contains(t)) continue;
       final pronto = Completer<void>();
       _subs.add(_col(t).snapshots(includeMetadataChanges: true).listen(
         (s) {
@@ -1045,6 +1055,7 @@ class Db {
     String? inseminador,
     String? protocolo,
     String? obs,
+    Reg? ficha,
   }) async {
     final m = _Mudancas();
     final aberto = _servicoAberto(femeaId);
@@ -1055,18 +1066,22 @@ class Db {
       m.mesclar('reproducoes', aberto['id']!, {'diagnostico': 'Vazia', 'data_diagnostico': data, 'parto_previsto': null});
     }
     final semen = _reg('semens', semenId);
-    protocolo ??= protocoloDaFemea(femeaId, data)?['nome'] as String?;
+    final lote = protocoloDaFemea(femeaId, data);
+    protocolo ??= lote?['nome'] as String?;
     final id = novoId();
     m.gravar('reproducoes', {
+      ...?ficha,
       'id': id,
       'femea_id': femeaId,
       'tipo': tipo,
       'data': data,
       'semen_id': semen == null ? null : semenId,
       'touro': semen?['touro'],
+      'partida': semen?['partida'],
       'custo_dose': semen?['preco_dose'],
       'inseminador': inseminador,
       'protocolo': protocolo,
+      'protocolo_id': lote?['id'],
       'diagnostico': 'Pendente',
       'data_diagnostico': null,
       'parto_previsto': null,
@@ -1075,6 +1090,18 @@ class Db {
     if (semen != null) m.somar('semens', semenId!, 'doses', -1);
     m.enviar();
     return id;
+  }
+
+  /// 2º diagnóstico (confirmação, por volta de 60 dias). Prenhe que deu vazia
+  /// na confirmação é perda embrionária: fica vazia e marcada como perda.
+  static Future<void> lancarConfirmacao(int reproducaoId, bool prenhe, String data) async {
+    if (_reg('reproducoes', reproducaoId) == null) return;
+    await atualizar(
+        'reproducoes',
+        reproducaoId,
+        prenhe
+            ? {'confirmado': true, 'perda': false, 'data_confirmacao': data}
+            : {'confirmado': false, 'perda': true, 'data_confirmacao': data, 'diagnostico': 'Vazia', 'parto_previsto': null});
   }
 
   /// Lança o diagnóstico de gestação e calcula o parto previsto.
@@ -1103,8 +1130,9 @@ class Db {
     required String inicio,
     required List<Map<String, Object?>> etapas,
     required List<int> femeas,
+    Reg? extras,
   }) async {
-    final v = {'nome': nome, 'inicio': inicio, 'etapas': etapas, 'femeas': femeas};
+    final v = {...?extras, 'nome': nome, 'inicio': inicio, 'etapas': etapas, 'femeas': femeas};
     if (id != null) {
       await atualizar('protocolos', id, v);
       return id;
@@ -1213,7 +1241,10 @@ class Db {
       for (final s in _todos('semens'))
         if (_int(s['propriedade_id']) == pid)
           {...s, 'usadas': 0, 'prenhes': 0, 'vazias': 0, 'custo': 0, ...?uso[_int(s['id'])]},
-    ]..sort((a, b) => _comparaNome(a['touro'], b['touro']));
+    ]..sort((a, b) {
+        final c = _comparaNome(a['touro'], b['touro']);
+        return c != 0 ? c : _comparaNome(a['partida'], b['partida']);
+      });
   }
 
   static Future<int> salvarSemen(Reg v, {int? id}) async {

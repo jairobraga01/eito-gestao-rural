@@ -17,9 +17,9 @@ String _soma(String iso, int dias) => Db.dataEtapa(iso, dias);
 
 /// Protocolos de IATF prontos: etapas pelo dia contado do D0. A última é a inseminação.
 const protocolosIatf = <String, List<(int, String)>>{
-  'D0-D8-D10': [(0, 'Implante + benzoato de estradiol'), (8, 'Retirada do implante + eCG + cipionato'), (10, 'IATF')],
-  'D0-D7-D9': [(0, 'Implante + benzoato de estradiol'), (7, 'Retirada do implante + eCG + cipionato'), (9, 'IATF')],
-  'D0-D9-D11': [(0, 'Implante + benzoato de estradiol'), (9, 'Retirada do implante + eCG + cipionato'), (11, 'IATF')],
+  'D0-D8-D10': [(0, 'Implante + benzoato de estradiol'), (8, 'Retirada do implante + PGF + eCG + cipionato'), (10, 'IATF')],
+  'D0-D7-D9': [(0, 'Implante + benzoato de estradiol'), (7, 'Retirada do implante + PGF + eCG + cipionato'), (9, 'IATF')],
+  'D0-D9-D11': [(0, 'Implante + benzoato de estradiol'), (9, 'Retirada do implante + PGF + eCG + cipionato'), (11, 'IATF')],
 };
 
 // ---------- Fila do dia ----------
@@ -48,20 +48,25 @@ List<ItemFila> filaDoDia(String hoje) {
   String brinco(Object? id) => _t(ativos[_int(id)]?['brinco']);
   final itens = <ItemFila>[];
 
-  // Etapas de protocolo de hoje ou atrasadas até 2 dias.
+  // Etapas de protocolo de amanhã (aviso na véspera), de hoje ou atrasadas até 2 dias.
   for (final p in Db.registros('protocolos')) {
     if (_int(p['propriedade_id']) != pid || p['inicio'] == null) continue;
-    final vacas = [for (final f in (p['femeas'] as List?) ?? const []) if (ativos.containsKey(_int(f))) brinco(f)];
+    final descartes = {for (final d in (p['descartes'] as List?) ?? const []) _int(d)};
+    final vacas = [
+      for (final f in (p['femeas'] as List?) ?? const [])
+        if (ativos.containsKey(_int(f)) && !descartes.contains(_int(f))) brinco(f),
+    ];
     if (vacas.isEmpty) continue;
     for (final e in (p['etapas'] as List?) ?? const []) {
       final etapa = Map<String, Object?>.from(e as Map);
       final data = _soma(_t(p['inicio']), _int(etapa['dia']) ?? 0);
       final atraso = _dias(data, hoje);
-      if (atraso < 0 || atraso > 2) continue;
+      if (atraso < -1 || atraso > 2) continue;
+      final hora = _t(etapa['hora']).isEmpty ? '' : ' às ${etapa['hora']}';
       itens.add(ItemFila(
         TipoFila.protocolo,
         'prot_${p['id']}_${etapa['dia']}',
-        'D${etapa['dia']} · ${etapa['nome']}',
+        '${atraso < 0 ? 'Amanhã$hora · ' : (hora.isEmpty ? '' : 'Hoje$hora · ')}D${etapa['dia']} · ${etapa['nome']}',
         '${p['nome']} · ${vacas.length} ${vacas.length == 1 ? 'vaca' : 'vacas'}: ${vacas.join(', ')}',
         atrasado: atraso > 0,
       ));
@@ -109,17 +114,30 @@ List<ItemFila> filaDoDia(String hoje) {
     ));
   }
 
-  // Diagnósticos (30 dias ou mais após o serviço) e partos dos próximos 7 dias.
+  // Diagnósticos (30 dias após o serviço, ou 50 na palpação), confirmação
+  // da prenhez aos 60 dias e partos dos próximos 7 dias.
   for (final r in Db.registros('reproducoes')) {
     final f = _int(r['femea_id']);
     if (!ativos.containsKey(f) || r['parto_data'] != null) continue;
+    final dgDias = _int(Db.registro('protocolos', r['protocolo_id'])?['dg_dias']) ?? 30;
     if (r['diagnostico'] == 'Pendente' && _t(r['data']).isNotEmpty) {
       final dias = _dias(_t(r['data']), hoje);
-      if (dias >= 30) {
+      if (dias >= dgDias) {
         itens.add(ItemFila(TipoFila.diagnostico, 'diag_${r['id']}', 'Diagnóstico · brinco ${brinco(f)}',
-            '${r['tipo']} há $dias dias', atrasado: dias > 45, animalId: f));
+            '${r['tipo']} há $dias dias', atrasado: dias > dgDias + 15, animalId: f));
       }
-    } else if (r['diagnostico'] == 'Prenhe' && _t(r['parto_previsto']).isNotEmpty) {
+      continue;
+    }
+    final desdeIa = _t(r['data']).isEmpty ? 0 : _dias(_t(r['data']), hoje);
+    if (r['diagnostico'] == 'Prenhe' &&
+        r['tipo'] != 'Monta natural' &&
+        r['data_confirmacao'] == null &&
+        desdeIa >= 60 &&
+        desdeIa <= 120) {
+      itens.add(ItemFila(TipoFila.diagnostico, 'conf_${r['id']}', 'Confirmar prenhez · brinco ${brinco(f)}',
+          '2º diagnóstico: ${r['tipo']} há $desdeIa dias', atrasado: desdeIa > 75, animalId: f));
+    }
+    if (r['diagnostico'] == 'Prenhe' && _t(r['parto_previsto']).isNotEmpty) {
       final falta = _dias(hoje, _t(r['parto_previsto']));
       if (falta <= 7) {
         itens.add(ItemFila(

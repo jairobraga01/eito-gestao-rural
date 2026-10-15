@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/equipe.dart';
+import '../dados/indicacoes.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -13,6 +14,7 @@ import 'animais.dart';
 import 'conta.dart';
 import 'dispositivos.dart';
 import 'equipe.dart';
+import 'indicacoes.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
 import 'modo_inseminacao.dart';
@@ -116,6 +118,7 @@ Future<void> sairDaConta(BuildContext context) async {
   if (!ok) return;
   await Db.encerrar();
   await FirebaseAuth.instance.signOut();
+  Indicacoes.esquecerAdmin();
 }
 
 class MenuLateral extends StatelessWidget {
@@ -259,6 +262,15 @@ class MenuLateral extends StatelessWidget {
                 fechar();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const EquipePage()));
               }),
+            FutureBuilder<bool>(
+              future: Indicacoes.souAdmin(),
+              builder: (c, s) => s.data == true
+                  ? item(Icons.card_giftcard_outlined, 'Códigos de indicação', () {
+                      fechar();
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const IndicacoesPage()));
+                    })
+                  : const SizedBox.shrink(),
+            ),
             item(Icons.manage_accounts_outlined, 'Minha conta', () {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaConta()));

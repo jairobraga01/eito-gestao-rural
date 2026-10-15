@@ -52,6 +52,10 @@ service cloud.firestore {
     function semFinanceiro(t) {
       return t in ['contas', 'dividas', 'custos'];
     }
+    // Quem administra os códigos de indicação (admins/{uid}, criado no console).
+    function admin() {
+      return logado() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
     function campoGrava(p, t) {
       return (p == 'peao' && peaoGrava(t)) || (p == 'veterinario' && vetGrava(t));
     }
@@ -87,6 +91,20 @@ service cloud.firestore {
       allow update: if logado() && resource.data.dono == request.auth.uid
         && request.resource.data.dono == request.auth.uid;
       allow delete: if logado() && (resource.data.dono == request.auth.uid || meuEmail() == email);
+    }
+
+    // Códigos de indicação: quem está criando a conta (ainda sem login) só
+    // confere o código que digitou; listar e cadastrar, só o administrador.
+    match /indicacoes/{codigo} {
+      allow get: if true;
+      allow list, write: if admin();
+    }
+    match /admins/{uid} {
+      allow get: if logado() && request.auth.uid == uid;
+    }
+    // Adesões por código: o administrador conta os perfis com cada indicação.
+    match /usuarios/{u} {
+      allow read: if admin();
     }
 
     // Todo o resto fica bloqueado

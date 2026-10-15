@@ -56,7 +56,7 @@ class _BarraSincroniaState extends State<BarraSincronia> {
                     : 'Sem sinal. $n ${n == 1 ? 'lançamento guardado' : 'lançamentos guardados'} no aparelho.'
               )
             : n > 0
-                ? (Cores.laranja, Icons.cloud_upload, 'Enviando $n ${n == 1 ? 'lançamento' : 'lançamentos'} para a nuvem…')
+                ? (Cores.azul, Icons.cloud_upload, 'Enviando $n ${n == 1 ? 'lançamento' : 'lançamentos'} para a nuvem…')
                 : (Cores.olivaClaro, Icons.cloud_done, 'Tudo salvo na nuvem.');
         return Semantics(
           liveRegion: true,

@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../dados/db.dart';
 import '../dados/financeiro.dart';
 import '../dados/guarai.dart';
+import '../dados/indicacoes.dart';
 import '../dados/negocio.dart';
 import '../dados/relatorio_html.dart';
 import '../dispositivos/arquivo_stub.dart' if (dart.library.js_interop) '../dispositivos/arquivo_web.dart';
@@ -104,7 +105,12 @@ class _RelatorioFinanceiroPageState extends State<RelatorioFinanceiroPage> {
           final pa = ant.porMes;
           final pm = r.porMes;
           return ListView(padding: const EdgeInsets.only(bottom: 32), children: [
-            Card(
+            // Relatório Gado Guaraí: só na conta criador/admin (admins/{uid}).
+            FutureBuilder<bool>(
+              future: Indicacoes.souAdmin(),
+              builder: (context, adm) => adm.data != true
+                  ? const SizedBox.shrink()
+                  : Card(
               margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(children: [
                 ListTile(
@@ -129,6 +135,7 @@ class _RelatorioFinanceiroPageState extends State<RelatorioFinanceiroPage> {
                   onTap: () => launchUrl(Uri.parse(siteGadoGuarai), mode: LaunchMode.externalApplication),
                 ),
               ]),
+            ),
             ),
             Row(children: [
               IconButton(tooltip: 'Ano anterior', icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => ano--)),

@@ -304,11 +304,6 @@ class MenuLateral extends StatelessWidget {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
             }),
-            if (Db.ehDono && planoAtual().completo)
-              item(Icons.dashboard_outlined, 'Relatório Gado Guaraí', () {
-                fechar();
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PainelGadoPage()));
-              }),
             if (Db.ehDono)
               item(Icons.group_outlined, 'Equipe e permissões', () {
                 fechar();
@@ -326,6 +321,10 @@ class MenuLateral extends StatelessWidget {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const CriadorPage()));
                       }, cor: Cores.azul),
+                      item(Icons.dashboard_outlined, 'Relatório Gado Guaraí', () {
+                        fechar();
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const PainelGadoPage()));
+                      }),
                       item(Icons.card_giftcard_outlined, 'Códigos de indicação', () {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const IndicacoesPage()));

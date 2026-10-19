@@ -78,7 +78,7 @@ const _assuntos = <_Assunto>[
   (Icons.attach_money, 'Financeiro', 'Custos, contas e resultado.', [
     'Menu › Financeiro › Custos e margem para ver custo por lote, por arroba e margem.',
     'Em Contas a pagar e receber, lance vencimentos e marque o que foi pago.',
-    'Em Relatório financeiro (só o dono), veja o painel do gado e compare anos; use o botão de PDF para imprimir.',
+    'Em Relatório financeiro (só o dono), veja o resultado do ano e compare anos; use o botão de PDF para imprimir.',
     'Em Cotação da arroba e Vender ou esperar, compare o preço de hoje com o ganho do lote.',
   ]),
   (Icons.bar_chart, 'Relatórios e documentos', 'Para o veterinário, o contador e a Agrodefesa.', [

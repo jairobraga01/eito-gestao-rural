@@ -7,6 +7,7 @@ import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
 import 'batidas.dart';
+import 'nota_compra.dart';
 
 String _q(double v) => numeroBr(v, casas: v % 1 == 0 ? 0 : 1);
 
@@ -30,6 +31,12 @@ class EstoquePage extends StatelessWidget {
         onPressed: () => entradaDialog(context, categorias: categorias),
       ),
       acoes: [
+        IconButton(
+          tooltip: 'Lançar pela nota de compra',
+          icon: const Icon(Icons.document_scanner_outlined),
+          onPressed: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => NotaCompraPage(categorias: categorias))),
+        ),
         IconButton(
           tooltip: medicamentos ? 'Novo medicamento' : 'Novo insumo',
           icon: const Icon(Icons.playlist_add),

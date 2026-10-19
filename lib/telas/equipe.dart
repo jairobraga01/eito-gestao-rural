@@ -253,15 +253,14 @@ class _EquipePageState extends State<EquipePage> {
             final lista = s.data!;
             return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
               if (_ocupado) const LinearProgressIndicator(),
-              Padding(
-                padding: const EdgeInsets.all(16),
+              const Padding(
+                padding: EdgeInsets.all(16),
                 child: Text(
                   'Cada pessoa entra com a própria conta e trabalha nos dados desta fazenda. '
-                  'Tudo o que ela lançar fica marcado com o nome dela.\n\n'
-                  'Plano ${planoAtual().nome}: ${planoAtual().resumoLimite}; '
-                  '${planoAtual().maxPorPapel.entries.map((e) => '${e.value >= 99 ? 'sem limite de' : e.value} ${papeis[e.key]!.toLowerCase()}').join(', ')}.',
+                  'Tudo o que ela lançar fica marcado com o nome dela.',
                 ),
               ),
+              _CartaoPlano(lista),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Wrap(spacing: 12, runSpacing: 8, children: [
@@ -536,5 +535,53 @@ class _HistoricoPageState extends State<HistoricoPage> {
       );
     if (widget.doMenu) return Pagina(titulo: 'Quem lançou o quê', corpo: corpo);
     return Scaffold(appBar: AppBar(title: const Text('Quem lançou o quê')), body: corpo);
+  }
+}
+
+
+/// Plano da fazenda: preço, animais e pessoas usados em relação ao limite.
+class _CartaoPlano extends StatelessWidget {
+  const _CartaoPlano(this.equipe);
+  final List<Membro> equipe;
+
+  static String _limite(int? v) => v == null || v >= 99 ? 'sem limite' : '$v';
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Object?>(
+      valueListenable: Db.planoDaFazenda,
+      builder: (context, _, __) {
+        final p = planoAtual();
+        final animais = animaisAtivos();
+        final usados = Equipe.contagemPorPapel(equipe);
+        final m = p.maxAnimais;
+        final preco = p.mes.isEmpty ? 'Teste ou cortesia: tudo liberado' : 'R\$ ${p.mes} por mês ou R\$ ${p.ano} por ano';
+        return Card(
+          margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Plano ${p.nome}', style: Theme.of(context).textTheme.titleLarge),
+              Text(preco),
+              const SizedBox(height: 12),
+              Text('Animais: $animais de ${_limite(m)}'),
+              if (m != null) ...[
+                const SizedBox(height: 4),
+                LinearProgressIndicator(value: (animais / m).clamp(0, 1).toDouble()),
+              ],
+              const SizedBox(height: 12),
+              const Text('Pessoas (além do dono)'),
+              for (final e in p.maxPorPapel.entries)
+                Text('${papeis[e.key] ?? e.key}: ${usados[e.key] ?? 0} de ${_limite(e.value)}'),
+              const Divider(height: 24),
+              const Text('Planos à venda'),
+              for (final q in PlanoEito.todos)
+                Text('${q.nome}: R\$ ${q.mes} por mês ou R\$ ${q.ano} por ano; ${q.resumoLimite}; '
+                    '${q.maxPorPapel.entries.map((e) => '${e.value} ${papeis[e.key]!.toLowerCase()}').join(', ')}.'),
+            ]),
+          ),
+        );
+      },
+    );
   }
 }

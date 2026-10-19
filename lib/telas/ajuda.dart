@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/plataforma.dart';
 import '../tema.dart';
@@ -55,6 +56,12 @@ class _Duvidas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.only(bottom: 32), children: [
+        ListTile(
+          leading: const Icon(Icons.menu_book_outlined, color: Cores.oliva),
+          title: const Text('Folder do Eito: todas as funções explicadas', style: TextStyle(fontWeight: FontWeight.w700)),
+          trailing: const Icon(Icons.open_in_new),
+          onTap: () => launchUrl(Uri.base.resolve('/folder.html'), webOnlyWindowName: '_blank'),
+        ),
         for (final (p, r) in _faq)
           ExpansionTile(
             leading: const Icon(Icons.help_outline, color: Cores.oliva),

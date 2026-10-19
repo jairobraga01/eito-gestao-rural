@@ -109,6 +109,10 @@ service cloud.firestore {
     }
     match /admins/{uid} {
       allow get: if logado() && request.auth.uid == uid;
+      // O criador se registra ao entrar, só com o e-mail dele já confirmado.
+      allow create: if logado() && request.auth.uid == uid
+          && request.auth.token.email == 'jairo_braga@icloud.com'
+          && request.auth.token.email_verified == true;
     }
     // Adesões por código: o administrador conta os perfis com cada indicação.
     match /usuarios/{u} {

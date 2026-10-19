@@ -88,12 +88,12 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
-  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secMedicamentos, secPesagem, secLeite]),
+  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secPesagem, secLeite]),
   ('Entrada: Compras e Nascimentos', iconeEntrada, [secEntradas, secNascimentos]),
   ('Saídas: Vendas e Mortes/Outras Causas', iconeSaida, [secVendas, secMortes, secOutrasSaidas]),
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa]),
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
-  ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
+  ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secMedicamentos, secDieta]),
   ('Financeiro', Icons.attach_money,
       [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secContatos, secDividas, secCotacao, secVender]),
   ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),

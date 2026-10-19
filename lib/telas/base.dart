@@ -73,6 +73,7 @@ const itensMenu = <(String, IconData)>[
   ('Mortes', Icons.heart_broken_outlined),
   ('Outras Causas', Icons.more_horiz),
   ('Fornecedores e compradores', Icons.contacts_outlined),
+  ('Guia do Usuário', Icons.menu_book_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -81,7 +82,7 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
     secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
-    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34;
+    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -99,24 +100,24 @@ const gruposMenu = <(String, IconData, List<int>)>[
 /// Seções que o peão vê: o serviço de campo, sem financeiro nem cadastros da fazenda.
 const secoesPeao = {
   secPainel, secRebanho, secReproducao, secSanidade, secLeite, secPiquetes, secPastagem, secMapa, secChuva, secTarefas,
-  secClima, secAjuda, secPesagem, secNascimentos,
+  secClima, secAjuda, secGuia, secPesagem, secNascimentos,
 };
 
 /// Seções que o veterinário vê: rebanho, reprodução e sanidade.
 const secoesVeterinario = {
-  secPainel, secRebanho, secReproducao, secSanidade, secPesagem, secNascimentos, secTarefas, secClima, secAjuda,
+  secPainel, secRebanho, secReproducao, secSanidade, secPesagem, secNascimentos, secTarefas, secClima, secAjuda, secGuia,
 };
 
 /// Seções do zootecnista: rebanho, pesagem, nutrição e estoque.
 const secoesZootecnista = {
   secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secDieta, secPiquetes, secPastagem, secTarefas,
-  secClima, secAjuda,
+  secClima, secAjuda, secGuia,
 };
 
 /// Seções do contador: só consulta do financeiro, das compras e vendas e das exportações.
 const secoesContador = {
   secPainel, secRelatorioFinanceiro, secCustos, secContas, secContatos, secDividas, secPatrimonio, secCotacao,
-  secEntradas, secVendas, secRelatorios, secExportacoes, secAjuda,
+  secEntradas, secVendas, secRelatorios, secExportacoes, secAjuda, secGuia,
 };
 
 /// Seções só do dono (nem o gerente vê).
@@ -326,6 +327,10 @@ class MenuLateral extends StatelessWidget {
                     ])
                   : const SizedBox.shrink(),
             ),
+            item(itensMenu[secGuia].$2, itensMenu[secGuia].$1, () {
+              fechar();
+              Nav.ir(secGuia);
+            }, atual: atual == secGuia),
             item(itensMenu[secAjuda].$2, itensMenu[secAjuda].$1, () {
               fechar();
               Nav.ir(secAjuda);

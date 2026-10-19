@@ -28,6 +28,7 @@ import 'telas/estoque.dart';
 import 'telas/inicio.dart';
 import 'telas/login.dart';
 import 'telas/financeiro.dart';
+import 'telas/guia.dart';
 import 'telas/lotes.dart';
 import 'telas/mapa.dart';
 import 'telas/animais.dart';
@@ -243,6 +244,7 @@ class _InicioState extends State<Inicio> {
         secMortes => const SaidasPage(tipo: TipoSaidas.mortes),
         secOutrasSaidas => const SaidasPage(tipo: TipoSaidas.outras),
         secContatos => const ContatosPage(),
+        secGuia => const GuiaPage(),
         _ => const InicioPage(),
       };
 

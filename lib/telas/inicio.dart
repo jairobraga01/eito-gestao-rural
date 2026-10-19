@@ -1,12 +1,18 @@
-// Painel: busca, indicadores, atalhos grandes e alertas da propriedade.
+// Painel: busca, previsão do tempo, alertas, modos, indicadores e atalhos da propriedade.
 import 'package:flutter/material.dart';
 
+import '../dados/clima.dart';
 import '../dados/db.dart';
 import '../dados/estoque.dart' show alertasEstoque;
 import '../tema.dart';
 import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
+import 'clima.dart' show iconeTempo;
+import 'fila_do_dia.dart';
+import 'lancamento_voz.dart';
+import 'manejo_em_serie.dart';
+import 'mover.dart' show MudarPastoPage;
 import 'relatorios.dart' show partosPrevistos, diagnosticosAtrasados, aplicacoesProximas, animaisEmCarencia;
 import 'reproducao.dart';
 import 'sanidade.dart';
@@ -112,11 +118,38 @@ class _InicioPageState extends State<InicioPage> {
               onTap: () => _abrir(const SanidadeFormPage()),
             ),
         ];
+        final largo = MediaQuery.sizeOf(context).width >= 700;
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
+            const _PrevisaoTopo(),
+            Secao('Alertas (${alertas.length})'),
+            if (alertas.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text('Nada pendente. Partos dos próximos 30 dias, diagnósticos atrasados e '
+                    'aplicações dos próximos 15 dias aparecem aqui.'),
+              ),
+            ...alertas,
+            const SizedBox(height: 12),
             const _BotaoModoCurral(),
             const _BotaoModoInseminacao(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Row(children: [
+                Expanded(
+                    child: _Modo('Pesagem em série', Icons.monitor_weight_outlined, const Color(0xFF1565C0),
+                        () => _abrir(const ManejoEmSerie(modo: ModoSerie.pesagem)))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _Modo('Vacinação em série', Icons.vaccines_outlined, const Color(0xFF00796B),
+                        () => _abrir(const ManejoEmSerie(modo: ModoSerie.sanidade)))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _Modo('Lançar por voz', Icons.mic_none, const Color(0xFF6A1B9A),
+                        () => _abrir(const LancamentoVozPage()))),
+              ]),
+            ),
             SizedBox(
               height: 128,
               child: ListView(
@@ -135,30 +168,42 @@ class _InicioPageState extends State<InicioPage> {
             Padding(
               padding: const EdgeInsets.all(12),
               child: GridView.count(
-                crossAxisCount: MediaQuery.sizeOf(context).width >= 700 ? 3 : 2,
+                crossAxisCount: largo ? 4 : 3,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: MediaQuery.sizeOf(context).width >= 700 ? 2.4 : 1.6,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: largo ? 2.0 : 1.05,
                 children: [
-                  _Botao('Animal', Icons.pets, () => Nav.ir(secRebanho)),
-                  _Botao('Lote', Icons.workspaces_outline, () => Nav.ir(secLotes)),
-                  _Botao('Reprodução', Icons.favorite_border, () => Nav.ir(secReproducao)),
-                  _Botao('Sanidade', Icons.vaccines_outlined, () => Nav.ir(secSanidade)),
-                  _Botao('Piquete/Pasto', Icons.fence, () => Nav.ir(secPiquetes)),
-                  _Botao('Pastagem', Icons.grass, () => Nav.ir(secPastagem)),
+                  for (final (texto, icone, cor, secao, ir) in <(String, IconData, Color, int, VoidCallback)>[
+                    ('Animais', Icons.pets, const Color(0xFF2E7D32), secRebanho, () => Nav.ir(secRebanho)),
+                    ('Lotes', Icons.workspaces_outline, Cores.olivaEscuro, secLotes, () => Nav.ir(secLotes)),
+                    ('Reprodução', Icons.favorite_border, const Color(0xFFAD1457), secReproducao,
+                        () => Nav.ir(secReproducao)),
+                    ('Sanidade', Icons.vaccines_outlined, const Color(0xFF00796B), secSanidade,
+                        () => Nav.ir(secSanidade)),
+                    ('Pesagem', Icons.monitor_weight_outlined, const Color(0xFF1565C0), secPesagem,
+                        () => Nav.ir(secPesagem)),
+                    ('Nascimentos', Icons.child_friendly_outlined, const Color(0xFF6A1B9A), secNascimentos,
+                        () => Nav.ir(secNascimentos)),
+                    ('Piquete/Pasto', Icons.fence, const Color(0xFF558B2F), secPiquetes, () => Nav.ir(secPiquetes)),
+                    ('Mudar de pasto', Icons.swap_horiz, const Color(0xFF6D4C41), secPiquetes,
+                        () => _abrir(const MudarPastoPage())),
+                    ('Pastagem', Icons.grass, const Color(0xFF33691E), secPastagem, () => Nav.ir(secPastagem)),
+                    ('Compras', Icons.arrow_circle_down_outlined, const Color(0xFF00695C), secEntradas,
+                        () => Nav.ir(secEntradas)),
+                    ('Vendas', Icons.arrow_circle_up_outlined, Cores.alerta, secVendas, () => Nav.ir(secVendas)),
+                    ('Chuva', Icons.water_drop_outlined, Cores.azul, secChuva, () => Nav.ir(secChuva)),
+                    ('Fila do dia', Icons.format_list_bulleted, const Color(0xFFE65100), secTarefas,
+                        () => _abrir(const FilaDoDiaPage())),
+                    ('Tarefas', Icons.task_alt, const Color(0xFFEF6C00), secTarefas, () => Nav.ir(secTarefas)),
+                    ('Relatórios', Icons.bar_chart, const Color(0xFF37474F), secRelatorios,
+                        () => Nav.ir(secRelatorios)),
+                  ])
+                    if (podeVer(secao)) _Botao(texto, icone, cor, ir),
                 ],
               ),
             ),
-            Secao('Alertas (${alertas.length})'),
-            if (alertas.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Nada pendente. Partos dos próximos 30 dias, diagnósticos atrasados e '
-                    'aplicações dos próximos 15 dias aparecem aqui.'),
-              ),
-            ...alertas,
           ],
         );
       },
@@ -213,32 +258,166 @@ class _Indicador extends StatelessWidget {
   }
 }
 
+/// Atalho colorido da tela inicial (fundo na cor do assunto, ícone e texto brancos).
 class _Botao extends StatelessWidget {
-  const _Botao(this.texto, this.icone, this.onTap);
+  const _Botao(this.texto, this.icone, this.cor, this.onTap);
   final String texto;
   final IconData icone;
+  final Color cor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Card(
-      margin: EdgeInsets.zero,
+    return Material(
+      color: cor,
       elevation: 2,
+      borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icone, size: 44, color: cs.primary),
-            const SizedBox(height: 10),
-            Text(texto.toUpperCase(),
-                style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600, color: cs.onSurfaceVariant, letterSpacing: 0.4)),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icone, size: 36, color: Colors.white),
+              const SizedBox(height: 6),
+              Text(texto.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.3)),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+/// Modo de trabalho em série (botão médio, abaixo do Modo Curral e do Modo Inseminação).
+class _Modo extends StatelessWidget {
+  const _Modo(this.texto, this.icone, this.cor, this.onTap);
+  final String texto;
+  final IconData icone;
+  final Color cor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: cor,
+      borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+          child: Column(children: [
+            Icon(icone, size: 32, color: Cores.laranja),
+            const SizedBox(height: 4),
+            Text(texto.toUpperCase(),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Previsão do tempo da fazenda no topo do painel: agora e os próximos 7 dias.
+class _PrevisaoTopo extends StatefulWidget {
+  const _PrevisaoTopo();
+
+  @override
+  State<_PrevisaoTopo> createState() => _PrevisaoTopoState();
+}
+
+class _PrevisaoTopoState extends State<_PrevisaoTopo> {
+  static const _semanas = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'];
+  int _pid = -1;
+  Future<Clima>? _f;
+
+  void _carregar() {
+    _pid = Db.pid;
+    final local = localDaFazenda(_pid);
+    _f = local == null ? null : buscarClima(local);
+  }
+
+  String _dia(String iso, int i) {
+    if (i == 0) return 'Hoje';
+    final d = DateTime.tryParse(iso);
+    return d == null ? '' : _semanas[d.weekday - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Db.pid != _pid) _carregar();
+    final f = _f;
+    Widget cartao(Widget filho) => Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          child: Material(
+            color: Cores.azul,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => Nav.ir(secClima),
+              child: Padding(padding: const EdgeInsets.all(14), child: filho),
+            ),
+          ),
+        );
+    const branco = TextStyle(color: Colors.white);
+    if (f == null) {
+      return cartao(const Row(children: [
+        Icon(Icons.location_off_outlined, color: Cores.laranja),
+        SizedBox(width: 12),
+        Expanded(child: Text('Previsão do tempo: toque para marcar a localização da fazenda.', style: branco)),
+      ]));
+    }
+    return FutureBuilder<Clima>(
+      future: f,
+      builder: (context, s) {
+        if (s.connectionState != ConnectionState.done) {
+          return cartao(const SizedBox(
+              height: 48, child: Center(child: CircularProgressIndicator(color: Colors.white))));
+        }
+        if (s.hasError || s.data == null) {
+          return cartao(const Row(children: [
+            Icon(Icons.cloud_off_outlined, color: Cores.laranja),
+            SizedBox(width: 12),
+            Expanded(child: Text('Sem previsão agora. Confira a internet.', style: branco)),
+          ]));
+        }
+        final c = s.data!;
+        return cartao(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(iconeTempo(c.codigo), size: 40, color: Cores.laranja),
+            const SizedBox(width: 12),
+            Text(c.temperatura == null ? '—' : '${c.temperatura!.round()}°C',
+                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('${descricaoTempo(c.codigo)}\nChuva em 7 dias: ${num1(c.chuva7Dias)} mm',
+                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            for (final (i, d) in c.dias.take(7).indexed)
+              Expanded(
+                child: Column(children: [
+                  Text(_dia(d.data, i), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  Icon(iconeTempo(d.codigo), size: 20, color: Colors.white),
+                  Text('${d.max?.round() ?? '—'}°', style: const TextStyle(color: Colors.white, fontSize: 12)),
+                  Text('${num1(d.chuvaMm ?? 0)}mm', style: const TextStyle(color: Cores.laranja, fontSize: 11)),
+                ]),
+              ),
+          ]),
+        ]));
+      },
     );
   }
 }

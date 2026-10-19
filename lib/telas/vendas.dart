@@ -7,24 +7,40 @@ import '../util/util.dart';
 import '../widgets/prazo.dart';
 import 'base.dart';
 
+/// Saídas separadas em Vendas, Mortes e Outras Causas (consumo, transferência, doação).
+enum TipoSaidas { vendas, mortes, outras }
+
 class SaidasPage extends StatelessWidget {
-  const SaidasPage({super.key});
+  const SaidasPage({super.key, this.tipo = TipoSaidas.vendas});
+  final TipoSaidas tipo;
+
+  bool _entra(Reg s) => switch (tipo) {
+        TipoSaidas.vendas => s['tipo'] == 'Venda',
+        TipoSaidas.mortes => s['tipo'] == 'Morte',
+        TipoSaidas.outras => s['tipo'] != 'Venda' && s['tipo'] != 'Morte',
+      };
 
   @override
   Widget build(BuildContext context) {
+    final (titulo, novo, vazio, tipoInicial) = switch (tipo) {
+      TipoSaidas.vendas => ('Vendas', 'Nova venda', 'Nenhuma venda registrada.', 'Venda'),
+      TipoSaidas.mortes => ('Mortes', 'Registrar morte', 'Nenhuma morte registrada.', 'Morte'),
+      TipoSaidas.outras => ('Outras Causas', 'Nova saída', 'Nenhuma saída por outras causas.', 'Consumo'),
+    };
     return Pagina(
-      titulo: 'Vendas e saídas',
+      titulo: titulo,
       fab: FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
-        label: const Text('Nova saída'),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SaidaFormPage())),
+        label: Text(novo),
+        onPressed: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => SaidaFormPage(tipoInicial: tipoInicial))),
       ),
       corpo: AoMudar<List<Reg>>(
-        carregar: Db.saidas,
+        carregar: () async => (await Db.saidas()).where(_entra).toList(),
         builder: (context, lista) {
           if (lista.isEmpty) {
-            return const Vazio('Nenhuma venda ou saída registrada.', icone: Icons.arrow_circle_up_outlined);
+            return Vazio(vazio, icone: Icons.arrow_circle_up_outlined);
           }
           return ListView.separated(
             padding: const EdgeInsets.only(bottom: 88),
@@ -109,17 +125,20 @@ class SaidasPage extends StatelessWidget {
 }
 
 class SaidaFormPage extends StatefulWidget {
-  const SaidaFormPage({super.key, this.animais = const []});
+  const SaidaFormPage({super.key, this.animais = const [], this.tipoInicial = 'Venda'});
 
   /// Animais já escolhidos (ex.: saída lançada da ficha ou do Modo Curral).
   final List<Reg> animais;
+
+  /// Tipo já marcado ao abrir (Venda, Morte...).
+  final String tipoInicial;
 
   @override
   State<SaidaFormPage> createState() => _SaidaFormPageState();
 }
 
 class _SaidaFormPageState extends State<SaidaFormPage> {
-  String? tipo = 'Venda';
+  late String? tipo = widget.tipoInicial;
   String data = hojeIso();
   late List<Reg> animais = [...widget.animais];
   final peso = TextEditingController();

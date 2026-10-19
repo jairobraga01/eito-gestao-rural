@@ -235,6 +235,10 @@ class _InicioState extends State<Inicio> {
         secPatrimonio => const PatrimonioPage(),
         secClima => const ClimaPage(),
         secAjuda => const AjudaPage(),
+        secPesagem => const PesagensPage(),
+        secNascimentos => const NascimentosPage(),
+        secMortes => const SaidasPage(tipo: TipoSaidas.mortes),
+        secOutrasSaidas => const SaidasPage(tipo: TipoSaidas.outras),
         _ => const InicioPage(),
       };
 

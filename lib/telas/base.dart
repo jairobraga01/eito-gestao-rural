@@ -18,6 +18,7 @@ import 'equipe.dart';
 import 'indicacoes.dart';
 import 'criador.dart';
 import 'eito360_api_page.dart';
+import 'entradas.dart' show iconeEntrada, iconeSaida;
 import 'lotes.dart';
 import 'modo_curral.dart';
 import 'modo_inseminacao.dart';
@@ -39,15 +40,15 @@ const itensMenu = <(String, IconData)>[
   ('Painel', Icons.dashboard_outlined),
   ('Propriedades', Icons.home_work_outlined),
   ('Lotes', Icons.workspaces_outline),
-  ('Rebanho', Icons.pets_outlined),
+  ('Animais', Icons.pets_outlined),
   ('Reprodução', Icons.favorite_border),
-  ('Sanidade e pesagens', Icons.vaccines_outlined),
+  ('Sanidade', Icons.vaccines_outlined),
   ('Produção leiteira', Icons.local_drink_outlined),
   ('Piquete/Pasto', Icons.fence),
   ('Pastagem', Icons.grass),
   ('Mapa e ocorrências', Icons.map_outlined),
-  ('Compras e entradas', Icons.arrow_circle_down_outlined),
-  ('Vendas e saídas', Icons.arrow_circle_up_outlined),
+  ('Compras', Icons.arrow_circle_down_outlined),
+  ('Vendas', Icons.arrow_circle_up_outlined),
   ('Custos e margem', Icons.attach_money),
   ('Dívidas e ônus reais', Icons.account_balance_outlined),
   ('Contas a pagar e receber', Icons.receipt_long_outlined),
@@ -64,8 +65,12 @@ const itensMenu = <(String, IconData)>[
   ('Quem lançou o quê', Icons.history),
   ('Relatório financeiro', Icons.summarize_outlined),
   ('Patrimônio', Icons.account_balance_wallet_outlined),
-  ('Clima da fazenda', Icons.wb_sunny_outlined),
+  ('Previsão 07 Dias', Icons.wb_sunny_outlined),
   ('Ajuda e suporte', Icons.support_agent),
+  ('Pesagem', Icons.monitor_weight_outlined),
+  ('Nascimentos', Icons.child_friendly_outlined),
+  ('Mortes', Icons.heart_broken_outlined),
+  ('Outras Causas', Icons.more_horiz),
 ];
 
 // Índices usados pelos atalhos.
@@ -74,12 +79,15 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
     secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
-    secAjuda = 29;
+    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
-  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secLeite, secEntradas, secVendas]),
-  ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa, secChuva, secClima]),
+  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secPesagem, secLeite]),
+  ('Entrada: Compras e Nascimentos', iconeEntrada, [secEntradas, secNascimentos]),
+  ('Saídas: Vendas e Mortes/Outras Causas', iconeSaida, [secVendas, secMortes, secOutrasSaidas]),
+  ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa]),
+  ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
   ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
   ('Financeiro', Icons.attach_money,
       [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secDividas, secCotacao, secVender]),
@@ -89,11 +97,13 @@ const gruposMenu = <(String, IconData, List<int>)>[
 /// Seções que o peão vê: o serviço de campo, sem financeiro nem cadastros da fazenda.
 const secoesPeao = {
   secPainel, secRebanho, secReproducao, secSanidade, secLeite, secPiquetes, secPastagem, secMapa, secChuva, secTarefas,
-  secClima, secAjuda,
+  secClima, secAjuda, secPesagem, secNascimentos,
 };
 
 /// Seções que o veterinário vê: rebanho, reprodução e sanidade.
-const secoesVeterinario = {secPainel, secRebanho, secReproducao, secSanidade, secTarefas, secClima, secAjuda};
+const secoesVeterinario = {
+  secPainel, secRebanho, secReproducao, secSanidade, secPesagem, secNascimentos, secTarefas, secClima, secAjuda,
+};
 
 /// Seções só do dono (nem o gerente vê).
 const secoesDono = {secRelatorioFinanceiro};

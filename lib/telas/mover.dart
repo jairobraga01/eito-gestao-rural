@@ -307,3 +307,92 @@ class _MigrarLotePageState extends State<MigrarLotePage> {
     );
   }
 }
+
+/// Muda todos os animais de um piquete/pasto para outro de uma vez.
+class MudarPastoPage extends StatefulWidget {
+  const MudarPastoPage({super.key, this.origem});
+
+  /// Piquete de onde os animais saem (já escolhido ao abrir pelo piquete).
+  final int? origem;
+
+  @override
+  State<MudarPastoPage> createState() => _MudarPastoPageState();
+}
+
+class _MudarPastoPageState extends State<MudarPastoPage> {
+  List<Reg> piquetes = [];
+  late int? origem = widget.origem;
+  int? destino;
+  String data = hojeIso();
+  bool salvando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Db.piquetes().then((v) {
+      if (!mounted) return;
+      setState(() => piquetes = [for (final p in v) {...p, 'rotulo': '${txt(p['nome'])} (${p['qtd']} cab.)'}]);
+    });
+  }
+
+  String _nome(int? id) => txt(piquetes.where((p) => p['id'] == id).firstOrNull?['nome']);
+
+  int get _qtd => (piquetes.where((p) => p['id'] == origem).firstOrNull?['qtd'] as int?) ?? 0;
+
+  Future<void> salvar() async {
+    if (origem == null || destino == null) {
+      avisar(context, 'Escolha o piquete de origem e o de destino.');
+      return;
+    }
+    if (origem == destino) {
+      avisar(context, 'O destino precisa ser outro piquete.');
+      return;
+    }
+    final animais = await Db.animais(piqueteId: origem, soAtivos: true);
+    if (!mounted) return;
+    if (animais.isEmpty) {
+      avisar(context, 'Não há animais em ${_nome(origem)}.');
+      return;
+    }
+    if (!await confirmar(context, 'Mudar ${animais.length} animal(is)?',
+        'Todos saem de ${_nome(origem)} e entram em ${_nome(destino)} em ${br(data)}.',
+        ok: 'Mudar')) {
+      return;
+    }
+    setState(() => salvando = true);
+    await Db.moverAnimais(animais, {'piquete_id': destino}, data);
+    if (!mounted) return;
+    avisar(context, '${animais.length} animal(is) foram para ${_nome(destino)}.');
+    Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('MUDAR DE PASTO')),
+      bottomNavigationBar: BotaoSalvar(onPressed: salvando ? null : salvar, texto: 'Mudar todos'),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('Leva todos os animais ativos de um piquete/pasto para outro. '
+              'A saída e a entrada ficam no histórico de pastagem dos dois.'),
+          gap,
+          escolhaId('Sai de (piquete/pasto) *', origem, piquetes, (v) => setState(() => origem = v),
+              vazio: 'Escolha', campo: 'rotulo'),
+          if (origem != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 12),
+              child: Text('$_qtd animal(is) serão mudados.'),
+            ),
+          gap,
+          escolhaId('Vai para (piquete/pasto) *', destino, piquetes.where((p) => p['id'] != origem).toList(),
+              (v) => setState(() => destino = v),
+              vazio: 'Escolha', campo: 'rotulo'),
+          gap,
+          DateField(label: 'Data da mudança', value: data, obrigatorio: true,
+              onChanged: (v) => setState(() => data = v!)),
+        ],
+      ),
+    );
+  }
+}

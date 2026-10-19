@@ -99,7 +99,7 @@ class _ClimaPageState extends State<ClimaPage> {
   @override
   Widget build(BuildContext context) {
     return Pagina(
-      titulo: 'Clima da fazenda',
+      titulo: 'Previsão 07 Dias',
       acoes: [
         IconButton(tooltip: 'Atualizar', icon: const Icon(Icons.refresh), onPressed: () => setState(_carregar)),
       ],

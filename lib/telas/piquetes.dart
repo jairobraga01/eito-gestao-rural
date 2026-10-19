@@ -7,6 +7,7 @@ import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
 import 'mapa.dart';
+import 'mover.dart' show MudarPastoPage;
 
 const tiposPastagem = [
   'Entrada de animais',
@@ -37,6 +38,11 @@ class PiquetesPage extends StatelessWidget {
         child: const Icon(Icons.add),
       ),
       acoes: [
+        IconButton(
+          tooltip: 'Mudar todos de pasto',
+          icon: const Icon(Icons.swap_horiz),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MudarPastoPage())),
+        ),
         IconButton(
           tooltip: 'Rodízio de pastejo',
           icon: const Icon(Icons.autorenew),
@@ -274,6 +280,13 @@ class PiqueteDetalhePage extends StatelessWidget {
                       await Db.moverParaPiquete(r, id, hojeIso());
                     },
                   ),
+                  if (animais.isNotEmpty)
+                    FilledButton.tonalIcon(
+                      icon: const Icon(Icons.swap_horiz),
+                      label: const Text('Mudar todos de pasto'),
+                      onPressed: () => Navigator.push(
+                          context, MaterialPageRoute(builder: (_) => MudarPastoPage(origem: id))),
+                    ),
                   if (animais.isNotEmpty)
                     FilledButton.tonalIcon(
                       icon: const Icon(Icons.logout),

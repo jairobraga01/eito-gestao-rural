@@ -8,6 +8,7 @@ import '../dados/indicadores.dart' show colunasSidago;
 import '../dispositivos/arquivo_stub.dart' if (dart.library.js_interop) '../dispositivos/arquivo_web.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'imposto_renda.dart';
 
 /// Baixa o arquivo; se o navegador não deixar, copia o texto.
 Future<void> entregarArquivo(BuildContext context, String nome, String conteudo, {String tipo = 'text/csv'}) async {
@@ -331,6 +332,13 @@ class _ExportacoesPageState extends State<ExportacoesPage> {
         item(Icons.pets_outlined, 'Rebanho (planilha)', 'Animais ativos com SISBOV, faixa do SIDAGO e último peso',
             () => entregarArquivo(context, 'rebanho_${hojeIso()}.csv', planilhaRebanho(hojeIso()))),
         const Secao('Receita Federal'),
+        ListTile(
+          leading: const Icon(Icons.account_balance_outlined),
+          title: const Text('Imposto de Renda · Atividade rural'),
+          subtitle: const Text('Receitas e despesas mês a mês, resultado, rebanho, bens e dívidas, como no programa do IRPF'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ImpostoRendaPage())),
+        ),
         item(Icons.description_outlined, 'LCDPR (arquivo da Receita)', 'Livro Caixa Digital do Produtor Rural, leiaute 1.3', _lcdpr),
         ListTile(
           leading: const Icon(Icons.badge_outlined),

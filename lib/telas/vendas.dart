@@ -52,7 +52,7 @@ class SaidasPage extends StatelessWidget {
     };
     return Pagina(
       titulo: titulo,
-      fab: FloatingActionButton.extended(
+      fab: Db.ehContador ? null : FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
         label: Text(novo),

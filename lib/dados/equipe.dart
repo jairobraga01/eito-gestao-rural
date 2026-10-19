@@ -30,8 +30,9 @@ const descricaoPapel = {
       'e vê o rebanho. Não vê o financeiro e só apaga o que ele mesmo lançou.',
   'zootecnista': 'Lança a dieta do cocho, o estoque de insumos, as fórmulas de ração e as pesagens, e vê o rebanho. '
       'Não vê o financeiro e só apaga o que ele mesmo lançou.',
-  'contador': 'Só consulta: vê o financeiro, as vendas e compras, as dívidas e as exportações (LCDPR, GTA, planilhas). '
-      'Não lança nem altera nada.',
+  'contador': 'Lança no financeiro (contas, custos, dívidas, contatos, patrimônio e dados fiscais) e gera os '
+      'relatórios e as exportações (Imposto de Renda da atividade rural, LCDPR, GTA e planilhas). '
+      'Vê as compras e as vendas sem alterar, não mexe no rebanho e só apaga o que ele mesmo lançou.',
 };
 
 /// Domínio dos logins de peão (não recebe e-mail; serve só para entrar).

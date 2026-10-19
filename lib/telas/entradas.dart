@@ -22,7 +22,7 @@ class EntradasPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Pagina(
       titulo: 'Compras',
-      fab: FloatingActionButton.extended(
+      fab: Db.ehContador ? null : FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
         label: const Text('Nova compra'),

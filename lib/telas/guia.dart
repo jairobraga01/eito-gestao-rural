@@ -92,6 +92,7 @@ const _assuntos = <_Assunto>[
     'Menu › Relatórios › escolha mensal ou anual.',
     'O relatório da fazenda em PDF resume o rebanho e a propriedade.',
     'Em Exportações, gere planilhas para o contador, o LCDPR e o resumo para a GTA com as faixas do SIDAGO.',
+    'Em Exportações → Imposto de Renda, veja os quadros da atividade rural do IRPF (receitas e despesas mês a mês, resultado, rebanho, bens e dívidas) e baixe a planilha.',
     'O resumo da semana vira texto pronto para enviar pelo WhatsApp.',
   ]),
   (Icons.groups_outlined, 'Equipe e permissões', 'Quem vê e faz o quê.', [

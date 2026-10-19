@@ -23,6 +23,9 @@ typedef Reg = Map<String, Object?>;
 /// Duração média da gestação bovina (dias). Zebuínos (Nelore) ~290; taurinos ~283.
 const diasGestacao = 290;
 
+/// Tabelas que o contador grava (o financeiro).
+const tabelasContador = {'contas', 'dividas', 'custos', 'contatos', 'cotacoes', 'config'};
+
 /// Situação do animal conforme o tipo de saída.
 const statusPorSaida = {
   'Venda': 'Vendido',
@@ -123,9 +126,14 @@ Reg _normalizar(Map<String, dynamic> m) {
 /// Junta gravações: atualiza a cópia em memória na hora e manda para o
 /// Firestore em lotes (o Firestore aceita até 500 operações por lote).
 class _Mudancas {
+  /// O contador só grava o financeiro (como nas regras do Firestore); o resto
+  /// seria recusado na nuvem e ficaria preso no aparelho.
+  static bool _barrado(String tabela) => Db.ehContador && !tabelasContador.contains(tabela);
+
   final _ops = <(String, String, Reg?, bool)>[]; // tabela, id do doc, valores (null = apagar), mesclar
 
   void gravar(String tabela, Reg v) {
+    if (_barrado(tabela)) return;
     final id = '${v['id']}';
     v = Db._carimbar(tabela, Db._dados[tabela]?[id], v);
     Db._dados[tabela]?[id] = Map.of(v);
@@ -133,6 +141,7 @@ class _Mudancas {
   }
 
   void mesclar(String tabela, Object id, Reg v) {
+    if (_barrado(tabela)) return;
     final atual = Db._dados[tabela]?['$id'];
     if (atual == null) return; // registro já não existe
     v = Db._carimbar(tabela, atual, v, mesclando: true);
@@ -143,6 +152,7 @@ class _Mudancas {
   /// Soma [delta] a um campo numérico. Na nuvem vai como incremento, para
   /// não perder baixas feitas em sequência ou em dois aparelhos.
   void somar(String tabela, Object id, String campo, int delta) {
+    if (_barrado(tabela)) return;
     final atual = Db._dados[tabela]?['$id'];
     if (atual == null) return;
     Db._dados[tabela]!['$id'] = {...atual, campo: (_int(atual[campo]) ?? 0) + delta};
@@ -150,6 +160,7 @@ class _Mudancas {
   }
 
   void apagar(String tabela, Object id) {
+    if (_barrado(tabela)) return;
     Db._dados[tabela]?.remove('$id');
     _ops.add((tabela, '$id', null, false));
   }

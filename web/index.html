@@ -4,8 +4,24 @@
   <base href="$FLUTTER_BASE_HREF">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Eito Gestão Rural</title>
-  <meta name="description" content="O controle da sua fazenda, na palma da sua mão, direto no seu eito de trabalho.">
+  <title>Eito Gestão Rural · Aplicativo de gestão de rebanho bovino</title>
+  <meta name="description" content="Eito Gestão Rural: aplicativo de gestão de rebanho bovino que funciona sem internet. Pesagem, inseminação, sanidade, pastos, estoque, financeiro e relatórios da fazenda no celular.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://eitogestao.com.br/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Eito Gestão Rural">
+  <meta property="og:title" content="Eito Gestão Rural · Gestão de rebanho bovino">
+  <meta property="og:description" content="O controle da sua fazenda, na palma da sua mão, direto no seu eito de trabalho. Funciona sem internet.">
+  <meta property="og:url" content="https://eitogestao.com.br/">
+  <meta property="og:image" content="https://eitogestao.com.br/icons/Icon-512.png">
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"Eito Gestão Rural",
+   "applicationCategory":"BusinessApplication","operatingSystem":"Android, iOS, Web",
+   "url":"https://eitogestao.com.br/","inLanguage":"pt-BR",
+   "description":"Aplicativo de gestão de rebanho bovino que funciona sem internet: pesagem, inseminação, sanidade, pastos, estoque, financeiro e relatórios.",
+   "offers":{"@type":"Offer","price":"9.90","priceCurrency":"BRL"}}
+  </script>
   <meta name="theme-color" content="#262E12">
 
   <!-- iPhone: "Adicionar à Tela de Início" abre como app, em tela cheia -->
@@ -25,12 +41,22 @@
       font-family: system-ui, sans-serif; color: #F4F1E6; }
     #carregando img { width: 112px; height: 112px; }
     #carregando p { margin: 0; font-size: 18px; opacity: .85; }
+    #carregando .sobre { position: absolute; bottom: 16px; left: 16px; right: 16px;
+      text-align: center; font-size: 13px; opacity: .6; }
+    #carregando .sobre h1 { font-size: 14px; margin: 0 0 4px; }
+    #carregando .sobre a { color: inherit; }
   </style>
 </head>
 <body>
   <div id="carregando">
     <img src="icons/Icon-192.png" alt="Eito Gestão Rural">
     <p>Abrindo o Eito…</p>
+    <div class="sobre">
+      <h1>Eito Gestão Rural</h1>
+      Aplicativo de gestão de rebanho bovino que funciona sem internet: pesagem,
+      inseminação, sanidade, pastos e piquetes, estoque, dieta, compras e vendas,
+      financeiro e relatórios da fazenda. <a href="folder.html">Conheça o aplicativo</a>.
+    </div>
   </div>
 
   <script>
@@ -38,6 +64,33 @@
     if ('serviceWorker' in navigator && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
       window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js'); });
     }
+    // Botão "Instalar app": guarda o convite do navegador (Android/Chrome) para o app usar.
+    window.eitoInstalar = {
+      evento: null,
+      instalado: window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true,
+      ios: /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1),
+      pode: function () {
+        return !this.instalado && (this.evento !== null || this.ios);
+      },
+      instalar: async function () {
+        if (!this.evento) return 'manual';
+        this.evento.prompt();
+        var r = await this.evento.userChoice;
+        this.evento = null;
+        window.dispatchEvent(new Event('eito-instalar'));
+        return r.outcome;
+      },
+    };
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.eitoInstalar.evento = e;
+      window.dispatchEvent(new Event('eito-instalar'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.eitoInstalar.instalado = true;
+      window.eitoInstalar.evento = null;
+      window.dispatchEvent(new Event('eito-instalar'));
+    });
     window.addEventListener('flutter-first-frame', function () {
       var el = document.getElementById('carregando');
       if (el) el.remove();

@@ -11,6 +11,7 @@ import '../marca.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import '../widgets/barra_sincronia.dart';
+import '../widgets/botao_instalar.dart';
 import '../widgets/logo_eito.dart';
 import 'animais.dart';
 import 'conta.dart';
@@ -449,6 +450,7 @@ class Pagina extends StatelessWidget {
     final largo = MediaQuery.sizeOf(context).width >= 1000;
     final conteudo = Column(children: [
       const BarraSincronia(),
+      const BotaoInstalar(),
       const FaixaComunicados(),
       const PropriedadeBar(),
       Expanded(child: corpo),

@@ -10,6 +10,7 @@ import '../dados/plataforma.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../util/telefone.dart';
+import '../widgets/botao_instalar.dart';
 import '../widgets/fundo_foto.dart';
 import '../widgets/logo_eito.dart';
 
@@ -309,6 +310,7 @@ class _TelaLoginState extends State<TelaLogin> {
                             : Text(_criando ? 'CRIAR CONTA' : 'ENTRAR'),
                       ),
                       const SizedBox(height: 8),
+                      const BotaoInstalar(claro: true),
                       TextButton(
                         onPressed: _ocupado ? null : () => setState(() {
                               _criando = !_criando;

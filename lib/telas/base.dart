@@ -318,7 +318,7 @@ class MenuLateral extends StatelessWidget {
               future: Indicacoes.souAdmin(),
               builder: (c, s) => s.data == true
                   ? Column(children: [
-                      item(Icons.admin_panel_settings_outlined, 'Painel do criador', () {
+                      item(Icons.admin_panel_settings_outlined, 'Gestão de Clientes (Painel do criador)', () {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const CriadorPage()));
                       }, cor: Cores.azul),

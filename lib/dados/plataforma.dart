@@ -57,6 +57,9 @@ class Plataforma {
   /// Conta de quem entrou (atualizada a cada acesso).
   static final conta = ValueNotifier<Map<String, dynamic>?>(null);
 
+  /// Telefone digitado no cadastro; vai para a conta no primeiro acesso.
+  static String? telefoneNovo;
+
   /// Chamados do usuário com resposta ainda não lida.
   static final naoLidos = ValueNotifier<int>(0);
 
@@ -83,6 +86,8 @@ class Plataforma {
       'propriedades': Db.registros('propriedades').length,
     };
     Map<String, dynamic>? c;
+    final fone = telefoneNovo;
+    if (fone != null) resumo['telefone'] = fone;
     try {
       final s = await ref.get();
       if (!s.exists) {
@@ -97,6 +102,7 @@ class Plataforma {
       } else {
         await ref.update(resumo);
       }
+      telefoneNovo = null;
       c = (await ref.get()).data();
     } catch (e) {
       debugPrint('Eito: não deu para registrar a conta: $e');

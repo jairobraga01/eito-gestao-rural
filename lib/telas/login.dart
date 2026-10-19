@@ -1,12 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/equipe.dart';
 import '../dados/indicacoes.dart';
 import '../dados/planos.dart';
+import '../dados/plataforma.dart';
 import '../marca.dart';
 import '../tema.dart';
+import '../util/telefone.dart';
 import '../widgets/fundo_foto.dart';
 import '../widgets/logo_eito.dart';
 
@@ -21,6 +24,8 @@ class _TelaLoginState extends State<TelaLogin> {
   final _email = TextEditingController();
   final _senha = TextEditingController();
   final _indicacao = TextEditingController();
+  final _ddd = TextEditingController();
+  final _telefone = TextEditingController();
   bool _criando = false;
   bool _ocupado = false;
   bool _verSenha = false;
@@ -31,6 +36,8 @@ class _TelaLoginState extends State<TelaLogin> {
     _email.dispose();
     _senha.dispose();
     _indicacao.dispose();
+    _ddd.dispose();
+    _telefone.dispose();
     super.dispose();
   }
 
@@ -47,6 +54,11 @@ class _TelaLoginState extends State<TelaLogin> {
     try {
       final auth = FirebaseAuth.instance;
       if (_criando) {
+        final fone = telefoneBr(_ddd.text, _telefone.text);
+        if (fone == null) {
+          setState(() => _erro = 'Informe o telefone com DDD, ex.: 62 e 99928-5293.');
+          return;
+        }
         // Código de indicação: só passa um código já cadastrado.
         Indicacao? indicacao;
         if (codigoIndicacao(_indicacao.text).isNotEmpty) {
@@ -61,6 +73,7 @@ class _TelaLoginState extends State<TelaLogin> {
             return;
           }
         }
+        Plataforma.telefoneNovo = fone;
         final cred = await auth.createUserWithEmailAndPassword(email: email, password: senha);
         await cred.user?.sendEmailVerification();
         if (indicacao != null) await _guardarIndicacao(cred.user, indicacao);
@@ -240,6 +253,33 @@ class _TelaLoginState extends State<TelaLogin> {
                         ),
                       ),
                       if (_criando) ...[
+                        const SizedBox(height: 14),
+                        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          SizedBox(
+                            width: 96,
+                            child: TextField(
+                              controller: _ddd,
+                              keyboardType: TextInputType.number,
+                              textInputAction: TextInputAction.next,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(2)],
+                              style: const TextStyle(fontSize: 20),
+                              decoration: const InputDecoration(labelText: 'DDD', hintText: '62'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _telefone,
+                              keyboardType: TextInputType.phone,
+                              textInputAction: TextInputAction.next,
+                              autofillHints: const [AutofillHints.telephoneNumberNational],
+                              inputFormatters: const [FormatoNumeroTelefone()],
+                              style: const TextStyle(fontSize: 20),
+                              decoration: const InputDecoration(
+                                  labelText: 'Telefone', hintText: '99928-5293', prefixIcon: Icon(Icons.phone_outlined)),
+                            ),
+                          ),
+                        ]),
                         const SizedBox(height: 14),
                         TextField(
                           controller: _indicacao,

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -282,6 +283,37 @@ class _FichaClienteState extends State<_FichaCliente> {
     }, 'Plano $plano concedido.');
   }
 
+  Future<void> _redefinirSenha(String email) async {
+    if (email.isEmpty) return avisar(context, 'Conta sem e-mail.');
+    if (!await confirmar(context, 'Redefinir a senha?', 'Enviar o e-mail de redefinição para $email.', ok: 'Enviar')) {
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (mounted) avisar(context, 'E-mail de redefinição enviado.');
+    } catch (e) {
+      if (mounted) avisar(context, 'Não foi possível enviar: $e');
+    }
+  }
+
+  Future<void> _corrigirNome(String atual) async {
+    final t = TextEditingController(text: atual);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Nome do cadastro'),
+        content: campoTexto(t, 'Nome', foco: true),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Salvar')),
+        ],
+      ),
+    );
+    final nome = t.text.trim();
+    t.dispose();
+    if (ok == true) await _salvar({'nome': nome}, 'Nome atualizado.');
+  }
+
   Future<void> _notas(String atual) async {
     final t = TextEditingController(text: atual);
     final ok = await showDialog<bool>(
@@ -321,6 +353,7 @@ class _FichaClienteState extends State<_FichaCliente> {
                     child: Column(children: [
                       Info('E-mail', '${c['email'] ?? ''}'),
                       if ('${c['nome'] ?? ''}'.isNotEmpty) Info('Nome', '${c['nome']}'),
+                      if ('${c['telefone'] ?? ''}'.isNotEmpty) Info('Telefone', '${c['telefone']}'),
                       Info('Tipo', (c['papel'] ?? 'dono') == 'dono' ? 'Produtor (dono)' : 'Equipe · ${c['papel']}'),
                       Info('Situação', situacaoConta(c)),
                       Info('Cadastro', _data(c['criado_em'])),
@@ -374,6 +407,18 @@ class _FichaClienteState extends State<_FichaCliente> {
                             suspender ? 'Conta suspensa.' : 'Conta reativada.');
                       }
                     },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('Corrigir nome do cadastro'),
+                    subtitle: Text('${c['nome'] ?? ''}'.isEmpty ? 'Sem nome' : '${c['nome']}'),
+                    onTap: () => _corrigirNome('${c['nome'] ?? ''}'),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.lock_reset),
+                    title: const Text('Enviar e-mail para redefinir a senha'),
+                    subtitle: const Text('A pessoa cria a nova senha pelo link recebido'),
+                    onTap: () => _redefinirSenha('${c['email'] ?? ''}'),
                   ),
                   ListTile(
                     leading: const Icon(Icons.copy),

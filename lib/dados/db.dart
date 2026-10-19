@@ -195,7 +195,9 @@ class Db {
     'custos',
     'chuvas',
     'insumos',
+    'precos_insumo',
     'formulas',
+    'batidas',
     'contatos',
     'dividas',
     'contas',
@@ -485,7 +487,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas', 'contatos']) {
+        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'precos_insumo', 'batidas', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas', 'contatos']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
@@ -511,7 +513,13 @@ class Db {
         for (final e in _todos('estoque').where((x) => '${x['grupo']}' == '$id')) {
           m.apagar('estoque', e['id']!);
         }
+        for (final b in _todos('batidas').where((x) => _int(x['custo_id']) == id)) {
+          m.apagar('batidas', b['id']!);
+        }
       case 'insumos':
+        for (final p in _todos('precos_insumo').where((x) => _int(x['insumo_id']) == id)) {
+          m.apagar('precos_insumo', p['id']!);
+        }
         for (final e in _todos('estoque').where((x) => _int(x['insumo_id']) == id)) {
           m.apagar('estoque', e['id']!);
         }

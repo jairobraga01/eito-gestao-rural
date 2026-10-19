@@ -60,7 +60,7 @@ service cloud.firestore {
     }
     // Tabelas que o zootecnista grava.
     function zootGrava(t) {
-      return t in ['pesagens', 'escores', 'insumos', 'estoque', 'formulas', 'dietas', 'fotos', 'tarefas', 'config',
+      return t in ['pesagens', 'escores', 'insumos', 'precos_insumo', 'batidas', 'estoque', 'formulas', 'dietas', 'fotos', 'tarefas', 'config',
         'pastagens', 'ocorrencias'];
     }
     function campoGrava(p, t) {

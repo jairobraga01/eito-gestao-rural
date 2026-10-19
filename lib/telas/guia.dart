@@ -69,11 +69,18 @@ const _assuntos = <_Assunto>[
     'No Mapa, desenhe o contorno tocando nos cantos, andando com o GPS ou importando arquivo KML do Google Earth.',
     'O rodízio mostra dias de ocupação e de descanso, e a lotação aparece em UA/ha.',
   ]),
-  (Icons.restaurant_outlined, 'Nutrição e estoque', 'Dieta, proteinado e insumos.', [
-    'Menu › Estoque de insumos: lance as entradas de ração, remédios e hormônios.',
-    'Em Dieta do cocho, monte a dieta de cada piquete e lance o trato do dia; os ingredientes saem do estoque.',
-    'Use Bater ração para preparar uma mistura e dar baixa de uma vez.',
-    'Em Proteinado, acompanhe o consumo por piquete.',
+  (Icons.restaurant_outlined, 'Nutrição, insumos e batidas', 'Dieta, preços dos insumos e custo de cada batida.', [
+    'Menu › Nutrição › Estoque de insumos: cadastre milho, sorgo, sal e ingredientes e lance as entradas.',
+    'Toque no insumo e use o cifrão para lançar o preço da embalagem; o histórico mostra a variação.',
+    'Em Fórmulas: Proteínados/Racões, monte cada fórmula com os ingredientes e a quantidade da batida.',
+    'Em Gerar batida, escolha a fórmula e quantas batidas: o Eito mostra o custo com os preços de hoje, baixa o estoque e guarda a batida.',
+    'Em Histórico de batidas, veja cada batida e como o custo do quilo evoluiu.',
+    'Em Dieta do cocho, monte a dieta de cada piquete e lance o trato do dia.',
+  ]),
+  (Icons.medication_outlined, 'Estoque de Medicamentos', 'Vacinas, remédios e vermífugos.', [
+    'Menu › Rebanho › Estoque de Medicamentos › novo medicamento.',
+    'Use o mesmo nome da sanidade (ex.: Aftosa) para a baixa ser automática a cada aplicação.',
+    'Lance as entradas e acompanhe validade e estoque mínimo nos avisos.',
   ]),
   (Icons.attach_money, 'Financeiro', 'Custos, contas e resultado.', [
     'Menu › Financeiro › Custos e margem para ver custo por lote, por arroba e margem.',

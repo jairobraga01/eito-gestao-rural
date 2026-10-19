@@ -226,6 +226,7 @@ class _InicioState extends State<Inicio> {
         secContas => const ContasPage(),
         secProteinado => const ProteinadoPage(),
         secEstoque => const EstoquePage(),
+        secMedicamentos => const EstoquePage(medicamentos: true),
         secDieta => const DietaPage(),
         secCotacao => const CotacaoArrobaPage(),
         secVender => const VenderEsperarPage(),

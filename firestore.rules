@@ -138,7 +138,7 @@ service cloud.firestore {
         && request.resource.data.teste_ate < request.time + duration.value(16, 'd');
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades']));
+          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades', 'telefone']));
       allow delete: if admin();
     }
 

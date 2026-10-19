@@ -88,3 +88,44 @@ bool imprimirHtml(String html) {
     return false;
   }
 }
+
+/// Escolhe o XML, PDF ou foto da nota de compra e devolve o texto lido (null se cancelar).
+/// Lança um erro com a mensagem para a pessoa se a leitura falhar.
+Future<String?> lerNotaDeArquivo({void Function(String)? aviso}) {
+  final c = Completer<String?>();
+  try {
+    final doc = globalContext['document'] as JSObject;
+    final input = doc.callMethod<JSObject>('createElement'.toJS, 'input'.toJS);
+    input['type'] = 'file'.toJS;
+    input['accept'] = '.xml,.pdf,image/*'.toJS;
+    Future<void> ler() async {
+      try {
+        final files = input['files'] as JSObject?;
+        final f = files?.callMethod<JSObject?>('item'.toJS, 0.toJS);
+        if (f == null) {
+          if (!c.isCompleted) c.complete(null);
+          return;
+        }
+        final progresso = ((JSString status, JSNumber fracao) {
+          final pct = (fracao.toDartDouble * 100).round();
+          aviso?.call(pct > 0 ? 'Lendo a nota… $pct%' : 'Lendo a nota…');
+        }).toJS;
+        final r = await (globalContext.callMethod<JSPromise<JSString>>('eitoLerNota'.toJS, f, progresso)).toDart;
+        if (!c.isCompleted) c.complete(r.toDart);
+      } catch (e) {
+        if (!c.isCompleted) c.completeError('Não consegui ler o arquivo. Confira a internet e tente de novo, ou use o XML da nota.');
+      }
+    }
+
+    input.callMethod<JSAny?>('addEventListener'.toJS, 'change'.toJS, ((JSAny _) {
+      ler();
+    }).toJS);
+    input.callMethod<JSAny?>('addEventListener'.toJS, 'cancel'.toJS, ((JSAny _) {
+      if (!c.isCompleted) c.complete(null);
+    }).toJS);
+    input.callMethod<JSAny?>('click'.toJS);
+  } catch (_) {
+    if (!c.isCompleted) c.complete(null);
+  }
+  return c.future;
+}

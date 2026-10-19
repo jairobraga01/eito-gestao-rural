@@ -13,6 +13,7 @@ import 'mover.dart';
 import 'reproducao.dart';
 import 'sanidade.dart';
 import 'vendas.dart';
+import 'importar_animais.dart';
 
 // ======================= Lista de animais =======================
 
@@ -36,6 +37,12 @@ class _AnimaisPageState extends State<AnimaisPage> {
     return Pagina(
       titulo: 'Rebanho',
       acoes: [
+        if (!Db.ehCampo)
+          IconButton(
+            tooltip: 'Importar animais de planilha',
+            icon: const Icon(Icons.upload_file),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportarAnimaisPage())),
+          ),
         IconButton(
           tooltip: 'Mover animais de lote, piquete ou propriedade',
           icon: const Icon(Icons.swap_horiz),

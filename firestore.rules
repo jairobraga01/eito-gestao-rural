@@ -107,6 +107,48 @@ service cloud.firestore {
       allow read: if admin();
     }
 
+    // ---------- Parte da empresa (vinda do BovinoTech) ----------
+    // admin() = quem está em admins/{uid} (o mesmo dos códigos de indicação).
+    // Cadastro de quem usa o app. O cliente só cria a própria conta em teste
+    // e só atualiza o resumo do acesso; plano, teste e suspensão são do criador.
+    match /contas/{uid} {
+      allow read: if logado() && (request.auth.uid == uid || admin() || membro(uid));
+      allow create: if logado() && request.auth.uid == uid
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'ativa'
+        && request.resource.data.plano == 'Teste'
+        && request.resource.data.teste_ate is timestamp
+        && request.resource.data.teste_ate < request.time + duration.value(16, 'd');
+      allow update: if admin() || (logado() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades']));
+      allow delete: if admin();
+    }
+
+    match /contas_notas/{uid} {
+      allow read, write: if admin();
+    }
+
+    // Chamados de suporte: o cliente vê e conversa nos dele.
+    match /chamados/{id} {
+      allow read: if logado() && (resource.data.uid == request.auth.uid || admin());
+      allow create: if logado() && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'aberto';
+      allow update: if admin() || (logado() && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['mensagens', 'atualizado_em', 'status', 'lido_cliente', 'lido_equipe'])
+        && (request.resource.data.status == resource.data.status
+          || request.resource.data.status in ['aberto', 'fechado']));
+      allow delete: if admin();
+    }
+
+    // Comunicados (faixa no topo do app): todos leem, só o criador escreve.
+    match /comunicados/{id} {
+      allow read: if logado();
+      allow write: if admin();
+    }
+
     // Todo o resto fica bloqueado
     match /{document=**} {
       allow read, write: if false;

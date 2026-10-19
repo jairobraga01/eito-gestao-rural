@@ -31,8 +31,15 @@ jobs:
       - name: Baixar pacotes
         run: flutter pub get
 
-      - name: Revisar o código (avisos aparecem aqui, mas não param)
-        run: flutter analyze --no-fatal-infos --no-fatal-warnings || true
+      - name: Revisar o código (erros param e aparecem nas anotações)
+        shell: bash
+        run: |
+          if ! flutter analyze --no-fatal-infos --no-fatal-warnings > "$RUNNER_TEMP/analise.txt" 2>&1; then
+            cat "$RUNNER_TEMP/analise.txt"
+            grep -E '^ *error' "$RUNNER_TEMP/analise.txt" | head -40 | tr '\n' '|' | sed 's/^/::error title=Erro no código::/'
+            echo
+            exit 1
+          fi
 
       - name: Testes
         run: flutter test

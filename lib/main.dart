@@ -6,11 +6,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'dados/db.dart';
 import 'dados/equipe.dart';
+import 'dados/plataforma.dart';
 import 'dispositivos/leitor_teclado.dart';
 import 'firebase_options.dart';
 import 'marca.dart';
 import 'tema.dart';
+import 'telas/ajuda.dart';
 import 'telas/backup.dart';
+import 'telas/clima.dart';
+import 'telas/patrimonio.dart';
 import 'telas/base.dart';
 import 'telas/ficha_animal.dart';
 import 'telas/chuva.dart';
@@ -123,6 +127,8 @@ class _CarregarDadosState extends State<CarregarDados> {
     }
     await Db.iniciar(u.uid,
         dono: acesso?.dono, papel: acesso?.papel ?? 'dono', nome: acesso?.nome ?? u.displayName ?? u.email ?? '');
+    await Plataforma.registrarAcesso(u, dono: acesso?.dono, papel: acesso?.papel ?? 'dono');
+    Plataforma.iniciarAvisos(u.uid);
     // O veterinário abre direto na reprodução.
     if (Db.ehVeterinario) Nav.secao.value = secReproducao;
   }
@@ -226,6 +232,9 @@ class _InicioState extends State<Inicio> {
         secTarefas => const TarefasPage(),
         secHistorico => const HistoricoPage(doMenu: true),
         secRelatorioFinanceiro => const RelatorioFinanceiroPage(),
+        secPatrimonio => const PatrimonioPage(),
+        secClima => const ClimaPage(),
+        secAjuda => const AjudaPage(),
         _ => const InicioPage(),
       };
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/equipe.dart';
+import '../dados/plataforma.dart';
 import '../dados/indicacoes.dart';
 import '../marca.dart';
 import '../tema.dart';
@@ -15,6 +16,7 @@ import 'conta.dart';
 import 'dispositivos.dart';
 import 'equipe.dart';
 import 'indicacoes.dart';
+import 'criador.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
 import 'modo_inseminacao.dart';
@@ -60,6 +62,9 @@ const itensMenu = <(String, IconData)>[
   ('Tarefas', Icons.task_alt),
   ('Quem lançou o quê', Icons.history),
   ('Relatório financeiro', Icons.summarize_outlined),
+  ('Patrimônio', Icons.account_balance_wallet_outlined),
+  ('Clima da fazenda', Icons.wb_sunny_outlined),
+  ('Ajuda e suporte', Icons.support_agent),
 ];
 
 // Índices usados pelos atalhos.
@@ -67,25 +72,27 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secSanidade = 5, secLeite = 6, secPiquetes = 7, secPastagem = 8, secMapa = 9, secEntradas = 10, secVendas = 11,
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
-    secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26;
+    secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
+    secAjuda = 29;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
   ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secLeite, secEntradas, secVendas]),
-  ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa, secChuva]),
+  ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa, secChuva, secClima]),
   ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
   ('Financeiro', Icons.attach_money,
-      [secRelatorioFinanceiro, secCustos, secContas, secDividas, secCotacao, secVender]),
+      [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secDividas, secCotacao, secVender]),
   ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),
 ];
 
 /// Seções que o peão vê: o serviço de campo, sem financeiro nem cadastros da fazenda.
 const secoesPeao = {
   secPainel, secRebanho, secReproducao, secSanidade, secLeite, secPiquetes, secPastagem, secMapa, secChuva, secTarefas,
+  secClima, secAjuda,
 };
 
 /// Seções que o veterinário vê: rebanho, reprodução e sanidade.
-const secoesVeterinario = {secPainel, secRebanho, secReproducao, secSanidade, secTarefas};
+const secoesVeterinario = {secPainel, secRebanho, secReproducao, secSanidade, secTarefas, secClima, secAjuda};
 
 /// Seções só do dono (nem o gerente vê).
 const secoesDono = {secRelatorioFinanceiro};
@@ -116,6 +123,7 @@ Future<void> sairDaConta(BuildContext context) async {
     ok: 'Sair',
   );
   if (!ok) return;
+  Plataforma.pararAvisos();
   await Db.encerrar();
   await FirebaseAuth.instance.signOut();
   Indicacoes.esquecerAdmin();
@@ -265,12 +273,22 @@ class MenuLateral extends StatelessWidget {
             FutureBuilder<bool>(
               future: Indicacoes.souAdmin(),
               builder: (c, s) => s.data == true
-                  ? item(Icons.card_giftcard_outlined, 'Códigos de indicação', () {
-                      fechar();
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const IndicacoesPage()));
-                    })
+                  ? Column(children: [
+                      item(Icons.admin_panel_settings_outlined, 'Painel do criador', () {
+                        fechar();
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const CriadorPage()));
+                      }, cor: Cores.azul),
+                      item(Icons.card_giftcard_outlined, 'Códigos de indicação', () {
+                        fechar();
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const IndicacoesPage()));
+                      }),
+                    ])
                   : const SizedBox.shrink(),
             ),
+            item(itensMenu[secAjuda].$2, itensMenu[secAjuda].$1, () {
+              fechar();
+              Nav.ir(secAjuda);
+            }, atual: atual == secAjuda),
             item(Icons.manage_accounts_outlined, 'Minha conta', () {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaConta()));
@@ -379,6 +397,7 @@ class Pagina extends StatelessWidget {
     final largo = MediaQuery.sizeOf(context).width >= 1000;
     final conteudo = Column(children: [
       const BarraSincronia(),
+      const FaixaComunicados(),
       const PropriedadeBar(),
       Expanded(child: corpo),
     ]);
@@ -389,6 +408,7 @@ class Pagina extends StatelessWidget {
         title: Text(titulo),
         actions: [
           ...?acoes,
+          const SininhoAvisos(),
           IconButton(
             tooltip: 'Modo Curral',
             icon: const Icon(Icons.contactless_outlined, color: Cores.laranja),
@@ -497,5 +517,62 @@ class AcoesFab extends StatelessWidget {
         tooltip: 'Adicionar',
         onPressed: () => _abrir(context),
         child: const Icon(Icons.add, size: 32),
+      );
+}
+
+/// Sininho: respostas novas nos chamados de suporte.
+class SininhoAvisos extends StatelessWidget {
+  const SininhoAvisos({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: Plataforma.naoLidos,
+        builder: (context, n, _) => IconButton(
+          tooltip: n == 0 ? 'Ajuda e suporte' : '$n resposta(s) nova(s) do suporte',
+          icon: Badge(
+            isLabelVisible: n > 0,
+            label: Text('$n'),
+            child: Icon(n > 0 ? Icons.notifications_active : Icons.notifications_none),
+          ),
+          onPressed: () => Nav.ir(secAjuda),
+        ),
+      );
+}
+
+/// Comunicados do Eito 360 numa faixa no topo (pode fechar).
+class FaixaComunicados extends StatelessWidget {
+  const FaixaComunicados({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<List<Map<String, dynamic>>>(
+        valueListenable: Plataforma.avisos,
+        builder: (context, avisos, _) => Column(children: [
+          for (final a in avisos)
+            Material(
+              color: Cores.azul,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                child: Row(children: [
+                  const Icon(Icons.campaign_outlined, color: Cores.laranja),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text.rich(
+                      TextSpan(children: [
+                        if ('${a['titulo'] ?? ''}'.isNotEmpty)
+                          TextSpan(text: '${a['titulo']}  ', style: const TextStyle(fontWeight: FontWeight.w800)),
+                        TextSpan(text: '${a['texto'] ?? ''}'),
+                      ]),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Plataforma.fecharAviso('${a['id']}'),
+                  ),
+                ]),
+              ),
+            ),
+        ]),
       );
 }

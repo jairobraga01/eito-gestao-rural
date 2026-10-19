@@ -68,12 +68,23 @@ class Indicacoes {
 
   static bool? _admin;
 
+  static const emailDoCriador = 'jairo_braga@icloud.com';
+
   /// Se quem está logado administra os códigos (admins/{uid} existe).
   static Future<bool> souAdmin() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final u = FirebaseAuth.instance.currentUser;
+    final uid = u?.uid;
     if (uid == null) return false;
     try {
-      return _admin ??= (await _banco.collection('admins').doc(uid).get()).exists;
+      if (_admin != null) return _admin!;
+      final ref = _banco.collection('admins').doc(uid);
+      var existe = (await ref.get()).exists;
+      // A conta do criador se registra sozinha (as regras só deixam o e-mail dele, confirmado).
+      if (!existe && u!.emailVerified && u.email == emailDoCriador) {
+        await ref.set({'ativo': true, 'email': u.email});
+        existe = true;
+      }
+      return _admin = existe;
     } catch (_) {
       return false; // sem permissão: não é administrador
     }

@@ -7,7 +7,7 @@ Android e no computador, com login por e-mail e senha, os mesmos dados na nuvem
 em todos os aparelhos, e funciona sem internet.
 
 Esta versão junta o Eito (marca, Modo Curral, bastão e balança) com todos os
-módulos da Caderneta do Rebanho.
+módulos da versão antiga do Eito Gestão (APK).
 
 **Como publicar:** veja [PUBLICAR.md](PUBLICAR.md).
 
@@ -29,7 +29,7 @@ Navegação pelo **menu lateral** (no computador ele fica sempre aberto), pela
 | **Piquetes** e **Pastagem** | Área, forrageira, capacidade, lotação, entrada e saída de animais, adubação, roçada, vedação, altura do capim. |
 | **Vendas e saídas** | Venda, morte, consumo, transferência, doação, com R$/cabeça e R$/kg. |
 | **Relatórios** | Rebanho por sexo, categoria e lote; prenhez; partos previstos; GMD; sanidade; saídas do ano. |
-| **Backup** | Copia e restaura tudo; também traz os dados do APK antigo da Caderneta. |
+| **Backup** | Copia e restaura tudo; também traz os dados do APK antigo do Eito Gestão. |
 
 ## Modo Curral (atalho)
 
@@ -76,7 +76,7 @@ lib/
   main.dart                 Firebase, cache offline, login → carregar dados → Painel
   firebase_options.dart     configuração do projeto (caderneta-rebanho)
   marca.dart / tema.dart    nome, slogan, cores (verde oliva + laranja)
-  dados/db.dart             dados: cópia local + Firestore, mesmas funções da Caderneta
+  dados/db.dart             dados: cópia local + Firestore, mesmas funções da versão antiga
   dados/resumo_periodo.dart números do mês ou do ano para os relatórios
   dados/manejo.dart         fila do dia, intervalo entre partos, projeção de abate
   dados/gestao.dart         custos e margem, calendário sanitário, ranking, genealogia, chuva, resumo semanal

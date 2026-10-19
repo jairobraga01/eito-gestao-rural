@@ -58,9 +58,9 @@ call firebase deploy --only hosting,firestore:rules --project caderneta-rebanho 
 echo.
 echo ==============================================
 echo   PRONTO! O app está no ar em:
-echo   https://caderneta-rebanho.web.app  (e eitogestao.com.br, depois de ligar o dominio)
+echo   https://eitogestao.com.br  (endereco alternativo: https://caderneta-rebanho.web.app)
 echo ==============================================
-start "" "https://caderneta-rebanho.web.app"
+start "" "https://eitogestao.com.br"
 pause
 exit /b 0
 

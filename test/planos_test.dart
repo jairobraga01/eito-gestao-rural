@@ -38,7 +38,7 @@ void main() {
 
   test('preços de tabela', () {
     expect(PlanoEito.todos.map((p) => '${p.nome} ${p.mes} ${p.ano}'),
-        ['Simples 9,90 99,90', 'Média 29,90 299,90', 'Plus 59,99 599,90']);
+        ['Simples 9,90 99,90', 'Média 29,90 299,90', 'Plus 59,90 599,90']);
   });
 
   test('situação do rebanho pelo limite do plano', () {

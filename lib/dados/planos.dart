@@ -25,7 +25,7 @@ class PlanoEito {
 
   static const simples = PlanoEito._('Simples', 200, {'gerente': 1, 'peao': 1}, completo: false, mes: '9,90', ano: '99,90');
   static const media = PlanoEito._('Média', 500, {'gerente': 1, 'veterinario': 1, 'peao': 2}, mes: '29,90', ano: '299,90');
-  static const plus = PlanoEito._('Plus', null, {'gerente': 1, 'veterinario': 1, 'zootecnista': 1, 'contador': 1, 'peao': 10}, mes: '59,99', ano: '599,90');
+  static const plus = PlanoEito._('Plus', null, {'gerente': 1, 'veterinario': 1, 'zootecnista': 1, 'contador': 1, 'peao': 10}, mes: '59,90', ano: '599,90');
 
   /// Teste e Cortesia: tudo liberado, sem limite de animais nem de pessoas.
   static const livre = PlanoEito._('Livre', null, {'gerente': 99, 'veterinario': 99, 'zootecnista': 99, 'contador': 99, 'peao': 99});

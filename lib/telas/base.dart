@@ -6,6 +6,7 @@ import '../dados/db.dart';
 import '../dados/equipe.dart';
 import '../dados/plataforma.dart';
 import '../dados/indicacoes.dart';
+import '../dados/planos.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -71,6 +72,7 @@ const itensMenu = <(String, IconData)>[
   ('Nascimentos', Icons.child_friendly_outlined),
   ('Mortes', Icons.heart_broken_outlined),
   ('Outras Causas', Icons.more_horiz),
+  ('Fornecedores e compradores', Icons.contacts_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -79,7 +81,7 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
     secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
-    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33;
+    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -90,7 +92,7 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
   ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secDieta]),
   ('Financeiro', Icons.attach_money,
-      [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secDividas, secCotacao, secVender]),
+      [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secContatos, secDividas, secCotacao, secVender]),
   ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),
 ];
 
@@ -105,15 +107,39 @@ const secoesVeterinario = {
   secPainel, secRebanho, secReproducao, secSanidade, secPesagem, secNascimentos, secTarefas, secClima, secAjuda,
 };
 
+/// Seções do zootecnista: rebanho, pesagem, nutrição e estoque.
+const secoesZootecnista = {
+  secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secDieta, secPiquetes, secPastagem, secTarefas,
+  secClima, secAjuda,
+};
+
+/// Seções do contador: só consulta do financeiro, das compras e vendas e das exportações.
+const secoesContador = {
+  secPainel, secRelatorioFinanceiro, secCustos, secContas, secContatos, secDividas, secPatrimonio, secCotacao,
+  secEntradas, secVendas, secRelatorios, secExportacoes, secAjuda,
+};
+
 /// Seções só do dono (nem o gerente vê).
 const secoesDono = {secRelatorioFinanceiro};
 
+/// O que o plano Simples não inclui (financeiro completo, nutrição, mapa e exportações).
+const secoesSoMedia = {
+  secRelatorioFinanceiro, secContas, secContatos, secDividas, secPatrimonio, secCotacao, secVender, secExportacoes,
+  secProteinado, secEstoque, secDieta, secMapa,
+};
+
 /// Se quem está usando pode abrir a seção (o dono vê tudo; o gerente, tudo menos o que é só do dono).
 bool podeVer(int secao) {
+  if (!planoAtual().completo && secoesSoMedia.contains(secao)) return false;
   if (Db.ehPeao) return secoesPeao.contains(secao);
   if (Db.ehVeterinario) return secoesVeterinario.contains(secao);
+  if (Db.ehZootecnista) return secoesZootecnista.contains(secao);
+  if (Db.ehContador) return secoesContador.contains(secao);
   return Db.ehDono || !secoesDono.contains(secao);
 }
+
+/// Se quem está usando pode lançar (o contador só consulta).
+bool get podeLancar => !Db.ehContador;
 
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).
 void abrirModoCurral(BuildContext context) =>
@@ -210,7 +236,7 @@ class MenuLateral extends StatelessWidget {
               Nav.ir(0);
             }, atual: atual == 0),
             // Modo Curral: atalho, abre por cima do app.
-            Padding(
+            if (podeLancar) Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Material(
                 color: Cores.laranja,
@@ -229,7 +255,7 @@ class MenuLateral extends StatelessWidget {
               ),
             ),
             // Modo Inseminação: logo abaixo do Modo Curral.
-            Padding(
+            if (podeLancar && planoAtual().completo) Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Material(
                 color: Cores.azul,
@@ -424,11 +450,12 @@ class Pagina extends StatelessWidget {
         actions: [
           ...?acoes,
           const SininhoAvisos(),
-          IconButton(
-            tooltip: 'Modo Curral',
-            icon: const Icon(Icons.contactless_outlined, color: Cores.laranja),
-            onPressed: () => abrirModoCurral(context),
-          ),
+          if (podeLancar)
+            IconButton(
+              tooltip: 'Modo Curral',
+              icon: const Icon(Icons.contactless_outlined, color: Cores.laranja),
+              onPressed: () => abrirModoCurral(context),
+            ),
         ],
       ),
       floatingActionButton: fab,
@@ -527,12 +554,14 @@ class AcoesFab extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => FloatingActionButton(
-        heroTag: null,
-        tooltip: 'Adicionar',
-        onPressed: () => _abrir(context),
-        child: const Icon(Icons.add, size: 32),
-      );
+  Widget build(BuildContext context) => !podeLancar
+      ? const SizedBox.shrink()
+      : FloatingActionButton(
+          heroTag: null,
+          tooltip: 'Adicionar',
+          onPressed: () => _abrir(context),
+          child: const Icon(Icons.add, size: 32),
+        );
 }
 
 /// Sininho: respostas novas nos chamados de suporte.

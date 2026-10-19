@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../dados/clima.dart';
 import '../dados/db.dart';
 import '../dados/estoque.dart' show alertasEstoque;
+import '../dados/mapa.dart' show Rodizio, SituacaoPasto, rodizio;
+import '../dados/planos.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import 'animais.dart';
@@ -20,6 +22,10 @@ import 'sanidade.dart';
 class _Painel {
   int ativos = 0, femeas = 0, machos = 0, prenhes = 0, lotes = 0, avisosEstoque = 0;
   List<Reg> partos = [], diagnosticos = [], aplicacoes = [], carencia = [];
+  List<Rodizio> trocar = [];
+
+  /// Piquete vazio que descansou mais (sugestão para receber o gado).
+  int? descansado;
 }
 
 Future<_Painel> _carregar() async {
@@ -35,6 +41,11 @@ Future<_Painel> _carregar() async {
   p.aplicacoes = await aplicacoesProximas(15);
   p.carencia = await animaisEmCarencia();
   p.avisosEstoque = alertasEstoque(hojeIso()).length;
+  final rod = rodizio(hojeIso());
+  p.trocar = rod.where((r) => r.situacao == SituacaoPasto.trocar).toList();
+  final prontos = rod.where((r) => r.situacao == SituacaoPasto.pronto).toList()
+    ..sort((a, b) => (b.dias ?? 0).compareTo(a.dias ?? 0));
+  p.descansado = prontos.firstOrNull?.piquete['id'] as int?;
   return p;
 }
 
@@ -47,6 +58,15 @@ class InicioPage extends StatefulWidget {
 
 class _InicioPageState extends State<InicioPage> {
   String busca = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Dono e gerente marcam o dia em que o rebanho passou do limite do plano.
+    if (!Db.ehCampo && podeLancar) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => conferirLimiteAnimais(hojeIso()));
+    }
+  }
 
   void _abrir(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
@@ -92,6 +112,13 @@ class _InicioPageState extends State<InicioPage> {
       carregar: _carregar,
       builder: (context, p) {
         final alertas = <Widget>[
+          for (final r in p.trocar)
+            ListTile(
+              leading: const Icon(Icons.swap_horiz, color: Colors.brown),
+              title: Text('Mudar de pasto: ${txt(r.piquete['nome'])}'),
+              subtitle: Text('Ocupado há ${r.dias} dias (limite ${r.limite}). Toque para mudar o lote.'),
+              onTap: () => _abrir(MudarPastoPage(origem: r.piquete['id'] as int, destino: p.descansado)),
+            ),
           for (final r in p.partos)
             ListTile(
               leading: Icon(Icons.child_friendly_outlined,
@@ -117,23 +144,32 @@ class _InicioPageState extends State<InicioPage> {
                   '${txt(s['proxima']).compareTo(hoje) < 0 ? 'Atrasada desde' : 'Prevista para'} ${br(s['proxima'])}'),
               onTap: () => _abrir(const SanidadeFormPage()),
             ),
+          for (final c in p.carencia)
+            ListTile(
+              leading: const Icon(Icons.block, color: Colors.deepOrange),
+              title: Text('Em carência: ${rotulo(c)}'),
+              subtitle: Text('${txt(c['produto'])} · liberado para venda em ${br(c['libera'])}'),
+              onTap: () => _abrir(FichaAnimalPage(c['id'] as int)),
+            ),
         ];
         final largo = MediaQuery.sizeOf(context).width >= 700;
         return ListView(
           padding: const EdgeInsets.only(bottom: 88),
           children: [
             const _PrevisaoTopo(),
+            const _AvisoPlano(),
             Secao('Alertas (${alertas.length})'),
             if (alertas.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text('Nada pendente. Partos dos próximos 30 dias, diagnósticos atrasados e '
-                    'aplicações dos próximos 15 dias aparecem aqui.'),
+                child: Text('Nada pendente. Partos dos próximos 30 dias, diagnósticos atrasados, '
+                    'aplicações dos próximos 15 dias, pastos para trocar e animais em carência aparecem aqui.'),
               ),
             ...alertas,
             const SizedBox(height: 12),
-            const _BotaoModoCurral(),
-            const _BotaoModoInseminacao(),
+            if (podeLancar) const _BotaoModoCurral(),
+            if (podeLancar && planoAtual().completo) const _BotaoModoInseminacao(),
+            if (podeLancar)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: Row(children: [
@@ -502,6 +538,47 @@ class _BotaoModoInseminacao extends StatelessWidget {
             ]),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Aviso do limite de animais do plano (a partir de 90% do limite).
+class _AvisoPlano extends StatelessWidget {
+  const _AvisoPlano();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: Db.changes,
+      builder: (context, _, __) => ValueListenableBuilder<String?>(
+        valueListenable: Db.planoDaFazenda,
+        builder: (context, _, __) {
+          final p = planoAtual();
+          final n = animaisAtivos();
+          final situacao = p.situacao(n);
+          if (situacao == 'ok' || Db.ehCampo) return const SizedBox.shrink();
+          final dias = diasParaTravar(hojeIso());
+          final texto = situacao == 'perto'
+              ? 'Plano ${p.nome}: $n de ${p.maxAnimais} animais. Falta pouco para o limite.'
+              : 'Plano ${p.nome}: $n animais, acima do limite de ${p.maxAnimais}. '
+                  '${dias != null && dias > 0 ? 'Você ainda pode cadastrar por $dias dia(s); depois, só com um plano maior.' : 'Novos cadastros estão travados até mudar de plano.'}';
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+            child: Material(
+              color: situacao == 'acima' ? Cores.alerta : Colors.orange.shade800,
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(children: [
+                  const Icon(Icons.info_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(texto, style: const TextStyle(color: Colors.white))),
+                ]),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

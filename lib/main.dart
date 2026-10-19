@@ -31,6 +31,7 @@ import 'telas/financeiro.dart';
 import 'telas/lotes.dart';
 import 'telas/mapa.dart';
 import 'telas/animais.dart';
+import 'telas/contatos.dart';
 import 'telas/piquetes.dart';
 import 'telas/producao_leite.dart';
 import 'telas/propriedades.dart';
@@ -131,6 +132,8 @@ class _CarregarDadosState extends State<CarregarDados> {
     Plataforma.iniciarAvisos(u.uid);
     // O veterinário abre direto na reprodução.
     if (Db.ehVeterinario) Nav.secao.value = secReproducao;
+    if (Db.ehZootecnista) Nav.secao.value = secDieta;
+    if (Db.ehContador) Nav.secao.value = secRelatorioFinanceiro;
   }
 
   @override
@@ -239,6 +242,7 @@ class _InicioState extends State<Inicio> {
         secNascimentos => const NascimentosPage(),
         secMortes => const SaidasPage(tipo: TipoSaidas.mortes),
         secOutrasSaidas => const SaidasPage(tipo: TipoSaidas.outras),
+        secContatos => const ContatosPage(),
         _ => const InicioPage(),
       };
 

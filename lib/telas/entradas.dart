@@ -5,7 +5,9 @@ import '../dados/negocio.dart';
 import '../dados/numeracao.dart';
 import '../util/util.dart';
 import '../widgets/prazo.dart';
+import '../dados/planos.dart';
 import 'base.dart';
+import 'contatos.dart' show CampoContato;
 
 const tiposEntrada = ['Compra', 'Rebanho existente', 'Transferência', 'Doação', 'Outro'];
 
@@ -201,6 +203,11 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
     if (lista.isEmpty) {
       avisar(context,
           gerar ? 'Diga quantos animais (até 5.000 por vez) e o prefixo.' : 'Digite os brincos dos animais que chegaram.');
+      return;
+    }
+    final trava = bloqueioDeAnimais(hojeIso(), novos: lista.length);
+    if (trava != null) {
+      avisar(context, trava);
       return;
     }
     if (!await confirmar(
@@ -419,7 +426,7 @@ class _EntradaFormPageState extends State<EntradaFormPage> {
             ),
           ],
           gap,
-          campoTexto(origem, compra ? 'Vendedor' : 'Origem'),
+          CampoContato(controller: origem, label: compra ? 'Vendedor' : 'Origem', tipo: 'Fornecedor'),
           gap,
           campoTexto(gta, 'Nº da GTA'),
           gap,

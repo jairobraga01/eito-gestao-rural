@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/importar_animais.dart';
+import '../dados/planos.dart';
 import '../dispositivos/arquivo_stub.dart' if (dart.library.js_interop) '../dispositivos/arquivo_web.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -29,6 +30,11 @@ class _ImportarAnimaisPageState extends State<ImportarAnimaisPage> {
   Future<void> _gravar() async {
     final c = _c;
     if (c == null || c.boas.isEmpty) return;
+    final trava = bloqueioDeAnimais(hojeIso(), novos: c.boas.length);
+    if (trava != null) {
+      avisar(context, trava);
+      return;
+    }
     final ruins = c.ruins.length;
     final ok = await confirmar(
       context,

@@ -196,6 +196,7 @@ class Db {
     'chuvas',
     'insumos',
     'formulas',
+    'contatos',
     'dividas',
     'contas',
     'cotacoes',
@@ -214,14 +215,19 @@ class Db {
   /// Dono dos dados abertos (o próprio usuário ou quem o pôs na equipe).
   static String? _uid;
 
-  /// Papel de quem está usando: 'dono', 'gerente', 'peao' ou 'veterinario'.
+  /// Papel de quem está usando: 'dono', 'gerente', 'peao', 'veterinario', 'zootecnista' ou 'contador'.
   static final papel = ValueNotifier<String>('dono');
   static bool get ehDono => papel.value == 'dono';
   static bool get ehPeao => papel.value == 'peao';
   static bool get ehVeterinario => papel.value == 'veterinario';
+  static bool get ehZootecnista => papel.value == 'zootecnista';
+  static bool get ehContador => papel.value == 'contador';
 
-  /// Peão e veterinário: não veem o financeiro nem os cadastros da fazenda.
-  static bool get ehCampo => ehPeao || ehVeterinario;
+  /// Plano da fazenda (nome vindo de contas/{dono}); vazio = tudo liberado.
+  static final planoDaFazenda = ValueNotifier<String?>(null);
+
+  /// Peão, veterinário e zootecnista: não veem o financeiro nem os cadastros da fazenda.
+  static bool get ehCampo => ehPeao || ehVeterinario || ehZootecnista;
 
   /// Quem está lançando. Vai gravado em cada registro (quem lançou o quê).
   static ({String uid, String nome})? autor;
@@ -345,6 +351,7 @@ class Db {
     prop.value = null;
     _uid = null;
     papel.value = 'dono';
+    planoDaFazenda.value = null;
     autor = null;
   }
 
@@ -478,7 +485,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas']) {
+        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas', 'contatos']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }

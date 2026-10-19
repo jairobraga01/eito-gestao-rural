@@ -7,6 +7,7 @@ import '../dispositivos/leitor_teclado.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import '../widgets/foto_animal.dart';
+import '../dados/planos.dart';
 import 'base.dart';
 import 'ficha_animal.dart' show FichaCurral;
 import 'mover.dart';
@@ -320,6 +321,11 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
   }
 
   Future<void> salvar() async {
+    final trava = editando ? null : bloqueioDeAnimais(hojeIso());
+    if (trava != null) {
+      avisar(context, trava);
+      return;
+    }
     if (brinco.text.trim().isEmpty) {
       avisar(context, 'Informe o número do brinco.');
       return;
@@ -588,6 +594,11 @@ class _NascimentoFormPageState extends State<NascimentoFormPage> {
   }
 
   Future<void> salvar() async {
+    final trava = bloqueioDeAnimais(hojeIso(), novos: 1);
+    if (trava != null) {
+      avisar(context, trava);
+      return;
+    }
     if (mae == null) {
       avisar(context, 'Escolha a mãe.');
       return;

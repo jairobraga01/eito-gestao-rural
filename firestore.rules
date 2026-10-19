@@ -6,7 +6,9 @@ rules_version = '2';
 // - peão: lê tudo, menos o financeiro; grava só o serviço de campo e só
 //   apaga o que ele mesmo lançou;
 // - veterinário: como o peão, mas grava a reprodução e a sanidade
-//   (inseminação, protocolos, sêmen, diagnóstico, ECC e aplicações).
+//   (inseminação, protocolos, sêmen, diagnóstico, ECC e aplicações);
+// - zootecnista: como o peão, mas grava a dieta, as fórmulas, o estoque e as pesagens;
+// - contador: só lê, inclusive o financeiro, e não grava nada.
 // Convites ficam em convites/{email} e só servem para quem tem esse e-mail
 // confirmado (ou para o login de peão que o dono criou, pelo uid).
 service cloud.firestore {
@@ -56,8 +58,14 @@ service cloud.firestore {
     function admin() {
       return logado() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+    // Tabelas que o zootecnista grava.
+    function zootGrava(t) {
+      return t in ['pesagens', 'escores', 'insumos', 'estoque', 'formulas', 'dietas', 'fotos', 'tarefas', 'config',
+        'pastagens', 'ocorrencias'];
+    }
     function campoGrava(p, t) {
-      return (p == 'peao' && peaoGrava(t)) || (p == 'veterinario' && vetGrava(t));
+      return (p == 'peao' && peaoGrava(t)) || (p == 'veterinario' && vetGrava(t))
+        || (p == 'zootecnista' && zootGrava(t));
     }
 
     // O dono: tudo dentro da própria conta.
@@ -77,7 +85,7 @@ service cloud.firestore {
     // Dados do dono para quem está na equipe.
     match /usuarios/{u}/{tabela}/{doc} {
       allow read: if tabela != 'equipe' && membro(u)
-        && !(papel(u) in ['peao', 'veterinario'] && semFinanceiro(tabela));
+        && !(papel(u) in ['peao', 'veterinario', 'zootecnista'] && semFinanceiro(tabela));
       allow write: if tabela != 'equipe' && membro(u) && papel(u) == 'gerente';
       allow create, update: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela);
       allow delete: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela)

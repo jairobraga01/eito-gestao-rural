@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/manejo.dart' show intervaloEntrePartosRebanho;
+import '../dados/mapa.dart' show lotacaoPiquetes;
+import '../dados/relatorio_fazenda.dart';
+import '../dispositivos/arquivo_stub.dart' if (dart.library.js_interop) '../dispositivos/arquivo_web.dart';
 import '../dados/resumo_periodo.dart';
 import '../util/util.dart';
 import 'base.dart';
@@ -174,6 +177,27 @@ class _RelatoriosPageState extends State<RelatoriosPage> {
     return Pagina(
       titulo: 'Relatórios',
       acoes: [
+        IconButton(
+          tooltip: 'Relatório da fazenda (PDF)',
+          icon: const Icon(Icons.picture_as_pdf_outlined),
+          onPressed: () async {
+            final hoje = hojeIso();
+            final html = htmlRelatorioFazenda(
+              hoje: hoje,
+              ativos: await Db.animais(soAtivos: true),
+              lotes: await Db.lotes(soAtivos: true),
+              piquetes: await Db.piquetes(),
+              lotacao: lotacaoPiquetes(),
+              prenhes: (await Db.reproducoes(filtro: 'Prenhe')).where((r) => r['femea_status'] == 'Ativo').length,
+              partos90: (await partosPrevistos(90)).length,
+              emCarencia: (await animaisEmCarencia()).length,
+              aplicacoes30: (await aplicacoesProximas(30)).length,
+            );
+            if (!imprimirHtml(html) && context.mounted) {
+              avisar(context, 'Não deu para abrir a impressão neste aparelho.');
+            }
+          },
+        ),
         IconButton(
           tooltip: 'Resumo da semana (WhatsApp)',
           icon: const Icon(Icons.share),

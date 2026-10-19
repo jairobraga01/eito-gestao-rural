@@ -10,6 +10,8 @@ import '../dados/db.dart';
 import '../dados/equipe.dart';
 import '../tema.dart';
 import '../util/util.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TelaConta extends StatefulWidget {
   const TelaConta({super.key});
@@ -72,6 +74,89 @@ class _TelaContaState extends State<TelaConta> {
         if (mounted) {
           avisar(context, 'Enviamos um link para $novo. O e-mail muda quando você abrir o link.');
         }
+      });
+
+  /// Fatores de segundo passo já ativados nesta conta.
+  List<MultiFactorInfo> _fatores = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarFatores();
+  }
+
+  Future<void> _carregarFatores() async {
+    try {
+      final f = await _usuario?.multiFactor.getEnrolledFactors() ?? const [];
+      if (mounted) setState(() => _fatores = f);
+    } catch (_) {
+      // Sem internet ou recurso desligado: a tela segue sem o estado.
+    }
+  }
+
+  Future<void> _duasEtapas() => _executar(() async {
+        final u = _usuario!;
+        if (_fatores.isNotEmpty) {
+          if (!await confirmar(context, 'Desligar a verificação em duas etapas?',
+              'A conta volta a entrar só com e-mail e senha.',
+              ok: 'Desligar')) {
+            return;
+          }
+          await u.multiFactor.unenroll(factorUid: _fatores.first.uid);
+          await _carregarFatores();
+          if (mounted) avisar(context, 'Verificação em duas etapas desligada.');
+          return;
+        }
+        if (!u.emailVerified) {
+          await u.sendEmailVerification();
+          if (mounted) {
+            avisar(context, 'Primeiro confirme seu e-mail: enviamos um link para ${u.email}. Depois volte aqui.');
+          }
+          return;
+        }
+        if (!await _reautenticar()) return;
+        final segredo = await TotpMultiFactorGenerator.generateSecret(await u.multiFactor.getSession());
+        final url = await segredo.generateQrCodeUrl(accountName: u.email, issuer: 'Eito');
+        if (!mounted) return;
+        final codigo = await showDialog<String>(
+          context: context,
+          builder: (c) {
+            final ctrl = TextEditingController();
+            return AlertDialog(
+              title: const Text('Ligar a verificação em duas etapas'),
+              content: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('1. Instale um app autenticador (Google Authenticator, Microsoft Authenticator ou Authy).'),
+                  gap,
+                  const Text('2. Neste celular, toque em "Abrir no autenticador". Em outro aparelho, copie a chave e digite no app.'),
+                  gap,
+                  FilledButton.icon(
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Abrir no autenticador'),
+                    onPressed: () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Copiar a chave'),
+                    onPressed: () => Clipboard.setData(ClipboardData(text: segredo.secretKey)),
+                  ),
+                  gap,
+                  const Text('3. Digite o código de 6 dígitos que o app mostrar:'),
+                  TextField(controller: ctrl, keyboardType: TextInputType.number, maxLength: 6),
+                ]),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+                FilledButton(onPressed: () => Navigator.pop(c, ctrl.text), child: const Text('Ligar')),
+              ],
+            );
+          },
+        );
+        if (codigo == null || codigo.trim().isEmpty) return;
+        final prova = await TotpMultiFactorGenerator.getAssertionForEnrollment(segredo, codigo.trim());
+        await u.multiFactor.enroll(prova, displayName: 'App autenticador');
+        await _carregarFatores();
+        if (mounted) avisar(context, 'Verificação em duas etapas ligada. No próximo login o Eito pede o código.');
       });
 
   Future<void> _excluirConta() => _executar(() async {
@@ -175,6 +260,15 @@ class _TelaContaState extends State<TelaConta> {
             subtitle: const Text('Você confirma pelo link enviado ao novo e-mail.'),
             onTap: _trocarEmail,
           ),
+          if (!peao)
+            ListTile(
+              leading: const Icon(Icons.verified_user_outlined, color: Cores.oliva),
+              title: const Text('Verificação em duas etapas'),
+              subtitle: Text(_fatores.isEmpty
+                  ? 'Desligada. Ligue para pedir um código do celular a cada login.'
+                  : 'Ligada (app autenticador). Toque para desligar.'),
+              onTap: _duasEtapas,
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Cores.alerta),

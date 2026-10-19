@@ -224,7 +224,8 @@ IndicadoresCria indicadoresCria(int ano) {
 
   for (final s in Db.registros('saidas')) {
     if (s['tipo'] != 'Morte' || _int(s['propriedade_id']) != Db.pid || !dentro(s['data'])) continue;
-    final causa = _t(s['destino']).trim().isEmpty ? 'Sem causa informada' : _t(s['destino']).trim();
+    final texto = _t(s['causa']).trim().isNotEmpty ? _t(s['causa']).trim() : _t(s['destino']).trim();
+    final causa = texto.isEmpty ? 'Sem causa informada' : texto;
     final n = animais.values.where((a) => _int(a['saida_id']) == _int(s['id'])).length;
     r.mortesPorCausa[causa] = (r.mortesPorCausa[causa] ?? 0) + (n == 0 ? 1 : n);
   }

@@ -6,6 +6,7 @@ import '../dados/mapa.dart';
 import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
+import 'importar_kml.dart';
 import 'mapa.dart';
 import 'mover.dart' show MudarPastoPage;
 
@@ -39,6 +40,11 @@ class PiquetesPage extends StatelessWidget {
       ),
       acoes: [
         IconButton(
+          tooltip: 'Importar pastos do Google Earth (KML)',
+          icon: const Icon(Icons.upload_file),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportarKmlPage())),
+        ),
+        IconButton(
           tooltip: 'Mudar todos de pasto',
           icon: const Icon(Icons.swap_horiz),
           onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MudarPastoPage())),
@@ -55,7 +61,9 @@ class PiquetesPage extends StatelessWidget {
         builder: (context, d) {
           final (lista, lot, rod) = d;
           if (lista.isEmpty) {
-            return const Vazio('Nenhum piquete cadastrado.\nCadastre as divisões de pasto da propriedade.',
+            return const Vazio(
+                'Nenhum piquete cadastrado.\nCadastre as divisões de pasto da propriedade '
+                'ou importe do Google Earth (botão no topo).',
                 icone: Icons.fence);
           }
           final area = lista.map((p) => p['area']).whereType<num>().fold<num>(0, (a, b) => a + b);

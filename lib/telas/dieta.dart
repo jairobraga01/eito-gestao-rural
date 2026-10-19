@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/estoque.dart';
-import '../dados/proteinado.dart' show formulas, insumos;
+import '../dados/proteinado.dart' show CalculoFormula, formulas, insumos;
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
@@ -95,10 +95,61 @@ class _DietaCard extends StatelessWidget {
     if (context.mounted) avisar(context, id == null ? 'Nada a lançar: confira a quantidade.' : 'Trato lançado em Custos e no estoque.');
   }
 
+  Future<void> _bater(BuildContext context) async {
+    final f = d.formula!;
+    final c = CalculoFormula(f);
+    var data = hojeIso();
+    final qtd = TextEditingController(text: c.kgBatida > 0 ? _q(c.kgBatida) : '');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final kgs = lerNumero(qtd.text)?.toDouble() ?? 0;
+          final batidas = c.kgBatida > 0 ? kgs / c.kgBatida : 0.0;
+          return AlertDialog(
+            title: Text('Bater ração · ${f['nome']}'),
+            content: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                DateField(label: 'Data', value: data, obrigatorio: true, onChanged: (v) => set(() => data = v!)),
+                gap,
+                TextField(
+                  controller: qtd,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Quanto foi batido', suffixText: 'kg'),
+                  onChanged: (_) => set(() {}),
+                ),
+                gap,
+                Text('Custo por quilo: ${c.precoKg == null ? '-' : moeda(c.precoKg)}'),
+                if (kgs > 0) ...[
+                  const SizedBox(height: 8),
+                  const Text('Sai do estoque:', style: TextStyle(fontWeight: FontWeight.w700)),
+                  for (final l in c.linhas)
+                    Text('${l.nome}: ${_q(l.kg * batidas)} kg'
+                        '${l.insumo != null && saldo(l.insumo!['id'] as int) < l.kg * batidas ? ' (estoque insuficiente)' : ''}'),
+                ],
+              ]),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Bater')),
+            ],
+          );
+        },
+      ),
+    );
+    final kgs = lerNumero(qtd.text)?.toDouble() ?? 0;
+    qtd.dispose();
+    if (ok != true || kgs <= 0) return;
+    final preco = await baterRacao(f, data: data, kgBatidos: kgs);
+    if (!context.mounted) return;
+    avisar(context, preco == null ? 'A fórmula não tem ingredientes.' : '${_q(kgs)} kg de ração no estoque, a ${moeda(preco)} o quilo.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final estoque = d.diasDeEstoque;
+    final pronta = racaoPronta(d.formula?['id']);
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: InkWell(
@@ -121,9 +172,16 @@ class _DietaCard extends StatelessWidget {
             if (estoque != null)
               Text('Estoque dá para ${estoque.floor().clamp(0, 99999)} dia(s)',
                   style: TextStyle(color: estoque < 15 ? Cores.alerta : cs.onSurfaceVariant)),
+            if (pronta != null)
+              Text('Ração pronta no estoque: ${kg(saldo(pronta['id'] as int))}'),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton.icon(icon: const Icon(Icons.restaurant), label: const Text('Lançar trato'), onPressed: () => _trato(context)),
+              child: Wrap(children: [
+                if (d.formula != null)
+                  TextButton.icon(
+                      icon: const Icon(Icons.blender_outlined), label: const Text('Bater ração'), onPressed: () => _bater(context)),
+                TextButton.icon(icon: const Icon(Icons.restaurant), label: const Text('Lançar trato'), onPressed: () => _trato(context)),
+              ]),
             ),
           ]),
         ),

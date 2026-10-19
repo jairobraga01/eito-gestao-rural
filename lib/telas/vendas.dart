@@ -6,6 +6,29 @@ import '../dados/negocio.dart';
 import '../util/util.dart';
 import '../widgets/prazo.dart';
 import 'base.dart';
+import 'contatos.dart' show CampoContato;
+
+/// Causas de morte para escolher na saída (o texto livre fica nas observações).
+const causasMorte = [
+  'Raio',
+  'Picada de cobra',
+  'Tristeza parasitária',
+  'Clostridiose',
+  'Parto / distocia',
+  'Pneumonia',
+  'Diarreia',
+  'Intoxicação por planta',
+  'Acidente / atolamento',
+  'Fraqueza / desnutrição',
+  'Desconhecida',
+  'Outra',
+];
+
+/// Causa da morte registrada (a lista nova ou, nos lançamentos antigos, o texto em destino).
+String causaDaMorte(Reg s) {
+  final c = txt(s['causa']).trim().isNotEmpty ? txt(s['causa']).trim() : txt(s['destino']).trim();
+  return c.isEmpty ? 'Sem causa informada' : c;
+}
 
 /// Saídas separadas em Vendas, Mortes e Outras Causas (consumo, transferência, doação).
 enum TipoSaidas { vendas, mortes, outras }
@@ -36,18 +59,24 @@ class SaidasPage extends StatelessWidget {
         onPressed: () =>
             Navigator.push(context, MaterialPageRoute(builder: (_) => SaidaFormPage(tipoInicial: tipoInicial))),
       ),
-      corpo: AoMudar<List<Reg>>(
-        carregar: () async => (await Db.saidas()).where(_entra).toList(),
-        builder: (context, lista) {
+      corpo: AoMudar<(List<Reg>, List<Reg>)>(
+        carregar: () async => (
+          (await Db.saidas()).where(_entra).toList(),
+          tipo == TipoSaidas.mortes ? (await Db.animais()).where((a) => a['status'] == 'Morto').toList() : <Reg>[],
+        ),
+        builder: (context, d) {
+          final lista = d.$1;
           if (lista.isEmpty) {
             return Vazio(vazio, icone: Icons.arrow_circle_up_outlined);
           }
+          final resumo = tipo == TipoSaidas.mortes;
           return ListView.separated(
             padding: const EdgeInsets.only(bottom: 88),
-            itemCount: lista.length,
+            itemCount: lista.length + (resumo ? 1 : 0),
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (c, i) {
-              final s = lista[i];
+              if (resumo && i == 0) return _ResumoMortes(lista, d.$2);
+              final s = lista[resumo ? i - 1 : i];
               final venda = s['tipo'] == 'Venda';
               return ListTile(
                 leading: const Icon(Icons.arrow_circle_up_outlined, color: Colors.red, size: 30),
@@ -55,7 +84,8 @@ class SaidasPage extends StatelessWidget {
                     '${venda && s['valor_total'] != null ? ' · ${moeda(s['valor_total'] as num)}${s['bruto'] is num ? ' líquido' : ''}' : ''}'),
                 subtitle: Text([
                   br(s['data']),
-                  if (txt(s['destino']).isNotEmpty) txt(s['destino']),
+                  if (s['tipo'] == 'Morte') causaDaMorte(s)
+                  else if (txt(s['destino']).isNotEmpty) txt(s['destino']),
                   if (txt(s['brincos']).isNotEmpty) 'Brincos: ${s['brincos']}',
                 ].join(' · ')),
                 onTap: () => _detalhe(context, s),
@@ -102,7 +132,8 @@ class SaidasPage extends StatelessWidget {
                 Info(lucro.lucro >= 0 ? 'Lucro' : 'Prejuízo', moeda(lucro.lucro)),
               ],
               if (valor != null && peso != null && peso > 0) Info('Por kg vivo', moeda(valor / peso)),
-              Info('Comprador / destino', txt(s['destino'])),
+              if (s['tipo'] == 'Morte') Info('Causa da morte', causaDaMorte(s)),
+              Info(s['tipo'] == 'Morte' ? 'Local / detalhe' : 'Comprador / destino', txt(s['destino'])),
               Info('Brincos', txt(s['brincos'])),
               Info('Observações', txt(s['obs'])),
             ],
@@ -154,6 +185,7 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
   final parcelas = TextEditingController(text: '1');
   late String primeiro = vencimentoSugerido(data);
   final destino = TextEditingController();
+  String? causa;
   final obs = TextEditingController();
   bool salvando = false;
 
@@ -244,6 +276,10 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
       avisar(context, 'Informe o peso total para vender por arroba.');
       return;
     }
+    if (tipo == 'Morte' && causa == null) {
+      avisar(context, 'Escolha a causa da morte (ou "Desconhecida").');
+      return;
+    }
     final ok = await confirmar(
       context,
       'Confirmar ${tipo!.toLowerCase()}',
@@ -275,6 +311,7 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
         'outros': conta.outros,
       },
       'destino': nulo(destino.text),
+      if (tipo == 'Morte') 'causa': causa,
       'obs': nulo(obs.text),
     }, [for (final a in animais) a['id'] as int]);
     if (conta != null && aPrazo) {
@@ -409,7 +446,14 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
             ),
           ],
           gap,
-          campoTexto(destino, venda ? 'Comprador' : 'Destino / causa'),
+          if (tipo == 'Morte') ...[
+            escolha('Causa da morte *', causa, causasMorte, (x) => setState(() => causa = x)),
+            gap,
+          ],
+          if (venda)
+            CampoContato(controller: destino, label: 'Comprador', tipo: 'Comprador')
+          else
+            campoTexto(destino, tipo == 'Morte' ? 'Local / detalhe' : 'Destino / causa'),
           gap,
           campoTexto(obs, 'Observações', linhas: 3),
           if (venda && v != null && n > 0)
@@ -437,6 +481,55 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
             label: const Text('Salvar'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Mortes do ano por causa e por categoria (no topo da tela Mortes).
+class _ResumoMortes extends StatelessWidget {
+  const _ResumoMortes(this.mortes, this.mortos);
+  final List<Reg> mortes;
+
+  /// Animais com status Morto (para contar por categoria).
+  final List<Reg> mortos;
+
+  @override
+  Widget build(BuildContext context) {
+    final ano = hojeIso().substring(0, 4);
+    final doAno = mortes.where((s) => txt(s['data']).startsWith(ano)).toList();
+    final porCausa = <String, int>{}, porMes = <String, int>{};
+    var total = 0;
+    for (final s in doAno) {
+      final n = (s['quantidade'] as int?) ?? 1;
+      total += n;
+      porCausa[causaDaMorte(s)] = (porCausa[causaDaMorte(s)] ?? 0) + n;
+      final mes = txt(s['data']).length >= 7 ? txt(s['data']).substring(5, 7) : '';
+      porMes[mes] = (porMes[mes] ?? 0) + n;
+    }
+    final ids = {for (final s in doAno) s['id']};
+    final porCategoria = <String, int>{};
+    for (final a in mortos.where((a) => ids.contains(a['saida_id']))) {
+      final c = txt(a['categoria']).isEmpty ? 'Sem categoria' : txt(a['categoria']);
+      porCategoria[c] = (porCategoria[c] ?? 0) + 1;
+    }
+    final causas = porCausa.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final meses = porMes.keys.toList()..sort();
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Mortalidade em $ano: $total cabeça(s)', style: Theme.of(context).textTheme.titleMedium),
+          if (total == 0) const Text('Nenhuma morte neste ano.'),
+          for (final e in causas) Info(e.key, '${e.value} (${num1(e.value * 100 / total)}%)'),
+          if (meses.isNotEmpty) ...[
+            gap,
+            Text('Por categoria: ${porCategoria.entries.map((e) => '${e.key}: ${e.value}').join(' · ')}'),
+            const SizedBox(height: 4),
+            Text('Por mês: ${meses.map((m) => '${m.isEmpty ? '?' : m}: ${porMes[m]}').join(' · ')}'),
+          ],
+        ]),
       ),
     );
   }

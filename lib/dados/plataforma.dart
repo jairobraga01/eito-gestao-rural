@@ -13,11 +13,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
 import 'db.dart';
+import 'equipe.dart';
 
 // O painel do criador abre para quem está em admins/{uid} (o mesmo
 // administrador dos códigos de indicação, ver Indicacoes.souAdmin).
 
-const planos = ['Teste', 'Essencial', 'Profissional', 'Completa', 'Cortesia'];
+/// Planos que o criador pode dar a uma conta. Essencial, Profissional e Completa são os nomes antigos de Simples, Média e Plus.
+const planos = ['Teste', 'Simples', 'Média', 'Plus', 'Cortesia'];
+const planosPagos = ['Simples', 'Média', 'Plus', 'Essencial', 'Profissional', 'Completa'];
 const categoriasChamado = ['Dúvida', 'Problema no app', 'Sugestão', 'Financeiro / plano', 'Outro'];
 
 DateTime? dataDe(Object? v) => switch (v) {
@@ -102,10 +105,12 @@ class Plataforma {
     if (c?['status'] == 'suspensa') {
       throw 'Esta conta está suspensa. Fale com o suporte do Eito.';
     }
+    Db.planoDaFazenda.value = c?['plano'] as String?;
     if (dono != null && dono != u.uid) {
       try {
         final d = (await contas.doc(dono).get()).data();
         if (d?['status'] == 'suspensa') throw 'A conta da fazenda está suspensa. Fale com o dono.';
+        Db.planoDaFazenda.value = d?['plano'] as String?; // a equipe segue o plano do dono
       } on FirebaseException catch (_) {
         // Sem permissão para ler a conta do dono: segue.
       }
@@ -127,6 +132,7 @@ class Plataforma {
     _subs.add(contas.doc(uid).snapshots().listen((s) {
       if (s.exists) {
         conta.value = s.data();
+        if (Equipe.atual == null) Db.planoDaFazenda.value = s.data()?['plano'] as String?;
         _filtrarAvisos();
       }
     }, onError: (Object e) => debugPrint('Eito: conta: $e')));
@@ -184,7 +190,7 @@ class Plataforma {
       'nome': u.displayName ?? u.email ?? '',
       'assunto': assunto,
       'categoria': categoria,
-      'prioridade': plano == 'Completa' ? 'alta' : 'normal',
+      'prioridade': plano == 'Completa' || plano == 'Plus' ? 'alta' : 'normal',
       'status': 'aberto',
       'criado_em': FieldValue.serverTimestamp(),
       'atualizado_em': FieldValue.serverTimestamp(),

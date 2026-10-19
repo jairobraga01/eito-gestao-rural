@@ -203,11 +203,93 @@ List<Dieta> dietas() => [
         if (_int(d['propriedade_id']) == Db.pid) Dieta(d),
     ]..sort((a, b) => a.local.toLowerCase().compareTo(b.local.toLowerCase()));
 
+/// Estoque de ração pronta de uma fórmula (criado ao bater a ração).
+Reg? racaoPronta(Object? formulaId) {
+  final id = _int(formulaId);
+  if (id == null) return null;
+  for (final i in Db.registros('insumos')) {
+    if (_int(i['propriedade_id']) == Db.pid && _int(i['pronta_formula_id']) == id) return i;
+  }
+  return null;
+}
+
+/// Bate [kgBatidos] kg da ração da fórmula: tira os ingredientes do estoque e
+/// põe a ração pronta no estoque, pelo custo médio por quilo. O custo só vai para
+/// Custos quando a ração é dada no cocho (trato). Devolve o custo do quilo, ou
+/// null se a fórmula não tem ingredientes.
+Future<double?> baterRacao(Reg formula, {required String data, required double kgBatidos}) async {
+  final c = CalculoFormula(formula);
+  if (c.kgBatida <= 0 || kgBatidos <= 0) return null;
+  final batidas = kgBatidos / c.kgBatida;
+  final grupo = 'racao_${DateTime.now().microsecondsSinceEpoch}';
+  for (final l in c.linhas) {
+    if (l.insumo == null) continue;
+    await Db.inserir('estoque', {
+      'propriedade_id': Db.pid,
+      'insumo_id': l.insumo!['id'],
+      'data': data,
+      'qtd': -double.parse((l.kg * batidas).toStringAsFixed(3)),
+      'motivo': 'Fabricação de ração ${formula['nome']}',
+      'grupo': grupo,
+    });
+  }
+  final precoKgNovo = c.precoKg ?? 0;
+  final pronta = racaoPronta(formula['id']);
+  int insumoId;
+  if (pronta == null) {
+    insumoId = await Db.inserir('insumos', {
+      'propriedade_id': Db.pid,
+      'nome': 'Ração pronta · ${formula['nome']}',
+      'categoria': 'Ração e ingredientes',
+      'unidade': 'kg',
+      'kg_saco': 1,
+      'preco_saco': double.parse(precoKgNovo.toStringAsFixed(4)),
+      'pronta_formula_id': formula['id'],
+    });
+  } else {
+    insumoId = _int(pronta['id'])!;
+    final antes = saldo(insumoId).clamp(0, double.infinity);
+    final precoAntes = precoKgInsumo(pronta) ?? precoKgNovo;
+    final medio = (antes * precoAntes + kgBatidos * precoKgNovo) / (antes + kgBatidos);
+    await Db.atualizar('insumos', insumoId, {'preco_saco': double.parse(medio.toStringAsFixed(4))});
+  }
+  await Db.inserir('estoque', {
+    'propriedade_id': Db.pid,
+    'insumo_id': insumoId,
+    'data': data,
+    'qtd': double.parse(kgBatidos.toStringAsFixed(3)),
+    'motivo': 'Ração batida ${formula['nome']}',
+    'grupo': grupo,
+  });
+  return precoKgNovo;
+}
+
 /// Lança o trato de [dias] dias: custo em Ração e sal e baixa no estoque.
+/// Com ração pronta em estoque, usa ela; senão tira os ingredientes da fórmula.
 Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) async {
   final kg = d.kgDia * dias;
   if (kg <= 0) return null;
   final texto = 'Trato ${d.nome} · ${d.local} · ${_fmt(kg)} kg em $dias dia(s) (${d.cabecas} cab.)';
+  final pronta = racaoPronta(d.formula?['id']);
+  if (pronta != null && saldo(_int(pronta['id'])!) >= kg) {
+    final id = await Db.inserir('custos', {
+      'propriedade_id': Db.pid,
+      'lote_id': d.loteDoCusto,
+      'categoria': 'Ração e sal',
+      'descricao': texto,
+      'valor': double.parse((kg * (precoKgInsumo(pronta) ?? 0)).toStringAsFixed(2)),
+      'data': data,
+    });
+    await Db.inserir('estoque', {
+      'propriedade_id': Db.pid,
+      'insumo_id': pronta['id'],
+      'data': data,
+      'qtd': -double.parse(kg.toStringAsFixed(3)),
+      'motivo': texto,
+      'grupo': '$id',
+    });
+    return id;
+  }
   if (d.formula != null) {
     final c = CalculoFormula(d.formula!);
     if (c.kgBatida <= 0) return null;

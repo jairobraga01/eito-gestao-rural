@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../dados/db.dart';
 import '../dados/equipe.dart';
 import '../dados/historico.dart';
+import '../dados/planos.dart';
 import '../dados/tarefas.dart';
 import '../firebase_options.dart';
 import '../tema.dart';
@@ -74,7 +75,7 @@ class _EquipePageState extends State<EquipePage> {
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c, set) => AlertDialog(
-          title: Text(peao ? 'Criar login (peão ou veterinário)' : 'Convidar pelo e-mail'),
+          title: Text(peao ? 'Criar login (peão ou outro papel)' : 'Convidar pelo e-mail'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               campoTexto(nome, 'Nome', foco: true),
@@ -108,12 +109,27 @@ class _EquipePageState extends State<EquipePage> {
     );
   }
 
+  /// Mensagem quando o plano da fazenda não deixa pôr mais uma pessoa com [papel]; null se cabe.
+  Future<String?> _semVaga(String papel, {Membro? trocando}) async {
+    final p = planoAtual();
+    final nome = papeis[papel] ?? papel;
+    if (!p.permite(papel)) return 'O plano ${p.nome} não inclui $nome. Mude para um plano maior.';
+    final todos = [for (final m in await _lista) if (m.email != trocando?.email) m];
+    if (p.cabe(papel, Equipe.contagemPorPapel(todos))) return null;
+    return 'O plano ${p.nome} permite ${p.maxPorPapel[papel]} $nome. Tire alguém ou mude de plano.';
+  }
+
   Future<void> _convidar() async {
     final r = await _formulario(peao: false);
     if (r == null) return;
     final (nome, email, papel) = r;
     if (nome.isEmpty || !email.contains('@')) {
       if (mounted) avisar(context, 'Preencha o nome e um e-mail válido.');
+      return;
+    }
+    final falta = await _semVaga(papel);
+    if (falta != null) {
+      if (mounted) avisar(context, falta);
       return;
     }
     await _executar(() async {
@@ -131,6 +147,11 @@ class _EquipePageState extends State<EquipePage> {
     final (nome, senha, papel) = r;
     if (nome.isEmpty || senha.length < 6) {
       if (mounted) avisar(context, 'Preencha o nome e uma senha com pelo menos 6 caracteres.');
+      return;
+    }
+    final falta = await _semVaga(papel);
+    if (falta != null) {
+      if (mounted) avisar(context, falta);
       return;
     }
     await _executar(() async {
@@ -209,6 +230,11 @@ class _EquipePageState extends State<EquipePage> {
           ok: 'Tirar');
       if (ok) await _executar(() => Equipe.remover(_dono, m));
     } else {
+      final falta = await _semVaga(op, trocando: m);
+      if (falta != null) {
+        if (mounted) avisar(context, falta);
+        return;
+      }
       await _executar(() => Equipe.mudarPapel(_dono, m, op));
     }
   }
@@ -227,11 +253,13 @@ class _EquipePageState extends State<EquipePage> {
             final lista = s.data!;
             return ListView(padding: const EdgeInsets.only(bottom: 24), children: [
               if (_ocupado) const LinearProgressIndicator(),
-              const Padding(
-                padding: EdgeInsets.all(16),
+              Padding(
+                padding: const EdgeInsets.all(16),
                 child: Text(
                   'Cada pessoa entra com a própria conta e trabalha nos dados desta fazenda. '
-                  'Tudo o que ela lançar fica marcado com o nome dela.',
+                  'Tudo o que ela lançar fica marcado com o nome dela.\n\n'
+                  'Plano ${planoAtual().nome}: ${planoAtual().resumoLimite}; '
+                  '${planoAtual().maxPorPapel.entries.map((e) => '${e.value >= 99 ? 'sem limite de' : e.value} ${papeis[e.key]!.toLowerCase()}').join(', ')}.',
                 ),
               ),
               Padding(
@@ -240,7 +268,7 @@ class _EquipePageState extends State<EquipePage> {
                   FilledButton.icon(
                     onPressed: _criarPeao,
                     icon: const Icon(Icons.badge_outlined),
-                    label: const Text('Criar login (peão ou veterinário)'),
+                    label: const Text('Criar login (usuário e senha)'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _convidar,
@@ -257,6 +285,8 @@ class _EquipePageState extends State<EquipePage> {
                       switch (m.papel) {
                         'peao' => Icons.agriculture_outlined,
                         'veterinario' => Icons.medical_services_outlined,
+                        'zootecnista' => Icons.science_outlined,
+                        'contador' => Icons.calculate_outlined,
                         _ => Icons.manage_accounts_outlined,
                       },
                       color: Cores.oliva),

@@ -78,7 +78,7 @@ class _VisaoGeral extends StatelessWidget {
       final ate = dataDe(c.data()['teste_ate']);
       return ate != null && ate.isBefore(agora);
     }).length;
-    final pagantes = donos.where((c) => ['Essencial', 'Profissional', 'Completa'].contains(c.data()['plano'])).length;
+    final pagantes = donos.where((c) => planosPagos.contains(c.data()['plano'])).length;
     final suspensas = contas.where((c) => c.data()['status'] == 'suspensa').length;
     final animais = donos.fold<int>(0, (s, c) => s + ((c.data()['animais'] as num?)?.toInt() ?? 0));
 
@@ -141,7 +141,7 @@ class _ClientesState extends State<_Clientes> {
       return switch (_filtro) {
         'Produtores' => (d['papel'] ?? 'dono') == 'dono',
         'Em teste' => (d['plano'] ?? 'Teste') == 'Teste',
-        'Pagantes' => ['Essencial', 'Profissional', 'Completa'].contains(d['plano']),
+        'Pagantes' => planosPagos.contains(d['plano']),
         'Suspensas' => d['status'] == 'suspensa',
         _ => true,
       };
@@ -254,7 +254,7 @@ class _FichaClienteState extends State<_FichaCliente> {
   }
 
   Future<void> _concederPlano(Map<String, dynamic> c) async {
-    var plano = planos.contains(c['plano']) && c['plano'] != 'Teste' ? '${c['plano']}' : 'Essencial';
+    var plano = planos.contains(c['plano']) && c['plano'] != 'Teste' ? '${c['plano']}' : 'Simples';
     String? fim = dataDe(c['plano_ate'])?.toIso8601String().substring(0, 10);
     final ok = await showDialog<bool>(
       context: context,

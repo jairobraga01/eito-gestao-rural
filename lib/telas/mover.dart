@@ -310,10 +310,13 @@ class _MigrarLotePageState extends State<MigrarLotePage> {
 
 /// Muda todos os animais de um piquete/pasto para outro de uma vez.
 class MudarPastoPage extends StatefulWidget {
-  const MudarPastoPage({super.key, this.origem});
+  const MudarPastoPage({super.key, this.origem, this.destino});
 
   /// Piquete de onde os animais saem (já escolhido ao abrir pelo piquete).
   final int? origem;
+
+  /// Piquete sugerido para receber (ex.: o que descansou mais).
+  final int? destino;
 
   @override
   State<MudarPastoPage> createState() => _MudarPastoPageState();
@@ -322,7 +325,7 @@ class MudarPastoPage extends StatefulWidget {
 class _MudarPastoPageState extends State<MudarPastoPage> {
   List<Reg> piquetes = [];
   late int? origem = widget.origem;
-  int? destino;
+  late int? destino = widget.destino;
   String data = hojeIso();
   bool salvando = false;
 

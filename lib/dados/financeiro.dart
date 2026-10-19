@@ -64,7 +64,8 @@ bool atrasada(Reg c, String hoje) => c['pago'] != true && _dia(c['vencimento']).
 /// Vendas, compras de gado e custos lançados no ano que ainda não estão nas
 /// contas, no formato de conta paga (com a 'origem'). Não inclui o consumo de
 /// ração tirado do estoque (a compra do insumo é que é o gasto).
-List<Reg> _doRebanho(int ano) {
+List<Reg> _doRebanho(int ano, {bool todas = false}) {
+  bool fora(Reg x) => !todas && _int(x['propriedade_id']) != Db.pid;
   final ja = {for (final c in Db.registros('contas')) _t(c['origem'])}..remove('');
   final doEstoque = {for (final e in Db.registros('estoque')) _t(e['grupo'])};
   final r = <Reg>[];
@@ -74,7 +75,7 @@ List<Reg> _doRebanho(int ano) {
   }
 
   for (final s in Db.registros('saidas')) {
-    if (_int(s['propriedade_id']) != Db.pid || s['tipo'] != 'Venda' || _n(s['valor_total']) <= 0 || !doAno(s['data'])) continue;
+    if (fora(s) || s['tipo'] != 'Venda' || _n(s['valor_total']) <= 0 || !doAno(s['data'])) continue;
     criar('saida:${s['id']}', {
       'tipo': 'Receita',
       'categoria': 'Venda de gado',
@@ -86,7 +87,7 @@ List<Reg> _doRebanho(int ano) {
     });
   }
   for (final e in Db.registros('entradas')) {
-    if (_int(e['propriedade_id']) != Db.pid || e['tipo'] != 'Compra' || _n(e['valor_total']) <= 0 || !doAno(e['data'])) continue;
+    if (fora(e) || e['tipo'] != 'Compra' || _n(e['valor_total']) <= 0 || !doAno(e['data'])) continue;
     criar('entrada:${e['id']}', {
       'tipo': 'Despesa',
       'categoria': 'Compra de gado',
@@ -99,7 +100,7 @@ List<Reg> _doRebanho(int ano) {
     });
   }
   for (final c in Db.registros('custos')) {
-    if (_int(c['propriedade_id']) != Db.pid || _n(c['valor']) <= 0 || !doAno(c['data'])) continue;
+    if (fora(c) || _n(c['valor']) <= 0 || !doAno(c['data'])) continue;
     if (doEstoque.contains(_t(c['id']))) continue; // consumo do estoque, não é pagamento
     criar('custo:${c['id']}', {
       'tipo': 'Despesa',
@@ -171,9 +172,9 @@ class RelatorioFinanceiro {
       ];
 }
 
-RelatorioFinanceiro relatorioFinanceiro(int ano) => RelatorioFinanceiro(ano, [
-      ...contas(pagas: true, ano: ano),
-      ..._doRebanho(ano),
+RelatorioFinanceiro relatorioFinanceiro(int ano, {bool todasPropriedades = false}) => RelatorioFinanceiro(ano, [
+      ...contas(pagas: true, ano: ano, todasPropriedades: todasPropriedades),
+      ..._doRebanho(ano, todas: todasPropriedades),
     ]..sort((a, b) => _dia(a['pago_em']).compareTo(_dia(b['pago_em']))));
 
 // ---------- Livro caixa ----------

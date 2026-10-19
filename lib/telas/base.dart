@@ -116,7 +116,7 @@ const secoesZootecnista = {
   secClima, secAjuda, secGuia,
 };
 
-/// Seções do contador: só consulta do financeiro, das compras e vendas e das exportações.
+/// Seções do contador: lança o financeiro; vê compras, vendas, relatórios e exportações.
 const secoesContador = {
   secPainel, secRelatorioFinanceiro, secCustos, secContas, secContatos, secDividas, secPatrimonio, secCotacao,
   secEntradas, secVendas, secRelatorios, secExportacoes, secAjuda, secGuia,
@@ -141,7 +141,7 @@ bool podeVer(int secao) {
   return Db.ehDono || !secoesDono.contains(secao);
 }
 
-/// Se quem está usando pode lançar (o contador só consulta).
+/// Se quem está usando lança o serviço de campo (Modo Curral e atalhos; o contador não).
 bool get podeLancar => !Db.ehContador;
 
 /// Abre o Modo Curral (atalho para lançar o serviço do curral).

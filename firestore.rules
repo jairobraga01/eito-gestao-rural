@@ -8,7 +8,8 @@ rules_version = '2';
 // - veterinário: como o peão, mas grava a reprodução e a sanidade
 //   (inseminação, protocolos, sêmen, diagnóstico, ECC e aplicações);
 // - zootecnista: como o peão, mas grava a dieta, as fórmulas, o estoque e as pesagens;
-// - contador: só lê, inclusive o financeiro, e não grava nada.
+// - contador: lê tudo e grava só o financeiro (contas, custos, dívidas,
+//   contatos, cotações e dados fiscais); só apaga o que ele mesmo lançou.
 // Convites ficam em convites/{email} e só servem para quem tem esse e-mail
 // confirmado (ou para o login de peão que o dono criou, pelo uid).
 service cloud.firestore {
@@ -63,9 +64,13 @@ service cloud.firestore {
       return t in ['pesagens', 'escores', 'insumos', 'precos_insumo', 'batidas', 'estoque', 'formulas', 'dietas', 'fotos', 'tarefas', 'config',
         'pastagens', 'ocorrencias'];
     }
+    // Tabelas que o contador grava: só o financeiro.
+    function contadorGrava(t) {
+      return t in ['contas', 'dividas', 'custos', 'contatos', 'cotacoes', 'config'];
+    }
     function campoGrava(p, t) {
       return (p == 'peao' && peaoGrava(t)) || (p == 'veterinario' && vetGrava(t))
-        || (p == 'zootecnista' && zootGrava(t));
+        || (p == 'zootecnista' && zootGrava(t)) || (p == 'contador' && contadorGrava(t));
     }
 
     // O dono: tudo dentro da própria conta.

@@ -165,10 +165,14 @@ class SanidadeFormPage extends StatefulWidget {
 }
 
 class _SanidadeFormPageState extends State<SanidadeFormPage> {
-  late bool porLote = widget.animal == null;
+  // 0 = animal, 1 = lote, 2 = pasto/piquete.
+  late int modo = widget.animal == null ? 1 : 0;
+  bool get porLote => modo != 0;
   late Reg? animal = widget.animal;
   int? loteId;
+  int? piqueteId;
   List<Reg> lotes = [];
+  List<Reg> piquetes = [];
   List<Reg> doLote = [];
   final marcadosLote = <int>{};
   String data = hojeIso();
@@ -190,6 +194,9 @@ class _SanidadeFormPageState extends State<SanidadeFormPage> {
     Db.lotes(soAtivos: true).then((v) {
       if (mounted) setState(() => lotes = v);
     });
+    Db.piquetes().then((v) {
+      if (mounted) setState(() => piquetes = v);
+    });
   }
 
   @override
@@ -205,10 +212,34 @@ class _SanidadeFormPageState extends State<SanidadeFormPage> {
     if (!mounted) return;
     setState(() {
       loteId = id;
+      piqueteId = null;
       doLote = v;
       marcadosLote
         ..clear()
         ..addAll(v.map((a) => a['id'] as int));
+    });
+  }
+
+  Future<void> _escolherPiquete(int? id) async {
+    final v = id == null ? <Reg>[] : await Db.animais(piqueteId: id, soAtivos: true);
+    if (!mounted) return;
+    setState(() {
+      piqueteId = id;
+      loteId = null;
+      doLote = v;
+      marcadosLote
+        ..clear()
+        ..addAll(v.map((a) => a['id'] as int));
+    });
+  }
+
+  void _trocarModo(int i) {
+    setState(() {
+      modo = i;
+      loteId = null;
+      piqueteId = null;
+      doLote = [];
+      marcadosLote.clear();
     });
   }
 
@@ -229,8 +260,8 @@ class _SanidadeFormPageState extends State<SanidadeFormPage> {
     }
     final List<int> ids;
     if (porLote) {
-      if (loteId == null) {
-        avisar(context, 'Escolha o lote.');
+      if (modo == 1 ? loteId == null : piqueteId == null) {
+        avisar(context, modo == 1 ? 'Escolha o lote.' : 'Escolha o pasto/piquete.');
         return;
       }
       ids = marcadosLote.toList();
@@ -247,7 +278,7 @@ class _SanidadeFormPageState extends State<SanidadeFormPage> {
     }
     setState(() => salvando = true);
     final nota = [
-      if (porLote) 'Aplicado em $porcentagem% do lote',
+      if (porLote) 'Aplicado em $porcentagem% ${modo == 1 ? 'do lote' : 'do pasto/piquete'}',
       if (nulo(obs.text) != null) obs.text.trim(),
     ].join(' · ');
     for (final (cat, item) in itens) {
@@ -277,28 +308,34 @@ class _SanidadeFormPageState extends State<SanidadeFormPage> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           Segmentos(
-            opcoes: const ['ANIMAL', 'LOTE'],
-            selecionado: porLote ? 1 : 0,
+            opcoes: const ['ANIMAL', 'LOTE', 'PASTO/PIQUETE'],
+            selecionado: modo,
             altura: 40,
-            onChanged: (i) => setState(() => porLote = i == 1),
+            onChanged: _trocarModo,
           ),
           gap,
           if (!porLote)
             AnimalField(label: 'Animal *', animal: animal, onChanged: (a) => setState(() => animal = a)),
           if (porLote) ...[
-            lotes.isEmpty
-                ? const Text('Nenhum lote ativo. Cadastre em menu > Lotes.')
-                : escolhaId('Lote *', loteId, lotes, _escolherLote, vazio: 'Escolha'),
+            if (modo == 1)
+              lotes.isEmpty
+                  ? const Text('Nenhum lote ativo. Cadastre em menu > Lotes.')
+                  : escolhaId('Lote *', loteId, lotes, _escolherLote, vazio: 'Escolha')
+            else
+              piquetes.isEmpty
+                  ? const Text('Nenhum pasto/piquete cadastrado. Cadastre em menu > Piquete/Pasto.')
+                  : escolhaId('Pasto/Piquete *', piqueteId, piquetes, _escolherPiquete, vazio: 'Escolha'),
             if (doLote.isNotEmpty) ...[
               gap,
               InputDecorator(
-                decoration: const InputDecoration(
-                    labelText: 'Porcentagem do lote', prefixIcon: Icon(Icons.percent)),
+                decoration: InputDecoration(
+                    labelText: modo == 1 ? 'Porcentagem do lote' : 'Porcentagem do pasto/piquete',
+                    prefixIcon: const Icon(Icons.percent)),
                 child: Text('$porcentagem%  (${marcadosLote.length} de ${doLote.length} animais)'),
               ),
               ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                title: const Text('Escolher quais animais do lote'),
+                title: Text(modo == 1 ? 'Escolher quais animais do lote' : 'Escolher quais animais do pasto/piquete'),
                 children: [
                   for (final a in doLote)
                     CheckboxListTile(
@@ -546,7 +583,10 @@ class PesagemLotePage extends StatefulWidget {
 
 class _PesagemLotePageState extends State<PesagemLotePage> {
   List<Reg> lotes = [];
+  List<Reg> piquetes = [];
   int? lote;
+  int? piquete;
+  bool porPiquete = false;
   bool escolhido = false;
   String data = hojeIso();
   String? evento = 'Rotina';
@@ -559,6 +599,9 @@ class _PesagemLotePageState extends State<PesagemLotePage> {
     Db.lotes(soAtivos: true).then((v) {
       if (mounted) setState(() => lotes = v);
     });
+    Db.piquetes().then((v) {
+      if (mounted) setState(() => piquetes = v);
+    });
   }
 
   @override
@@ -570,10 +613,11 @@ class _PesagemLotePageState extends State<PesagemLotePage> {
   }
 
   Future<void> _carregar(int? l) async {
-    final v = await Db.animais(soAtivos: true, loteId: l);
+    final v = await Db.animais(soAtivos: true, loteId: porPiquete ? null : l, piqueteId: porPiquete ? l : null);
     if (!mounted) return;
     setState(() {
-      lote = l;
+      lote = porPiquete ? null : l;
+      piquete = porPiquete ? l : null;
       escolhido = true;
       animais = v;
       for (final a in v) {
@@ -620,7 +664,23 @@ class _PesagemLotePageState extends State<PesagemLotePage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          escolhaId('Lote', lote, lotes, _carregar, vazio: 'Todos os animais ativos'),
+          Segmentos(
+            opcoes: const ['LOTE', 'PASTO/PIQUETE'],
+            selecionado: porPiquete ? 1 : 0,
+            altura: 40,
+            onChanged: (i) => setState(() {
+              porPiquete = i == 1;
+              lote = null;
+              piquete = null;
+              escolhido = false;
+              animais = [];
+            }),
+          ),
+          gap,
+          if (porPiquete)
+            escolhaId('Pasto/Piquete', piquete, piquetes, _carregar, vazio: 'Todos os animais ativos')
+          else
+            escolhaId('Lote', lote, lotes, _carregar, vazio: 'Todos os animais ativos'),
           if (!escolhido)
             Padding(
               padding: const EdgeInsets.only(top: 8),
@@ -631,7 +691,7 @@ class _PesagemLotePageState extends State<PesagemLotePage> {
           gap,
           escolha('Evento', evento, eventosPesagem, (v) => setState(() => evento = v)),
           const SizedBox(height: 16),
-          if (escolhido && animais.isEmpty) const Text('Nenhum animal ativo neste lote.'),
+          if (escolhido && animais.isEmpty) Text(porPiquete ? 'Nenhum animal ativo neste pasto/piquete.' : 'Nenhum animal ativo neste lote.'),
           for (var i = 0; i < animais.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),

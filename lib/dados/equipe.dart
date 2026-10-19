@@ -13,7 +13,13 @@ import 'package:flutter/foundation.dart';
 
 import 'db.dart';
 
-const papeis = {'gerente': 'Gerente', 'peao': 'Peão', 'veterinario': 'Veterinário'};
+const papeis = {
+  'gerente': 'Gerente',
+  'peao': 'Peão',
+  'veterinario': 'Veterinário',
+  'zootecnista': 'Zootecnista',
+  'contador': 'Contador',
+};
 
 /// O que cada papel pode fazer (mostrado na tela da equipe).
 const descricaoPapel = {
@@ -22,6 +28,10 @@ const descricaoPapel = {
       'Não vê o financeiro e só apaga o que ele mesmo lançou.',
   'veterinario': 'Lança a reprodução e a sanidade (inseminação, protocolos, sêmen, diagnóstico, ECC e aplicações) '
       'e vê o rebanho. Não vê o financeiro e só apaga o que ele mesmo lançou.',
+  'zootecnista': 'Lança a dieta do cocho, o estoque de insumos, as fórmulas de ração e as pesagens, e vê o rebanho. '
+      'Não vê o financeiro e só apaga o que ele mesmo lançou.',
+  'contador': 'Só consulta: vê o financeiro, as vendas e compras, as dívidas e as exportações (LCDPR, GTA, planilhas). '
+      'Não lança nem altera nada.',
 };
 
 /// Domínio dos logins de peão (não recebe e-mail; serve só para entrar).
@@ -149,6 +159,15 @@ class Equipe {
         'desde': DateTime.now().toIso8601String(),
       });
     }
+  }
+
+  /// Quantas pessoas há por papel (inclui convites pendentes).
+  static Map<String, int> contagemPorPapel(List<Membro> lista) {
+    final c = <String, int>{};
+    for (final m in lista) {
+      c[m.papel] = (c[m.papel] ?? 0) + 1;
+    }
+    return c;
   }
 
   /// Equipe do dono: quem já entrou e os convites pendentes.

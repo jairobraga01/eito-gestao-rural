@@ -12,6 +12,7 @@ import '../dados/mapa.dart';
 import '../dispositivos/gps.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'importar_kml.dart';
 import 'piquetes.dart' show PiqueteDetalhePage;
 
 LatLng _ll(Ponto p) => LatLng(p.lat, p.lng);
@@ -189,6 +190,11 @@ class _MapaPageState extends State<MapaPage> {
     return Pagina(
       titulo: 'Mapa da fazenda',
       acoes: [
+        IconButton(
+          tooltip: 'Importar pastos do Google Earth (KML)',
+          icon: const Icon(Icons.upload_file),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportarKmlPage())),
+        ),
         IconButton(
           tooltip: 'Ocorrências',
           icon: const Icon(Icons.report_outlined),

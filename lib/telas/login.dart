@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../dados/equipe.dart';
 import '../dados/indicacoes.dart';
+import '../dados/planos.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../widgets/fundo_foto.dart';
@@ -66,10 +67,48 @@ class _TelaLoginState extends State<TelaLogin> {
         // Peão entra só com o usuário (sem @).
         await auth.signInWithEmailAndPassword(email: emailDoLogin(email), password: senha);
       }
+    } on FirebaseAuthMultiFactorException catch (e) {
+      await _segundaEtapa(e);
     } on FirebaseAuthException catch (e) {
       setState(() => _erro = _mensagem(e));
     } finally {
       if (mounted) setState(() => _ocupado = false);
+    }
+  }
+
+  /// Verificação em duas etapas: pede o código de 6 dígitos do app autenticador.
+  Future<void> _segundaEtapa(FirebaseAuthMultiFactorException e) async {
+    final hint = e.resolver.hints.whereType<TotpMultiFactorInfo>().firstOrNull;
+    if (hint == null) {
+      setState(() => _erro = 'Esta conta usa um segundo passo que o Eito ainda não aceita.');
+      return;
+    }
+    final ctrl = TextEditingController();
+    final codigo = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Verificação em duas etapas'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: const InputDecoration(labelText: 'Código de 6 dígitos do app autenticador'),
+          onSubmitted: (v) => Navigator.pop(c, v),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, ctrl.text), child: const Text('Entrar')),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (codigo == null || codigo.trim().isEmpty) return;
+    try {
+      final prova = await TotpMultiFactorGenerator.getAssertionForSignIn(hint.uid, codigo.trim());
+      await e.resolver.resolveSignIn(prova);
+    } on FirebaseAuthException catch (x) {
+      setState(() => _erro = x.code == 'invalid-verification-code' ? 'Código errado ou vencido.' : _mensagem(x));
     }
   }
 
@@ -294,14 +333,30 @@ class _Promocao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget preco(String valor, String periodo) => Expanded(
+    Widget plano(PlanoEito p) => Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
             child: Column(children: [
-              Text('R\$ $valor',
-                  style: const TextStyle(color: Cores.olivaEscuro, fontSize: 24, fontWeight: FontWeight.w900)),
-              Text(periodo, style: const TextStyle(color: Cores.tinta, fontSize: 16, fontWeight: FontWeight.w600)),
+              Text('Fazenda ${p.nome}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Cores.tinta, fontSize: 14, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 2),
+              Text(p.maxAnimais == null ? 'sem limite' : 'até ${p.maxAnimais} animais',
+                  textAlign: TextAlign.center, style: const TextStyle(color: Cores.tinta, fontSize: 12)),
+              const SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('R\$ ${p.mes}',
+                    style: const TextStyle(color: Cores.olivaEscuro, fontSize: 22, fontWeight: FontWeight.w900)),
+              ),
+              const Text('por mês', style: TextStyle(color: Cores.tinta, fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text('ou R\$ ${p.ano}/ano',
+                    style: const TextStyle(color: Cores.tinta, fontSize: 13, fontWeight: FontWeight.w700)),
+              ),
             ]),
           ),
         );
@@ -314,12 +369,10 @@ class _Promocao extends StatelessWidget {
             style: TextStyle(color: Cores.olivaEscuro, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
         const SizedBox(height: 10),
         Row(children: [
-          preco('9,90', 'mensal'),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 10),
-            child: Text('ou', style: TextStyle(color: Cores.olivaEscuro, fontSize: 17, fontWeight: FontWeight.w700)),
-          ),
-          preco('99,90', 'anual'),
+          for (final (i, p) in PlanoEito.todos.indexed) ...[
+            if (i > 0) const SizedBox(width: 8),
+            plano(p),
+          ],
         ]),
         const SizedBox(height: 10),
         const Text('Com código de indicação: $descontoIndicacao% de desconto.',

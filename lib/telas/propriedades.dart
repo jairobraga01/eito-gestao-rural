@@ -75,6 +75,11 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
   late final app = TextEditingController(text: _n(p?['area_app']));
   late final agricultura = TextEditingController(text: _n(p?['area_agricultura']));
   late final obs = TextEditingController(text: txt(p?['obs']));
+  // Dados legais; NIRF e IE são os mesmos campos usados no LCDPR.
+  late final car = TextEditingController(text: txt(p?['car']));
+  late final matricula = TextEditingController(text: txt(p?['matricula']));
+  late final nirf = TextEditingController(text: txt(p?['lcdpr_cod_itr']));
+  late final ie = TextEditingController(text: txt(p?['lcdpr_ie']));
   late String? uf = p?['uf'] as String?;
   late final atividades = txt(p?['atividades']).split(', ').where((x) => x.isNotEmpty).toSet();
 
@@ -82,7 +87,7 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
 
   @override
   void dispose() {
-    for (final c in [nome, pastagem, benfeitoria, app, agricultura, obs]) {
+    for (final c in [nome, pastagem, benfeitoria, app, agricultura, obs, car, matricula, nirf, ie]) {
       c.dispose();
     }
     super.dispose();
@@ -110,6 +115,10 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
       'uf': uf,
       'atividades': [for (final a in atividadesPropriedade) if (atividades.contains(a)) a].join(', '),
       'obs': nulo(obs.text),
+      'car': nulo(car.text),
+      'matricula': nulo(matricula.text),
+      'lcdpr_cod_itr': nulo(nirf.text),
+      'lcdpr_ie': nulo(ie.text),
     }, id: p?['id'] as int?);
     if (mounted) Navigator.pop(context, true);
   }
@@ -166,6 +175,14 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
           _area(agricultura, 'Área de agricultura'),
           gap,
           escolha('UF *', uf, ufs, (v) => setState(() => uf = v)),
+          const Secao('Documentos da fazenda'),
+          campoTexto(car, 'CAR (Cadastro Ambiental Rural)'),
+          gap,
+          campoTexto(matricula, 'Matrícula do imóvel (cartório)'),
+          gap,
+          campoTexto(nirf, 'NIRF / CIB (Receita Federal)'),
+          gap,
+          campoTexto(ie, 'Inscrição estadual de produtor'),
           const SizedBox(height: 16),
           Text('Atividades *', style: Theme.of(context).textTheme.titleSmall),
           const SizedBox(height: 8),

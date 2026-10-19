@@ -408,6 +408,11 @@ class _GtaPageState extends State<GtaPage> {
             onPressed: () async {
               final texto = [
                 'Animais para a GTA (${br(hoje)})',
+                if (Db.prop.value case final f?) ...[
+                  'Propriedade: ${txt(f['nome'])}',
+                  if (txt(f['lcdpr_ie']).isNotEmpty) 'Inscrição estadual: ${f['lcdpr_ie']}',
+                  if (txt(f['car']).isNotEmpty) 'CAR: ${f['car']}',
+                ],
                 for (final c in colunasSidago)
                   if ((r[c] ?? 0) > 0) '$c: ${r[c]}',
                 'Total: ${animais.length}',

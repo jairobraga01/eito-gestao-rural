@@ -2,45 +2,71 @@ import 'package:flutter/material.dart';
 
 import '../dados/db.dart';
 import '../dados/estoque.dart';
-import '../dados/proteinado.dart' show insumos, precoKgInsumo;
+import '../dados/proteinado.dart' show historicoPrecos, insumos, lancarPrecoInsumo, precoKgInsumo, variacaoPct;
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'batidas.dart';
 
 String _q(double v) => numeroBr(v, casas: v % 1 == 0 ? 0 : 1);
 
-/// Estoque de insumos: vacinas, remédios, sal e ração, com baixa automática
-/// (vacinação, batida de proteinado e trato do cocho) e avisos de falta e validade.
+/// Estoque de insumos (milho, sorgo, sal, ração) ou, com [medicamentos], de vacinas e remédios.
+/// Baixa automática (vacinação, batida e trato do cocho) e avisos de falta e validade.
 class EstoquePage extends StatelessWidget {
-  const EstoquePage({super.key});
+  const EstoquePage({super.key, this.medicamentos = false});
+  final bool medicamentos;
+
+  List<String> get categorias => medicamentos ? categoriasMedicamento : categoriasGeral;
 
   @override
   Widget build(BuildContext context) {
     final hoje = hojeIso();
     return Pagina(
-      titulo: 'Estoque de insumos',
+      titulo: medicamentos ? 'Estoque de Medicamentos' : 'Estoque de insumos',
       fab: FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
         label: const Text('Entrada'),
-        onPressed: () => entradaDialog(context),
+        onPressed: () => entradaDialog(context, categorias: categorias),
       ),
       acoes: [
         IconButton(
-          tooltip: 'Novo insumo',
+          tooltip: medicamentos ? 'Novo medicamento' : 'Novo insumo',
           icon: const Icon(Icons.playlist_add),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InsumoFormPage())),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => InsumoFormPage(categorias: categorias))),
         ),
       ],
       corpo: AoMudar<(List<Reg>, List<AlertaEstoque>)>(
-        carregar: () async => (insumos(), alertasEstoque(hoje)),
+        carregar: () async => (
+          [for (final i in insumos()) if (categorias.contains(categoriaInsumo(i))) i],
+          [for (final a in alertasEstoque(hoje)) if (categorias.contains(categoriaInsumo(a.insumo))) a],
+        ),
         builder: (context, d) {
           final (ins, alertas) = d;
           if (ins.isEmpty) {
-            return const Vazio('Nenhum insumo. Cadastre vacinas, remédios, sal e ração pelo botão no alto.',
-                icone: Icons.inventory_2_outlined);
+            return Vazio(
+                medicamentos
+                    ? 'Nenhum medicamento. Cadastre vacinas e remédios pelo botão no alto.'
+                    : 'Nenhum insumo. Cadastre milho, sorgo, sal e ração pelo botão no alto.',
+                icone: medicamentos ? Icons.medication_outlined : Icons.inventory_2_outlined);
           }
           return ListView(padding: const EdgeInsets.only(bottom: 88), children: [
+            if (!medicamentos)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Wrap(spacing: 8, runSpacing: 8, children: [
+                  FilledButton.icon(
+                    icon: const Icon(Icons.science_outlined),
+                    label: const Text('Gerar batida'),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GerarBatidaPage())),
+                  ),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.history),
+                    label: const Text('Histórico de batidas'),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BatidasPage())),
+                  ),
+                ]),
+              ),
             if (alertas.isNotEmpty) ...[
               Secao('Avisos (${alertas.length})'),
               for (final a in alertas)
@@ -52,15 +78,17 @@ class EstoquePage extends StatelessWidget {
                   onTap: () => _abrir(context, a.insumo),
                 ),
             ],
-            for (final cat in categoriasInsumo)
+            for (final cat in categorias)
               if (ins.any((i) => categoriaInsumo(i) == cat)) ...[
                 Secao(cat),
                 for (final i in ins.where((i) => categoriaInsumo(i) == cat)) _InsumoTile(i, hoje),
               ],
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Baixa automática: vacina ou remédio lançado com o mesmo nome do insumo, batida de proteinado '
-                  'e trato da dieta do cocho.'),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(medicamentos
+                  ? 'Baixa automática: vacina ou remédio lançado na sanidade com o mesmo nome do cadastro.'
+                  : 'Baixa automática: batida e trato da dieta do cocho. Toque no insumo para lançar o preço: '
+                      'o custo de cada batida usa o preço mais recente.'),
             ),
           ]);
         },
@@ -99,8 +127,8 @@ class _InsumoTile extends StatelessWidget {
 }
 
 /// Entrada no estoque (compra), em unidades ou em embalagens.
-Future<void> entradaDialog(BuildContext context, {Reg? insumo}) async {
-  final ins = insumos();
+Future<void> entradaDialog(BuildContext context, {Reg? insumo, List<String>? categorias}) async {
+  final ins = [for (final i in insumos()) if (categorias == null || categorias.contains(categoriaInsumo(i))) i];
   if (ins.isEmpty) {
     avisar(context, 'Cadastre o insumo primeiro.');
     return;
@@ -152,8 +180,11 @@ Future<void> entradaDialog(BuildContext context, {Reg? insumo}) async {
 
 /// Cadastro do insumo, histórico do estoque e ajuste pela contagem.
 class InsumoFormPage extends StatefulWidget {
-  const InsumoFormPage({super.key, this.insumo});
+  const InsumoFormPage({super.key, this.insumo, this.categorias});
   final Reg? insumo;
+
+  /// Categorias que o cadastro oferece (medicamentos ou insumos em geral).
+  final List<String>? categorias;
 
   @override
   State<InsumoFormPage> createState() => _InsumoFormPageState();
@@ -164,7 +195,11 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
   static String _n(Object? v) => v is num ? numeroBr(v.toDouble(), casas: v % 1 == 0 ? 0 : 2) : '';
 
   late final nome = TextEditingController(text: txt(i?['nome']));
-  late String categoria = i == null ? categoriasInsumo.first : categoriaInsumo(i!);
+  late final List<String> opcoes = [
+    ...(widget.categorias ?? (i != null && categoriasMedicamento.contains(categoriaInsumo(i!)) ? categoriasMedicamento : categoriasGeral)),
+    if (i != null && !(widget.categorias ?? categoriasInsumo).contains(categoriaInsumo(i!))) categoriaInsumo(i!),
+  ];
+  late String categoria = i == null ? opcoes.first : categoriaInsumo(i!);
   late String unidade = i == null ? unidadePadrao(categoria) : unidadeInsumo(i!);
   late final preco = TextEditingController(text: _n(i?['preco_saco']));
   late final embalagem = TextEditingController(text: _n(i?['kg_saco']));
@@ -193,11 +228,17 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
       'dose_animal': lerNumero(dose.text),
       'validade': validade,
     };
+    final p = lerNumero(preco.text), emb = lerNumero(embalagem.text);
+    final mudouPreco = p != null && emb != null && emb > 0 && (p != (i?['preco_saco'] as num?) || emb != (i?['kg_saco'] as num?));
+    final int id;
     if (i == null) {
-      await Db.inserir('insumos', {...dados, 'propriedade_id': Db.pid});
+      id = await Db.inserir('insumos', {...dados, 'propriedade_id': Db.pid});
     } else {
-      await Db.atualizar('insumos', i!['id'] as int, dados);
+      id = i!['id'] as int;
+      await Db.atualizar('insumos', id, dados);
     }
+    // Preço novo ou mudado entra no histórico, para acompanhar a evolução.
+    if (mudouPreco) await lancarPrecoInsumo(id, data: hojeIso(), precoEmbalagem: p, kgEmbalagem: emb);
     if (mounted) Navigator.pop(context);
   }
 
@@ -207,6 +248,41 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
     }
     await Db.excluir('insumos', i!['id'] as int);
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _lancarPreco() async {
+    var data = hojeIso();
+    final p = TextEditingController();
+    final e = TextEditingController(text: _n(i?['kg_saco']));
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          title: const Text('Lançar preço'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            DateField(label: 'Data', value: data, obrigatorio: true, onChanged: (v) => set(() => data = v!)),
+            gap,
+            campoTexto(p, 'Preço da embalagem (R\$)', numero: true, foco: true),
+            gap,
+            campoTexto(e, 'Embalagem tem', numero: true, sufixo: unidade),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lançar')),
+          ],
+        ),
+      ),
+    );
+    final vp = lerNumero(p.text), ve = lerNumero(e.text);
+    p.dispose();
+    e.dispose();
+    if (ok != true || vp == null || ve == null || ve <= 0) return;
+    await lancarPrecoInsumo(i!['id'] as int, data: data, precoEmbalagem: vp, kgEmbalagem: ve);
+    if (!mounted) return;
+    setState(() {
+      preco.text = _n(vp);
+      embalagem.text = _n(ve);
+    });
   }
 
   Future<void> _contagem() async {
@@ -242,7 +318,7 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
         Row(children: [
           Expanded(
             flex: 3,
-            child: escolha('Categoria', categoria, categoriasInsumo, (v) => setState(() {
+            child: escolha('Categoria', categoria, opcoes, (v) => setState(() {
                   categoria = v ?? categoria;
                   if (i == null) unidade = unidadePadrao(categoria);
                 })),
@@ -275,6 +351,31 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
         const SizedBox(height: 16),
         BotaoSalvar(onPressed: _salvar),
         if (i != null) ...[
+          Secao('Preços lançados',
+              acao: IconButton(tooltip: 'Lançar preço', icon: const Icon(Icons.attach_money), onPressed: _lancarPreco)),
+          if (historicoPrecos(i!['id'] as int).isEmpty) const ListTile(dense: true, title: Text('Nenhum preço lançado ainda.')),
+          for (final (k, p) in historicoPrecos(i!['id'] as int).indexed)
+            Builder(builder: (_) {
+              final antes = historicoPrecos(i!['id'] as int).skip(k + 1).firstOrNull;
+              final v = variacaoPct((antes?['preco_kg'] as num?)?.toDouble(), (p['preco_kg'] as num?)?.toDouble());
+              return ListTile(
+                dense: true,
+                title: Text('${moeda(p['preco_saco'] as num?)} por ${_q((p['kg_saco'] as num? ?? 0).toDouble())} $unidade'),
+                subtitle: Text([
+                  br(p['data']),
+                  if (p['preco_kg'] != null) '${moeda(p['preco_kg'] as num)}/$unidade',
+                  if (v != null) '${v >= 0 ? '+' : ''}${numeroBr(v, casas: 1)}% vs. anterior',
+                ].join(' · ')),
+                trailing: IconButton(
+                  tooltip: 'Apagar',
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: () async {
+                    await Db.excluir('precos_insumo', p['id'] as int);
+                    setState(() {});
+                  },
+                ),
+              );
+            }),
           Secao('Estoque: ${_q(saldo(i!['id'] as int))} $unidade',
               acao: Row(mainAxisSize: MainAxisSize.min, children: [
                 IconButton(tooltip: 'Contagem', icon: const Icon(Icons.fact_check_outlined), onPressed: _contagem),

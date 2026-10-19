@@ -22,6 +22,12 @@ String _menosDias(String iso, int dias) => Db.dataEtapa(iso, -dias);
 const categoriasInsumo = ['Vacina', 'Medicamento e vermífugo', 'Sal mineral', 'Ração e ingredientes', 'Outros'];
 const unidadesInsumo = ['kg', 'dose', 'ml', 'un'];
 
+/// Estoque de Medicamentos: vacinas, remédios e vermífugos.
+const categoriasMedicamento = ['Vacina', 'Medicamento e vermífugo'];
+
+/// Estoque de insumos em geral: sal, milho, sorgo, ração e ingredientes.
+const categoriasGeral = ['Sal mineral', 'Ração e ingredientes', 'Outros'];
+
 /// Unidade sugerida para a categoria.
 String unidadePadrao(String categoria) => switch (categoria) {
       'Vacina' => 'dose',
@@ -260,6 +266,28 @@ Future<double?> baterRacao(Reg formula, {required String data, required double k
     'qtd': double.parse(kgBatidos.toStringAsFixed(3)),
     'motivo': 'Ração batida ${formula['nome']}',
     'grupo': grupo,
+  });
+  await Db.inserir('batidas', {
+    'propriedade_id': Db.pid,
+    'formula_id': formula['id'],
+    'formula_nome': _t(formula['nome']),
+    'tipo': 'Ração pronta',
+    'data': data,
+    'batidas': double.parse(batidas.toStringAsFixed(3)),
+    'kg': double.parse(kgBatidos.toStringAsFixed(3)),
+    'custo_total': double.parse((precoKgNovo * kgBatidos).toStringAsFixed(2)),
+    'custo_kg': double.parse(precoKgNovo.toStringAsFixed(4)),
+    'grupo': grupo,
+    'itens': [
+      for (final l in c.linhas)
+        {
+          'insumo_id': l.insumo?['id'],
+          'nome': l.nome,
+          'kg': double.parse((l.kg * batidas).toStringAsFixed(3)),
+          'preco_kg': l.custo == null ? null : double.parse((l.custo! / l.kg).toStringAsFixed(4)),
+          'custo': l.custo == null ? null : double.parse((l.custo! * batidas).toStringAsFixed(2)),
+        },
+    ],
   });
   return precoKgNovo;
 }

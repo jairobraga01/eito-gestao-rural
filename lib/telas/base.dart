@@ -54,7 +54,7 @@ const itensMenu = <(String, IconData)>[
   ('Custos e margem', Icons.attach_money),
   ('Dívidas e ônus reais', Icons.account_balance_outlined),
   ('Contas a pagar e receber', Icons.receipt_long_outlined),
-  ('Proteinado', Icons.agriculture_outlined),
+  ('Fórmulas: Proteínados/Racões', Icons.agriculture_outlined),
   ('Estoque de insumos', Icons.inventory_2_outlined),
   ('Dieta do cocho', Icons.restaurant_outlined),
   ('Cotação da arroba', Icons.trending_up),
@@ -75,6 +75,7 @@ const itensMenu = <(String, IconData)>[
   ('Outras Causas', Icons.more_horiz),
   ('Fornecedores e compradores', Icons.contacts_outlined),
   ('Guia do Usuário', Icons.menu_book_outlined),
+  ('Estoque de Medicamentos', Icons.medication_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -83,11 +84,11 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
     secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
-    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35;
+    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35, secMedicamentos = 36;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
-  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secPesagem, secLeite]),
+  ('Rebanho', Icons.pets_outlined, [secRebanho, secLotes, secReproducao, secSanidade, secMedicamentos, secPesagem, secLeite]),
   ('Entrada: Compras e Nascimentos', iconeEntrada, [secEntradas, secNascimentos]),
   ('Saídas: Vendas e Mortes/Outras Causas', iconeSaida, [secVendas, secMortes, secOutrasSaidas]),
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa]),
@@ -106,7 +107,7 @@ const secoesPeao = {
 
 /// Seções que o veterinário vê: rebanho, reprodução e sanidade.
 const secoesVeterinario = {
-  secPainel, secRebanho, secReproducao, secSanidade, secPesagem, secNascimentos, secTarefas, secClima, secAjuda, secGuia,
+  secPainel, secRebanho, secReproducao, secSanidade, secPesagem, secNascimentos, secMedicamentos, secTarefas, secClima, secAjuda, secGuia,
 };
 
 /// Seções do zootecnista: rebanho, pesagem, nutrição e estoque.
@@ -127,7 +128,7 @@ const secoesDono = {secRelatorioFinanceiro};
 /// O que o plano Simples não inclui (financeiro completo, nutrição, mapa e exportações).
 const secoesSoMedia = {
   secRelatorioFinanceiro, secContas, secContatos, secDividas, secPatrimonio, secCotacao, secVender, secExportacoes,
-  secProteinado, secEstoque, secDieta, secMapa,
+  secProteinado, secEstoque, secMedicamentos, secDieta, secMapa,
 };
 
 /// Se quem está usando pode abrir a seção (o dono vê tudo; o gerente, tudo menos o que é só do dono).

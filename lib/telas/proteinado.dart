@@ -26,7 +26,7 @@ class ProteinadoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Pagina(
-      titulo: 'Proteinado',
+      titulo: 'Fórmulas: Proteínados/Racões',
       acoes: [
         IconButton(
           tooltip: 'Insumos, preços e estoque',

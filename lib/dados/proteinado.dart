@@ -124,7 +124,94 @@ Future<int> registrarBatida(Reg formula, {required String data, double batidas =
       'grupo': '$id',
     });
   }
+  // Batida de verdade (não trato do cocho): fica no histórico, com os preços do dia.
+  if (descricao == null) {
+    await Db.inserir('batidas', {
+      'propriedade_id': Db.pid,
+      'formula_id': formula['id'],
+      'formula_nome': _t(formula['nome']),
+      'tipo': tipoFormula(formula),
+      'data': data,
+      'batidas': batidas,
+      'kg': double.parse((c.kgBatida * batidas).toStringAsFixed(3)),
+      'custo_total': double.parse((c.custoBatida * batidas).toStringAsFixed(2)),
+      'custo_kg': c.precoKg == null ? null : double.parse(c.precoKg!.toStringAsFixed(4)),
+      'lote_id': loteId,
+      'custo_id': id,
+      'itens': _itensDaBatida(c, batidas),
+      'sacaria': double.parse((c.sacaria * batidas).toStringAsFixed(2)),
+      'mao_obra': double.parse((c.maoDeObra * batidas).toStringAsFixed(2)),
+    });
+  }
   return id;
+}
+
+/// Ingredientes da batida com o preço do quilo na data.
+List<Map<String, Object?>> _itensDaBatida(CalculoFormula c, double batidas) => [
+      for (final l in c.linhas)
+        {
+          'insumo_id': l.insumo?['id'],
+          'nome': l.nome,
+          'kg': double.parse((l.kg * batidas).toStringAsFixed(3)),
+          'preco_kg': l.custo == null ? null : double.parse((l.custo! / l.kg).toStringAsFixed(4)),
+          'custo': l.custo == null ? null : double.parse((l.custo! * batidas).toStringAsFixed(2)),
+        },
+    ];
+
+/// Histórico de batidas (mais recente primeiro), de uma fórmula ou de todas.
+List<Reg> batidasFeitas({Object? formulaId}) {
+  final fid = _int(formulaId);
+  return [
+    for (final b in Db.registros('batidas'))
+      if (_int(b['propriedade_id']) == Db.pid && (fid == null || _int(b['formula_id']) == fid)) b,
+  ]..sort((a, b) {
+      final c = _t(b['data']).compareTo(_t(a['data']));
+      return c != 0 ? c : (_int(b['id']) ?? 0).compareTo(_int(a['id']) ?? 0);
+    });
+}
+
+/// Apaga a batida do histórico; o que saiu do estoque volta.
+Future<void> excluirBatida(Reg b) async {
+  final custo = _int(b['custo_id']);
+  if (custo != null) {
+    await Db.excluir('custos', custo); // apaga também o histórico e devolve o estoque
+    return;
+  }
+  for (final e in Db.registros('estoque').where((x) => _t(x['grupo']) == _t(b['grupo']) && _t(b['grupo']).isNotEmpty).toList()) {
+    await Db.excluir('estoque', _int(e['id'])!);
+  }
+  await Db.excluir('batidas', _int(b['id'])!);
+}
+
+/// Variação em % entre dois valores (null se não dá para comparar).
+double? variacaoPct(double? antes, double? depois) =>
+    antes == null || depois == null || antes <= 0 ? null : (depois - antes) / antes * 100;
+
+// ---------- Preços dos insumos ----------
+
+/// Preços lançados de um insumo (mais recente primeiro).
+List<Reg> historicoPrecos(int insumoId) => [
+      for (final p in Db.registros('precos_insumo'))
+        if (_int(p['insumo_id']) == insumoId) p,
+    ]..sort((a, b) {
+        final c = _t(b['data']).compareTo(_t(a['data']));
+        return c != 0 ? c : (_int(b['id']) ?? 0).compareTo(_int(a['id']) ?? 0);
+      });
+
+/// Lança o preço do insumo na data. O mais recente vira o preço usado nas contas.
+Future<void> lancarPrecoInsumo(int insumoId, {required String data, required double precoEmbalagem, required double kgEmbalagem}) async {
+  await Db.inserir('precos_insumo', {
+    'propriedade_id': Db.pid,
+    'insumo_id': insumoId,
+    'data': data,
+    'preco_saco': precoEmbalagem,
+    'kg_saco': kgEmbalagem,
+    'preco_kg': kgEmbalagem > 0 ? double.parse((precoEmbalagem / kgEmbalagem).toStringAsFixed(4)) : null,
+  });
+  final ultimo = historicoPrecos(insumoId).first;
+  if (_int(ultimo['id']) == null || _t(ultimo['data']).compareTo(data) <= 0) {
+    await Db.atualizar('insumos', insumoId, {'preco_saco': precoEmbalagem, 'kg_saco': kgEmbalagem});
+  }
 }
 
 String _qtd(double v) => v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1).replaceAll('.', ',');

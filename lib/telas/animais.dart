@@ -14,6 +14,7 @@ import 'reproducao.dart';
 import 'sanidade.dart';
 import 'vendas.dart';
 import 'importar_animais.dart';
+import 'eito360_api_page.dart';
 
 // ======================= Lista de animais =======================
 
@@ -43,6 +44,11 @@ class _AnimaisPageState extends State<AnimaisPage> {
             icon: const Icon(Icons.upload_file),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ImportarAnimaisPage())),
           ),
+        IconButton(
+          tooltip: 'Abrir rebanho do Eito 360 (PostgreSQL)',
+          icon: const Icon(Icons.cloud_sync_outlined),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Eito360ApiPage())),
+        ),
         IconButton(
           tooltip: 'Mover animais de lote, piquete ou propriedade',
           icon: const Icon(Icons.swap_horiz),

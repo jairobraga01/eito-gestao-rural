@@ -9,7 +9,7 @@
 // - Gravações NÃO esperam a nuvem: vão para o aparelho na hora e o Firestore
 //   envia sozinho quando houver internet. [pendentes] mostra quantas faltam.
 //
-// As funções têm os mesmos nomes da Caderneta do Rebanho (versão SQLite),
+// As funções têm os mesmos nomes da versão antiga do Eito Gestão (SQLite),
 // para as telas continuarem iguais. As antigas consultas SQL viraram Dart.
 import 'dart:async';
 import 'dart:convert';
@@ -1548,11 +1548,11 @@ class Db {
   }
 
   /// Substitui todos os dados (na nuvem e no aparelho) pelos do backup.
-  /// Aceita também backups da Caderneta do Rebanho. Retorna o nº de animais.
+  /// Aceita também backups da versão antiga (APK). Retorna o nº de animais.
   static Future<int> importarJson(String texto) async {
     final mapa = jsonDecode(texto) as Map<String, dynamic>;
     if (mapa['app'] != 'caderneta_rebanho' && mapa['app'] != 'eito_gestao_rural') {
-      throw const FormatException('Este texto não é um backup do Eito nem da Caderneta do Rebanho.');
+      throw const FormatException('Este texto não é um backup do Eito Gestão.');
     }
     final tabelasBackup = mapa['tabelas'] as Map<String, dynamic>;
     final versao = _int(mapa['versao']) ?? 1;

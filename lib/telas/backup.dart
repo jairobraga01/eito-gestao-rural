@@ -127,7 +127,7 @@ class _BackupPageState extends State<BackupPage> {
           ),
           gap,
           const Text(
-            'Também serve para trazer os dados da Caderneta do Rebanho (versão antiga, só no celular): '
+            'Também serve para trazer os dados do Eito Gestão antigo (APK, só no celular): '
             'lá, toque em "Copiar backup"; aqui, toque em "Restaurar backup" e cole.',
           ),
           const SizedBox(height: 24),

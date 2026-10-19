@@ -49,7 +49,7 @@ A pasta `.github` some quando você arrasta arquivos, então este arquivo é cri
    O GitHub substitui os arquivos com o mesmo nome.
 3. **Commit changes**.
 4. Abra a aba **Actions**: aparece "Publicar o Eito" rodando (cerca de 5 a 8 minutos).
-   - ✅ verde: o app está em <https://caderneta-rebanho.web.app>.
+   - ✅ verde: o app está em <https://eitogestao.com.br> (endereço alternativo: <https://caderneta-rebanho.web.app>).
    - ❌ vermelho: clique na execução, depois no passo com ❌, copie as últimas
      linhas e mande para o Claude.
 
@@ -77,7 +77,7 @@ Abra o endereço no **Safari** → **Compartilhar** → **Adicionar à Tela de I
 Instalado assim, abre em tela cheia, funciona sem sinal e o iPhone não apaga os dados guardados.
 O primeiro acesso de cada aparelho precisa de internet (login e primeira cópia dos dados).
 
-## Trazer os dados da Caderneta do Rebanho (versão antiga só do celular)
+## Trazer os dados do Eito Gestão antigo (APK, só do celular)
 
 Se você lançou dados no APK antigo: lá, menu → **Backup** → **Copiar backup**;
 mande o texto para você mesmo (WhatsApp/e-mail). No Eito: menu → **Backup** →

@@ -36,7 +36,7 @@ class _AnimaisPageState extends State<AnimaisPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Pagina(
-      titulo: 'Rebanho',
+      titulo: 'Animais',
       acoes: [
         if (!Db.ehCampo)
           IconButton(
@@ -481,6 +481,46 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
 }
 
 // ======================= Nascimento =======================
+
+/// Crias nascidas na propriedade, da mais nova para a mais velha.
+class NascimentosPage extends StatelessWidget {
+  const NascimentosPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Pagina(
+      titulo: 'Nascimentos',
+      fab: FloatingActionButton.extended(
+        heroTag: null,
+        icon: const Icon(Icons.add),
+        label: const Text('Registrar nascimento'),
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NascimentoFormPage())),
+      ),
+      corpo: AoMudar<List<Reg>>(
+        carregar: () async =>
+            (await Db.animais(ordem: 'nascimento')).where((a) => a['origem'] == 'Nascimento').toList(),
+        builder: (context, lista) {
+          if (lista.isEmpty) {
+            return const Vazio('Nenhum nascimento registrado.', icone: Icons.child_friendly_outlined);
+          }
+          final machos = lista.where((a) => a['sexo'] == 'M').length;
+          return ListView.separated(
+            padding: const EdgeInsets.only(bottom: 88),
+            itemCount: lista.length + 1,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (c, i) => i == 0
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                    child: Text('${lista.length} nascimento(s) · ${lista.length - machos} fêmea(s) · $machos macho(s)'),
+                  )
+                : AnimalTile(lista[i - 1]),
+          );
+        },
+      ),
+    );
+  }
+}
+
 
 class NascimentoFormPage extends StatefulWidget {
   const NascimentoFormPage({super.key, this.mae, this.reproducao});

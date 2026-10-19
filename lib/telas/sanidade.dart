@@ -12,26 +12,25 @@ class SanidadePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Pagina(
-        titulo: 'Sanidade',
-        acoes: [
-          IconButton(
-            tooltip: 'Calendário sanitário',
-            icon: const Icon(Icons.calendar_month_outlined),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarioSanitarioPage())),
-          ),
-        ],
-        corpo: const Column(
-          children: [
-            TabBar(tabs: [Tab(text: 'MANEJOS SANITÁRIOS'), Tab(text: 'PESAGENS')]),
-            Expanded(child: TabBarView(children: [_ManejosTab(), _PesagensTab()])),
-          ],
+    return Pagina(
+      titulo: 'Sanidade',
+      acoes: [
+        IconButton(
+          tooltip: 'Calendário sanitário',
+          icon: const Icon(Icons.calendar_month_outlined),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarioSanitarioPage())),
         ),
-      ),
+      ],
+      corpo: const _ManejosTab(),
     );
   }
+}
+
+class PesagensPage extends StatelessWidget {
+  const PesagensPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Pagina(titulo: 'Pesagem', corpo: _PesagensTab());
 }
 
 // ======================= Sanidade =======================

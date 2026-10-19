@@ -19,11 +19,11 @@ class EntradasPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Pagina(
-      titulo: 'Compras e entradas',
+      titulo: 'Compras',
       fab: FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
-        label: const Text('Nova entrada'),
+        label: const Text('Nova compra'),
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EntradaFormPage())),
       ),
       corpo: AoMudar<List<Reg>>(

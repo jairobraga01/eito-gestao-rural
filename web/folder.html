@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Eito Gestão Rural · Folder do aplicativo</title>
+<meta name="description" content="Conheça cada funcionalidade do Eito, o aplicativo de gestão de rebanho bovino que funciona sem internet.">
+<meta name="theme-color" content="#262E12">
+<link rel="icon" href="favicon.png">
+<style>
+:root{--oliva:#262E12;--verde:#2f6b3a;--claro:#f3f7f1;--laranja:#e8862a;--tinta:#1d2412;--cartao:#fff;--borda:#d9e3d4}
+@media (prefers-color-scheme:dark){:root{--claro:#12170a;--tinta:#e9efe3;--cartao:#1b2211;--borda:#2f3a22;--verde:#7bc58a}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--claro);color:var(--tinta);line-height:1.5}
+header{background:var(--oliva);color:#fff;padding:32px 16px 28px;text-align:center}
+header img{width:84px;height:84px;border-radius:20px}
+header h1{margin:12px 0 4px;font-size:1.9rem}
+header p{margin:0 auto;max-width:620px;color:#d9e5cf;font-size:1.05rem}
+.botao{display:inline-block;margin-top:18px;background:var(--laranja);color:#1d1203;font-weight:800;text-decoration:none;padding:12px 24px;border-radius:12px}
+main{max-width:980px;margin:0 auto;padding:8px 16px 48px}
+h2{color:var(--verde);margin:36px 0 4px;font-size:1.4rem}
+h2+p{margin:0 0 12px;opacity:.85}
+.grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.c{background:var(--cartao);border:1px solid var(--borda);border-radius:14px;padding:14px 16px}
+.c h3{margin:0 0 4px;font-size:1.05rem}
+.c p{margin:0;font-size:.95rem}
+table{width:100%;border-collapse:collapse;background:var(--cartao);border:1px solid var(--borda);border-radius:14px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--borda);font-size:.95rem;vertical-align:top}
+th{background:var(--oliva);color:#fff}
+.scroll{overflow-x:auto}
+footer{text-align:center;padding:24px 16px 40px;font-size:.9rem;opacity:.8}
+</style>
+</head>
+<body>
+<header>
+<img src="icons/Icon-192.png" alt="Eito">
+<h1>Eito Gestão Rural</h1>
+<p>O caderno do rebanho no seu celular: lança no curral, funciona sem sinal e mostra o resultado da fazenda.</p>
+<a class="botao" href="/">Entrar ou criar conta</a>
+</header>
+<main>
+
+<h2>Como funciona</h2>
+<p>O essencial, antes de ver cada tela.</p>
+<div class="grade">
+<div class="c"><h3>Funciona sem internet</h3><p>Tudo é gravado primeiro no aparelho. Quando o celular pega sinal, os dados vão sozinhos para a nuvem.</p></div>
+<div class="c"><h3>Celular, tablet e computador</h3><p>Abre pelo navegador em eitogestao.com.br e pode ser instalado na tela inicial como um aplicativo.</p></div>
+<div class="c"><h3>Brinco, bastão e balança</h3><p>O bastão de brinco eletrônico e a balança no modo teclado digitam direto no app, sem trabalho extra.</p></div>
+<div class="c"><h3>Uma conta, a equipe toda</h3><p>Cada pessoa entra com a própria conta e tudo o que lança fica marcado com o nome dela.</p></div>
+</div>
+
+<h2>Painel inicial</h2>
+<p>A tela que abre quando você entra.</p>
+<div class="grade">
+<div class="c"><h3>Previsão de 7 dias</h3><p>Tempo e chuva da região da fazenda, no topo.</p></div>
+<div class="c"><h3>Alertas</h3><p>Partos próximos, diagnósticos e aplicações a fazer, lotes para mudar de pasto e animais em carência.</p></div>
+<div class="c"><h3>Atalhos coloridos</h3><p>Os 15 serviços mais usados a um toque: pesagem, nascimentos, compras, vendas, chuva, tarefas, relatórios e outros.</p></div>
+<div class="c"><h3>Modos em série</h3><p>Pesagem em série, vacinação em série e lançamento por voz, para trabalhar o lote inteiro sem tirar a mão da lida.</p></div>
+</div>
+
+<h2>Rebanho</h2>
+<p>O cadastro de cada animal e de cada lote.</p>
+<div class="grade">
+<div class="c"><h3>Animais</h3><p>Ficha com brinco, brinco eletrônico, número oficial (SISBOV/PNIB), raça, categoria, lote, pasto, foto, genealogia e histórico completo. Aceita gado sem brinco, com numeração automática.</p></div>
+<div class="c"><h3>Lotes</h3><p>Agrupe os animais e acompanhe peso, ganho diário, custo e projeção de abate de cada lote.</p></div>
+<div class="c"><h3>Nascimentos</h3><p>Registra a cria, liga à mãe e ao pai e atualiza o rebanho.</p></div>
+<div class="c"><h3>Importar planilha</h3><p>Traga o rebanho que já está em planilha CSV, e também o backup do Gado Guaraí.</p></div>
+<div class="c"><h3>Modo Curral</h3><p>Encoste o bastão no brinco e a ficha abre. Lance peso, vacina, tratamento e escore corporal na hora, com a fila do dia para riscar o que falta.</p></div>
+<div class="c"><h3>Ranking de matrizes e vacas problema</h3><p>Mostra as melhores matrizes por prenhez, intervalo entre partos e desmama, e separa as que falham para decidir o descarte.</p></div>
+</div>
+
+<h2>Reprodução e inseminação</h2>
+<p>Da IATF ao parto, com custo e resultado.</p>
+<div class="grade">
+<div class="c"><h3>Modo Inseminação</h3><p>Lê o brinco e registra IA, IATF ou TE com sêmen, inseminador e protocolo, dando baixa de uma dose do estoque. Ficha da vaca com ECC, cio, implante, folículos e mais.</p></div>
+<div class="c"><h3>Protocolos de IATF</h3><p>Protocolos editáveis com a data e o horário de cada etapa e os hormônios do estoque, com aviso na véspera.</p></div>
+<div class="c"><h3>Diagnóstico e parto previsto</h3><p>Diagnóstico em série (prenhe ou vazia), segundo diagnóstico aos 60 dias e parto previsto de cada vaca.</p></div>
+<div class="c"><h3>Resultado do lote</h3><p>Taxas de prenhez, ressincronização das vazias e concepção por inseminador, touro, partida de sêmen, categoria e escore.</p></div>
+<div class="c"><h3>Estação de monta e repasse</h3><p>Prenhez acumulada por ciclo de 21 dias, repasse com touro e custo por prenhez e por bezerro desmamado.</p></div>
+<div class="c"><h3>Sêmen e touros</h3><p>Cadastro com preço por dose, partida e estoque, e aviso de consanguinidade ao inseminar.</p></div>
+</div>
+
+<h2>Sanidade e pesagem</h2>
+<p>O que foi aplicado e quanto cada animal rende.</p>
+<div class="grade">
+<div class="c"><h3>Sanidade</h3><p>Vacinas, vermífugos e tratamentos, com calendário sanitário pronto (brucelose, clostridiose, raiva, vermífugo, aftosa) e o que está vencido.</p></div>
+<div class="c"><h3>Carência</h3><p>Avisa quando o animal está em carência, na venda, no abate e na ficha do curral.</p></div>
+<div class="c"><h3>Pesagem</h3><p>Pesagem individual ou rápida, com ganho médio diário de cada animal e do lote.</p></div>
+<div class="c"><h3>Tarefas</h3><p>Tarefas com responsável e prazo; o peão vê as dele e marca como feitas.</p></div>
+</div>
+
+<h2>Pasto e fazenda</h2>
+<p>Onde o gado está e como o pasto trabalha.</p>
+<div class="grade">
+<div class="c"><h3>Piquetes e pastos</h3><p>Cadastro com área, lotação em UA/ha, rodízio de ocupação e descanso e mudança de todos os animais de um pasto para outro de uma vez.</p></div>
+<div class="c"><h3>Mapa da fazenda</h3><p>Satélite ou ruas, com o contorno dos piquetes desenhado no toque, andando com o GPS ou importando arquivo KML do Google Earth. Funciona nos pedaços já vistos, sem sinal.</p></div>
+<div class="c"><h3>Ocorrências e pontos</h3><p>Registre problemas com foto e GPS, e guarde aguadas, cochos, saleiros e cercas com histórico de manutenção.</p></div>
+<div class="c"><h3>Contagem de campo</h3><p>Conta o gado por piquete e compara com o que o Eito espera.</p></div>
+<div class="c"><h3>Propriedade</h3><p>Dados da fazenda, CAR, matrícula, NIRF/CIB e inscrição estadual.</p></div>
+<div class="c"><h3>Clima e chuva</h3><p>Pluviômetro com total por mês e ano, e previsão de 7 dias.</p></div>
+</div>
+
+<h2>Nutrição</h2>
+<p>O que o gado come e quanto custa.</p>
+<div class="grade">
+<div class="c"><h3>Proteinado e ração</h3><p>Controle de consumo (alto, médio e baixo), ração creep e ração de leite.</p></div>
+<div class="c"><h3>Estoque de insumos</h3><p>Entradas e baixas de ração, medicamentos e hormônios, com aviso do que acaba.</p></div>
+<div class="c"><h3>Dieta do cocho</h3><p>Dieta por piquete, trato do dia com baixa automática dos ingredientes e botão para bater a ração.</p></div>
+<div class="c"><h3>Produção de leite</h3><p>Lançamentos e totais da produção leiteira.</p></div>
+</div>
+
+<h2>Compras, vendas e saídas</h2>
+<p>Entradas e saídas de animais, já com as contas.</p>
+<div class="grade">
+<div class="c"><h3>Compras</h3><p>Com comissão, nota, frete e pagamento a prazo em parcelas, e cadastro de fornecedores.</p></div>
+<div class="c"><h3>Vendas</h3><p>Por arroba ou por cabeça, com Funrural, Fundepec, nota e frete, lucro por venda e compradores com histórico.</p></div>
+<div class="c"><h3>Mortes e outras causas</h3><p>Causa da morte em lista e resumo de mortalidade; consumo, doação e outras saídas.</p></div>
+<div class="c"><h3>Cotação e decisão</h3><p>Registre a arroba do dia e compare vender agora ou esperar pelo ganho do lote.</p></div>
+</div>
+
+<h2>Financeiro</h2>
+<p>Para o dono ver o resultado e fechar o ano. Visível só para quem tem permissão.</p>
+<div class="grade">
+<div class="c"><h3>Custos e margem</h3><p>Custo por lote, por animal e por arroba, com margem e custo por cabeça-dia.</p></div>
+<div class="c"><h3>Contas a pagar e a receber</h3><p>Vencimentos, parcelas, livro caixa com saldo e fluxo de caixa projetado de 6 meses.</p></div>
+<div class="c"><h3>Dívidas e ônus</h3><p>Financiamentos e garantias reais da fazenda.</p></div>
+<div class="c"><h3>Relatório financeiro</h3><p>Painel do gado, comparação entre anos e PDF para imprimir.</p></div>
+<div class="c"><h3>Para o contador</h3><p>Planilhas do livro caixa e das contas e arquivo do LCDPR (leiaute da Receita).</p></div>
+<div class="c"><h3>Patrimônio e contatos</h3><p>Bens da fazenda, e fornecedores e compradores com o histórico de negócios.</p></div>
+</div>
+
+<h2>Relatórios e documentos</h2>
+<p>Tudo o que o veterinário, o banco e a Agrodefesa pedem.</p>
+<div class="grade">
+<div class="c"><h3>Relatórios mensal e anual</h3><p>Nascimentos, inseminações, partos previstos, vacinações, pesagens e saídas, mês a mês.</p></div>
+<div class="c"><h3>Relatório da fazenda em PDF</h3><p>Um documento completo do rebanho e da propriedade.</p></div>
+<div class="c"><h3>Declaração e GTA</h3><p>Rebanho nas faixas do SIDAGO, com conferência, e resumo para a GTA.</p></div>
+<div class="c"><h3>Resumo da semana</h3><p>Texto pronto para enviar pelo WhatsApp ao dono ou ao veterinário.</p></div>
+<div class="c"><h3>Indicadores de cria</h3><p>Natalidade, desmama, quilos por matriz e mortes por causa.</p></div>
+<div class="c"><h3>Backup e exportação</h3><p>Baixe tudo, inclusive as fotos, e exporte planilhas.</p></div>
+</div>
+
+<h2>Equipe e segurança</h2>
+<p>Cada pessoa vê e faz só o que o papel dela permite.</p>
+<div class="grade">
+<div class="c"><h3>Dono e gerente</h3><p>O dono vê tudo, incluindo o financeiro. O gerente lança tudo, menos a equipe.</p></div>
+<div class="c"><h3>Veterinário</h3><p>Abre direto na reprodução e na sanidade.</p></div>
+<div class="c"><h3>Zootecnista</h3><p>Dieta, estoque e pesagem.</p></div>
+<div class="c"><h3>Contador</h3><p>Consulta o financeiro, sem alterar nada.</p></div>
+<div class="c"><h3>Peão</h3><p>Entra com usuário e senha criados pelo dono, vê o serviço de campo e as tarefas dele.</p></div>
+<div class="c"><h3>Quem lançou o quê</h3><p>Histórico de cada registro, com quem lançou e quem alterou. Verificação em duas etapas disponível na conta.</p></div>
+</div>
+
+<h2>Planos</h2>
+<p>Escolha pelo tamanho da fazenda. Os preços são de tabela.</p>
+<div class="scroll"><table>
+<tr><th></th><th>Simples</th><th>Média</th><th>Plus</th></tr>
+<tr><td>Por mês</td><td>R$ 9,90</td><td>R$ 29,90</td><td>R$ 59,90</td></tr>
+<tr><td>Por ano</td><td>R$ 99,90</td><td>R$ 299,90</td><td>R$ 599,90</td></tr>
+<tr><td>Animais</td><td>até 200</td><td>até 500</td><td>sem limite</td></tr>
+<tr><td>Acesso</td><td>básico</td><td>integral</td><td>integral</td></tr>
+<tr><td>Equipe além do dono</td><td>1 gerente, 1 peão</td><td>1 gerente, 1 veterinário, 2 peões</td><td>1 gerente, 1 veterinário, 1 zootecnista, 1 contador, 10 peões</td></tr>
+</table></div>
+
+</main>
+<footer>
+<a class="botao" href="/">Entrar ou criar conta</a>
+<p>Eito Gestão Rural · eitogestao.com.br</p>
+</footer>
+</body>
+</html>

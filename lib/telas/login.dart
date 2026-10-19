@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/equipe.dart';
 import '../dados/indicacoes.dart';
@@ -301,7 +302,14 @@ class _Marca extends StatelessWidget {
     const frase = TextStyle(color: Cores.tinta, fontSize: 17, height: 1.35);
     return Column(children: [
       const _Promocao(),
-      const SizedBox(height: 16),
+      const SizedBox(height: 8),
+      FilledButton.icon(
+        style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFAFBFA), foregroundColor: Cores.olivaEscuro),
+        onPressed: () => launchUrl(Uri.base.resolve('/folder.html'), webOnlyWindowName: '_blank'),
+        icon: const Icon(Icons.menu_book_outlined),
+        label: const Text('Conheça o Eito: folder com todas as funções', style: TextStyle(fontWeight: FontWeight.w800)),
+      ),
+      const SizedBox(height: 8),
       Container(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         decoration: BoxDecoration(color: const Color(0xFFFAFBFA), borderRadius: BorderRadius.circular(20)),

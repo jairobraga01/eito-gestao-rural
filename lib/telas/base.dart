@@ -23,6 +23,7 @@ import 'entradas.dart' show iconeEntrada, iconeSaida;
 import 'lotes.dart';
 import 'modo_curral.dart';
 import 'modo_inseminacao.dart';
+import 'painel_gado.dart';
 import 'propriedades.dart';
 import 'reproducao.dart';
 import 'sanidade.dart';
@@ -303,6 +304,11 @@ class MenuLateral extends StatelessWidget {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
             }),
+            if (Db.ehDono && planoAtual().completo)
+              item(Icons.dashboard_outlined, 'Relatório Gado Guaraí', () {
+                fechar();
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PainelGadoPage()));
+              }),
             if (Db.ehDono)
               item(Icons.group_outlined, 'Equipe e permissões', () {
                 fechar();

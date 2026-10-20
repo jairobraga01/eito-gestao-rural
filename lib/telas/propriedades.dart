@@ -75,6 +75,7 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
   late final app = TextEditingController(text: _n(p?['area_app']));
   late final agricultura = TextEditingController(text: _n(p?['area_agricultura']));
   late final obs = TextEditingController(text: txt(p?['obs']));
+  late final telefone = TextEditingController(text: txt(p?['telefone']));
   // Dados legais; NIRF e IE são os mesmos campos usados no LCDPR.
   late final car = TextEditingController(text: txt(p?['car']));
   late final matricula = TextEditingController(text: txt(p?['matricula']));
@@ -87,7 +88,7 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
 
   @override
   void dispose() {
-    for (final c in [nome, pastagem, benfeitoria, app, agricultura, obs, car, matricula, nirf, ie]) {
+    for (final c in [nome, telefone, pastagem, benfeitoria, app, agricultura, obs, car, matricula, nirf, ie]) {
       c.dispose();
     }
     super.dispose();
@@ -115,6 +116,7 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
       'uf': uf,
       'atividades': [for (final a in atividadesPropriedade) if (atividades.contains(a)) a].join(', '),
       'obs': nulo(obs.text),
+      'telefone': nulo(telefone.text),
       'car': nulo(car.text),
       'matricula': nulo(matricula.text),
       'lcdpr_cod_itr': nulo(nirf.text),
@@ -164,6 +166,15 @@ class _PropriedadeFormPageState extends State<PropriedadeFormPage> {
             controller: nome,
             textCapitalization: TextCapitalization.words,
             decoration: const InputDecoration(labelText: 'Nome da propriedade *', prefixIcon: Icon(Icons.home_work_outlined)),
+          ),
+          gap,
+          TextField(
+            controller: telefone,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+                labelText: 'Telefone de contato',
+                helperText: 'Vai na mensagem de cotação enviada aos fornecedores',
+                prefixIcon: Icon(Icons.phone_outlined)),
           ),
           gap,
           _area(pastagem, 'Área de pastagem'),

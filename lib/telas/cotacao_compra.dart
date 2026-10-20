@@ -7,7 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../dados/contatos.dart' show fornecedoresDe;
 import '../dados/cotacao_compra.dart';
 import '../dados/db.dart';
-import '../dados/estoque.dart' show categoriaInsumo, categoriasGeral, categoriasMedicamento, unidadeInsumo;
+import '../dados/estoque.dart'
+    show categoriaInsumo, categoriasGeral, categoriasMedicamento, movimentos, saldo, unidadeInsumo;
 import '../dados/proteinado.dart' show insumos;
 import '../tema.dart';
 import '../util/util.dart';
@@ -219,9 +220,13 @@ class NovaCotacaoPage extends StatefulWidget {
 }
 
 class _Linha {
-  _Linha(this.nome, this.unidade, {this.insumoId, this.fornecedorId});
+  _Linha(this.nome, this.unidade, {this.insumoId, this.fornecedorId})
+      : estoque = insumoId != null && movimentos(insumoId).isNotEmpty ? saldo(insumoId) : null;
   final String nome, unidade;
   final int? insumoId, fornecedorId;
+
+  /// Saldo do estoque (null = sem movimento de estoque).
+  final double? estoque;
   final qtd = TextEditingController();
   bool marcado = false;
 }
@@ -296,7 +301,7 @@ class _NovaCotacaoPageState extends State<NovaCotacaoPage> {
     final itens = [
       for (final l in linhas)
         if (l.marcado)
-          ItemCotacao(nome: l.nome, unidade: l.unidade, qtd: lerNumero(l.qtd.text) ?? 1, insumoId: l.insumoId),
+          ItemCotacao(nome: l.nome, unidade: l.unidade, qtd: lerNumero(l.qtd.text) ?? 1, insumoId: l.insumoId, estoque: l.estoque),
     ];
     if (itens.isEmpty) return avisar(context, 'Marque pelo menos um item.');
     setState(() => _enviando = true);
@@ -383,7 +388,22 @@ class _NovaCotacaoPageState extends State<NovaCotacaoPage> {
               for (final l in linhas)
                 Row(children: [
                   Checkbox(value: l.marcado, onChanged: (v) => setState(() => l.marcado = v ?? false)),
-                  Expanded(child: InkWell(onTap: () => setState(() => l.marcado = !l.marcado), child: Text(l.nome))),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => setState(() => l.marcado = !l.marcado),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(l.nome),
+                        if (l.estoque != null)
+                          Text(
+                            l.estoque! <= 0 ? 'Estoque: zerado' : 'Estoque: ${_q(l.estoque!)} ${l.unidade}',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: l.estoque! <= 0 ? Cores.alerta : Cores.sucesso),
+                          ),
+                      ]),
+                    ),
+                  ),
                   SizedBox(
                     width: 120,
                     child: TextField(
@@ -529,7 +549,8 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
             rows: [
               for (final (i, it) in g.itens.indexed)
                 DataRow(cells: [
-                  DataCell(Text('${it.nome}\n${_q(it.qtd)} ${it.unidade}')),
+                  DataCell(Text('${it.nome}\n${_q(it.qtd)} ${it.unidade}'
+                      '${it.estoque == null ? '' : '\nestoque: ${_q(it.estoque!)}'}')),
                   for (final p in resp)
                     DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
                       Text(

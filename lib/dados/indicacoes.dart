@@ -68,7 +68,7 @@ class Indicacoes {
 
   static bool? _admin;
 
-  static const emailDoCriador = 'jairo_braga@icloud.com';
+  static const emailDoCriador = 'eitogestaorural@gmail.com';
 
   /// Se quem está logado administra os códigos (admins/{uid} existe).
   static Future<bool> souAdmin() async {

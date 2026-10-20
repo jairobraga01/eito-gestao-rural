@@ -59,6 +59,8 @@ class PedidoCotacao {
   String get titulo => _t(dados['titulo']);
   String get fornecedor => _t((dados['fornecedor'] as Map?)?['nome']);
   String get telefone => _t((dados['fornecedor'] as Map?)?['telefone']);
+  int? get contatoId => switch ((dados['fornecedor'] as Map?)?['contato_id']) { final num n => n.toInt(), _ => null };
+  String get pedidoObs => _t(dados['pedido_obs']);
   bool get respondida => dados['status'] == 'respondida';
   bool get visto => dados['visto'] == true;
   DateTime? get criadoEm => _data(dados['criado_em']);
@@ -78,6 +80,21 @@ class PedidoCotacao {
   List<double?> _lista(String campo) {
     final p = dados[campo] as List? ?? const [];
     return [for (var i = 0; i < itens.length; i++) i < p.length ? _num(p[i]) : null];
+  }
+
+  /// Preços de um prazo: 0 = à vista, 1 = 30/60/90 dias, 2 = 90 dias direto.
+  List<double?> precosModo(int modo) => switch (modo) { 0 => precos, 1 => precos30, _ => precos90 };
+
+  int cotadosModo(int modo) => precosModo(modo).whereType<double>().length;
+
+  /// Total de um prazo: preço × quantidade dos itens cotados nele, mais o frete.
+  double totalModo(int modo) {
+    final p = precosModo(modo), it = itens;
+    var s = frete;
+    for (var i = 0; i < it.length; i++) {
+      if (p[i] != null) s += p[i]! * it[i].qtd;
+    }
+    return s;
   }
 
   double get frete => _num(dados['frete']) ?? 0;
@@ -195,8 +212,9 @@ class CotacoesCompra {
     required List<ItemCotacao> itens,
     required List<Reg> fornecedores,
     String? obs,
+    String? grupoExistente,
   }) async {
-    final grupo = 'g${Db.novoId()}';
+    final grupo = grupoExistente ?? 'g${Db.novoId()}';
     final fazenda = _t(Db.prop.value?['nome']);
     final criados = <PedidoCotacao>[];
     final lote = Db.banco.batch();

@@ -473,6 +473,41 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
     return null;
   }
 
+  /// Manda o mesmo pedido a fornecedores que ficaram de fora da primeira rodada.
+  Future<void> _reenviar(GrupoCotacao g) async {
+    final ja = {for (final p in g.pedidos) p.contatoId};
+    final escolhidos = await showModalBottomSheet<List<Reg>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _EscolherOutrosFornecedores(tipo: widget.tipo, jaEnviados: ja),
+    );
+    if (escolhidos == null || escolhidos.isEmpty || !mounted) return;
+    final pedidos = await CotacoesCompra.criar(
+      tipo: widget.tipo,
+      titulo: g.titulo,
+      itens: g.itens,
+      fornecedores: escolhidos,
+      obs: nulo(g.primeiro.pedidoObs),
+      grupoExistente: g.primeiro.grupo,
+    );
+    if (!mounted) return;
+    if (pedidos.length == 1) {
+      _abrirWhats(pedidos.first);
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enviar a cotação'),
+        content: SizedBox(
+          width: 420,
+          child: ListView(shrinkWrap: true, children: [for (final p in pedidos) _CartaoEnvio(p)]),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Concluir'))],
+      ),
+    );
+  }
+
   void _marcarVistas(GrupoCotacao g) {
     for (final p in g.respondidas) {
       if (!p.visto) CotacoesCompra.marcarVisto(p);
@@ -507,14 +542,24 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
             ],
           ),
           body: g == null ? const Center(child: Text('Cotação não encontrada.')) : _corpo(g),
+          floatingActionButton: g == null
+              ? null
+              : FloatingActionButton.extended(
+                  heroTag: null,
+                  backgroundColor: coresCotacao(widget.tipo).$1,
+                  foregroundColor: Colors.white,
+                  icon: const Icon(Icons.person_add_alt_1),
+                  label: const Text('Enviar a outro fornecedor'),
+                  onPressed: () => _reenviar(g),
+                ),
         );
       },
     );
   }
 
   Widget _corpo(GrupoCotacao g) {
-    final menores = g.menores, melhor = g.melhor, resp = g.respondidas;
-    return ListView(padding: const EdgeInsets.only(bottom: 32), children: [
+    final melhor = g.melhor, resp = g.respondidas;
+    return ListView(padding: const EdgeInsets.only(bottom: 88), children: [
       if (melhor != null)
         Card(
           color: coresCotacao(widget.tipo).$1,
@@ -535,51 +580,10 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
           child: Text('Nenhum fornecedor respondeu ainda. Quando responder, aparece o aviso "Cotação Recebida".'),
         ),
       if (resp.isNotEmpty) ...[
-        const Secao('Preço por item (menor à vista em verde)'),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: DataTable(
-            columnSpacing: 18,
-            headingRowColor: WidgetStatePropertyAll(coresCotacao(widget.tipo).$1.withValues(alpha: 0.18)),
-            columns: [
-              const DataColumn(label: Text('Item')),
-              for (final p in resp) DataColumn(label: Text(p.fornecedor), numeric: true),
-            ],
-            rows: [
-              for (final (i, it) in g.itens.indexed)
-                DataRow(cells: [
-                  DataCell(Text('${it.nome}\n${_q(it.qtd)} ${it.unidade}'
-                      '${it.estoque == null ? '' : '\nestoque: ${_q(it.estoque!)}'}')),
-                  for (final p in resp)
-                    DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      Text(
-                        p.precos[i] == null ? 'à vista: —' : 'à vista: ${moeda(p.precos[i])}',
-                        style: TextStyle(
-                          color: p.precos[i] != null && p.precos[i] == menores[i] ? Cores.sucesso : null,
-                          fontWeight: p.precos[i] != null && p.precos[i] == menores[i] ? FontWeight.w800 : null,
-                        ),
-                      ),
-                      if (p.precos30[i] != null)
-                        Text('30/60/90: ${moeda(p.precos30[i])}', style: const TextStyle(fontSize: 12)),
-                      if (p.precos90[i] != null)
-                        Text('90 dias direto: ${moeda(p.precos90[i])}', style: const TextStyle(fontSize: 12)),
-                    ])),
-                ]),
-              DataRow(cells: [
-                const DataCell(Text('Frete')),
-                for (final p in resp) DataCell(Text(p.frete > 0 ? moeda(p.frete) : '—')),
-              ]),
-              DataRow(color: WidgetStatePropertyAll(Cores.laranja.withValues(alpha: 0.25)), cells: [
-                const DataCell(Text('PREÇO FINAL', style: TextStyle(fontWeight: FontWeight.w800))),
-                for (final p in resp)
-                  DataCell(Text(moeda(p.total),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w800, color: identical(p, melhor) ? Cores.sucesso : null))),
-              ]),
-            ],
-          ),
-        ),
+        const Secao('Preço por item'),
+        for (final (i, it) in g.itens.indexed) _CartaoItem(g: g, i: i, it: it, resp: resp, cor: coresCotacao(widget.tipo).$1),
+        const Secao('Preço final por fornecedor'),
+        for (final p in resp) _CartaoTotais(p: p, melhor: identical(p, melhor), cor: coresCotacao(widget.tipo).$1),
       ],
       const Secao('Fornecedores'),
       for (final p in g.pedidos)
@@ -656,6 +660,227 @@ class FaixaCotacaoRecebida extends StatelessWidget {
                 ]),
               ),
             ),
+          );
+        },
+      );
+}
+
+
+/// Rótulos dos três preços que o fornecedor informa (À vista, 30/60/90, 90 direto).
+const _modos = ['À vista', '30/60/90 dias', '90 dias direto'];
+
+/// Caixinha com um preço; verde quando é o menor entre os fornecedores.
+class _PrecoCaixa extends StatelessWidget {
+  const _PrecoCaixa(this.rotulo, this.valor, {this.menor = false});
+  final String rotulo;
+  final double? valor;
+  final bool menor;
+
+  @override
+  Widget build(BuildContext context) {
+    final cor = valor == null ? Colors.grey : (menor ? Cores.sucesso : null);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: menor ? Cores.sucesso.withValues(alpha: 0.12) : Colors.grey.withValues(alpha: 0.10),
+        border: Border.all(color: menor ? Cores.sucesso : Colors.grey.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        Text(rotulo, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        Text(valor == null ? '—' : moeda(valor),
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: cor)),
+      ]),
+    );
+  }
+}
+
+/// Um item da cotação com o preço de cada fornecedor nos três prazos.
+class _CartaoItem extends StatelessWidget {
+  const _CartaoItem({required this.g, required this.i, required this.it, required this.resp, required this.cor});
+  final GrupoCotacao g;
+  final int i;
+  final ItemCotacao it;
+  final List<PedidoCotacao> resp;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) {
+    List<double?> precos(PedidoCotacao p, int m) => switch (m) { 0 => p.precos, 1 => p.precos30, _ => p.precos90 };
+    double? menor(int m) => resp
+        .map((p) => precos(p, m)[i])
+        .whereType<double>()
+        .fold<double?>(null, (a, v) => a == null || v < a ? v : a);
+    final menores = [for (var m = 0; m < 3; m++) menor(m)];
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: Text(it.nome, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: cor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+              child: Text('${_q(it.qtd)} ${it.unidade}', style: TextStyle(fontWeight: FontWeight.w700, color: cor)),
+            ),
+          ]),
+          if (it.estoque != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(it.estoque! <= 0 ? 'Estoque: zerado' : 'Estoque: ${_q(it.estoque!)} ${it.unidade}',
+                  style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w600, color: it.estoque! <= 0 ? Cores.alerta : Cores.sucesso)),
+            ),
+          for (final p in resp) ...[
+            const Divider(height: 18),
+            Text(p.fornecedor, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            if (p.precos[i] == null && p.precos30[i] == null && p.precos90[i] == null)
+              const Text('não tem', style: TextStyle(color: Colors.grey))
+            else
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (var m = 0; m < 3; m++)
+                  _PrecoCaixa(_modos[m], precos(p, m)[i],
+                      menor: precos(p, m)[i] != null && precos(p, m)[i] == menores[m] && resp.length > 1),
+              ]),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+/// Total de um fornecedor nos três prazos, com o frete.
+class _CartaoTotais extends StatelessWidget {
+  const _CartaoTotais({required this.p, required this.melhor, required this.cor});
+  final PedidoCotacao p;
+  final bool melhor;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: melhor ? Cores.sucesso : Colors.transparent, width: 2)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            if (melhor) const Padding(padding: EdgeInsets.only(right: 6), child: Icon(Icons.emoji_events_outlined, color: Cores.laranja)),
+            Expanded(child: Text(p.fornecedor, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+            Text('${p.cotados} de ${p.itens.length} itens', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          ]),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (var m = 0; m < 3; m++)
+              _PrecoCaixa('Final ${_modos[m].toLowerCase()}', p.cotadosModo(m) > 0 ? p.totalModo(m) : null,
+                  menor: m == 0 && melhor),
+          ]),
+          if (p.frete > 0) Padding(padding: const EdgeInsets.only(top: 6), child: Text('Frete incluso: ${moeda(p.frete)}', style: const TextStyle(fontSize: 12))),
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// Lista os fornecedores do cadastro que ainda não receberam esta cotação.
+class _EscolherOutrosFornecedores extends StatefulWidget {
+  const _EscolherOutrosFornecedores({required this.tipo, required this.jaEnviados});
+  final String tipo;
+  final Set<int?> jaEnviados;
+
+  @override
+  State<_EscolherOutrosFornecedores> createState() => _EscolherOutrosFornecedoresState();
+}
+
+class _EscolherOutrosFornecedoresState extends State<_EscolherOutrosFornecedores> {
+  final _marcados = <int>{};
+
+  List<Reg> get _faltam => [
+        for (final f in fornecedoresDe(widget.tipo))
+          if (!widget.jaEnviados.contains(f['id'])) f,
+      ];
+
+  @override
+  Widget build(BuildContext context) {
+    final faltam = _faltam;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Enviar a outro fornecedor', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+          const SizedBox(height: 4),
+          const Text('Fornecedores que não receberam esta cotação. Os mesmos itens e quantidades serão enviados.'),
+          const SizedBox(height: 8),
+          if (faltam.isEmpty)
+            const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('Todos os fornecedores cadastrados já receberam. Cadastre outro para enviar.')),
+          Flexible(
+            child: ListView(shrinkWrap: true, children: [
+              for (final f in faltam)
+                CheckboxListTile(
+                  value: _marcados.contains(f['id']),
+                  title: Text(txt(f['nome'])),
+                  subtitle: txt(f['telefone']).isEmpty ? const Text('sem telefone') : Text(txt(f['telefone'])),
+                  onChanged: (v) => setState(() => v == true ? _marcados.add(f['id'] as int) : _marcados.remove(f['id'])),
+                ),
+            ]),
+          ),
+          Row(children: [
+            TextButton.icon(
+              icon: const Icon(Icons.add),
+              label: const Text('Novo fornecedor'),
+              onPressed: () async {
+                await Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => ContatoFormPage(tipo: 'Fornecedor', fornece: widget.tipo)));
+                if (mounted) setState(() {});
+              },
+            ),
+            const Spacer(),
+            FilledButton.icon(
+              icon: const Icon(Icons.chat),
+              label: Text('Enviar${_marcados.isEmpty ? '' : ' (${_marcados.length})'}'),
+              onPressed: _marcados.isEmpty
+                  ? null
+                  : () => Navigator.pop(context, [for (final f in faltam) if (_marcados.contains(f['id'])) f]),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
+}
+
+
+/// Ícone "cotação respondida" ao lado do sininho: aparece com o número de respostas novas.
+class AlertaCotacaoRespondida extends StatelessWidget {
+  const AlertaCotacaoRespondida({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<List<PedidoCotacao>>(
+        valueListenable: CotacoesCompra.recebidas,
+        builder: (context, lista, _) {
+          final daqui = [for (final p in lista) if (txt(p.dados['propriedade_id']) == '${Db.pid}') p];
+          if (daqui.isEmpty) return const SizedBox.shrink();
+          final p = daqui.first;
+          return IconButton(
+            tooltip: daqui.length == 1
+                ? 'Cotação respondida: ${p.fornecedor}'
+                : '${daqui.length} cotações respondidas',
+            icon: Badge(
+              label: Text('${daqui.length}'),
+              backgroundColor: Cores.sucesso,
+              child: const Icon(Icons.request_quote, color: Cores.laranja),
+            ),
+            onPressed: () => daqui.length == 1
+                ? Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: p.tipo, grupo: p.grupo)))
+                : Nav.ir(p.tipo == tipoMedicamentos ? secCotacaoMedicamentos : secCotacaoInsumos),
           );
         },
       );

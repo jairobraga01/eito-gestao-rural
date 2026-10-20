@@ -16,7 +16,7 @@ import '../widgets/botao_instalar.dart';
 import '../widgets/logo_eito.dart';
 import 'animais.dart';
 import 'conta.dart';
-import 'cotacao_compra.dart' show FaixaCotacaoRecebida;
+import 'cotacao_compra.dart' show AlertaCotacaoRespondida, FaixaCotacaoRecebida;
 import 'dispositivos.dart';
 import 'equipe.dart';
 import 'indicacoes.dart';
@@ -485,6 +485,7 @@ class Pagina extends StatelessWidget {
         title: Text(titulo),
         actions: [
           ...?acoes,
+          const AlertaCotacaoRespondida(),
           const SininhoAvisos(),
           if (podeLancar)
             IconButton(

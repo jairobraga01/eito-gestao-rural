@@ -55,4 +55,19 @@ void main() {
     expect(t, contains('SIMILAR'));
     expect(t, contains(p.link));
   });
+
+  test('total por prazo soma só os itens cotados naquele prazo', () {
+    final p = PedidoCotacao('c1', {
+      'itens': [
+        {'nome': 'A', 'unidade': 'un', 'qtd': 2},
+        {'nome': 'B', 'unidade': 'un', 'qtd': 1},
+      ],
+      'precos': [10, 5],
+      'precos_30_60_90': [12, null],
+      'frete': 3,
+    });
+    expect(p.totalModo(0), 2 * 10 + 5 + 3);
+    expect(p.totalModo(1), 2 * 12 + 3);
+    expect(p.cotadosModo(2), 0);
+  });
 }

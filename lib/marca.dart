@@ -8,4 +8,7 @@ class Marca {
     'Monitore o rebanho, acompanhe indicadores e tome decisões com segurança, de onde estiver.',
   ];
   static const fechamento = 'Aqui, dados viram resultados.';
+
+  /// E-mail de contato do Eito (suporte e envio das mensagens).
+  static const email = 'eitogestaorural@gmail.com';
 }

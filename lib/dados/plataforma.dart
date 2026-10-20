@@ -12,6 +12,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../marca.dart';
 import 'db.dart';
 import 'equipe.dart';
 
@@ -260,7 +261,7 @@ String textoBoasVindas(String nome) => 'Olá$_primeiroNome(nome)! Sua conta no E
     'Você tem 14 dias com tudo liberado para testar.\n\n'
     'Comece cadastrando a fazenda e os pastos; depois monte os lotes e lance o rebanho. '
     'Funciona no curral mesmo sem sinal.\n\n'
-    'Se precisar, fale com a gente pela Ajuda dentro do app.\n\n'
+    'Se precisar, fale com a gente pela Ajuda dentro do app ou pelo e-mail ${Marca.email}.\n\n'
     'Abrir o Eito: $_site';
 
 String _esc(String t) => t.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
@@ -278,6 +279,6 @@ String htmlBoasVindas(String nome) {
 Se precisar, fale com a gente pela Ajuda dentro do app.</p>
 <p style="margin:28px 0 8px"><a href="$_site" style="background:#00602A;color:#fff;text-decoration:none;font-weight:bold;font-size:17px;padding:14px 26px;border-radius:10px;display:inline-block">Abrir o Eito Gestão</a></p>
 </div>
-<p style="font-size:13px;color:#6b7468;margin:16px 4px">Você recebeu este e-mail porque tem uma conta no Eito Gestão.</p>
+<p style="font-size:13px;color:#6b7468;margin:16px 4px">Você recebeu este e-mail porque tem uma conta no Eito Gestão. Dúvidas: <a href="mailto:${Marca.email}" style="color:#00602A">${Marca.email}</a></p>
 </div></div>''';
 }

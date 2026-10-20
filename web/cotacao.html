@@ -17,11 +17,15 @@ header{background:var(--verde);color:#fff;padding:20px 16px}
 header .marca{font-weight:800;font-size:1.25rem}
 header .marca span{color:var(--amarelo)}
 header p{margin:4px 0 0;color:#d6e6d6}
+header .fazenda{margin-top:10px;font-size:1.15rem;font-weight:700;color:#fff}
 main{max-width:720px;margin:0 auto;padding:16px}
 .cartao{background:var(--cartao);border:1px solid var(--borda);border-radius:14px;padding:16px;margin-bottom:14px}
 h1{font-size:1.3rem;margin:0 0 4px}
 .suave{color:var(--suave);font-size:.95rem}
-.item{display:grid;grid-template-columns:1fr 140px;gap:10px;align-items:center;padding:12px 0;border-top:1px dashed var(--borda)}
+.item{padding:12px 0;border-top:1px dashed var(--borda)}
+.precos{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.precos label{margin:0 0 2px;font-size:.78rem}
+.precos input{padding:8px 8px}
 .item:first-of-type{border-top:0}
 .item b{display:block}
 label{display:block;font-size:.9rem;margin:12px 0 4px;color:var(--suave)}
@@ -41,6 +45,7 @@ footer{text-align:center;color:var(--suave);font-size:.85rem;padding:8px 16px 32
 <header>
   <div class="marca">Eito <span>Gestão</span></div>
   <p>Cotação de preços</p>
+  <div class="fazenda" id="fazenda"></div>
 </header>
 <main id="tela">
   <div class="cartao"><p class="suave">Carregando a cotação…</p></div>
@@ -60,6 +65,7 @@ const db = getFirestore(app);
 const tela = document.getElementById('tela');
 const codigo = new URLSearchParams(location.search).get('c') || '';
 
+const PRAZOS = [{ id: 'p', nome: 'À vista' }, { id: 'q', nome: '30/60/90 dias' }, { id: 'r', nome: '90 dias direto' }];
 const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const moeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const qtd = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
@@ -88,49 +94,56 @@ async function abrir() {
     return aviso('Cotação enviada', 'Os preços desta cotação já foram enviados. Obrigado!');
   }
   const itens = c.itens || [];
+  if (c.fazenda) document.getElementById('fazenda').textContent = c.fazenda;
   tela.innerHTML = `
     <div class="cartao">
       <h1>Olá, ${esc(c.fornecedor?.nome)}!</h1>
       <p class="suave">${esc(c.fazenda || 'A fazenda')} pede uma cotação de ${esc((c.tipo || '').toLowerCase())}.
-      Informe o <b>preço por unidade</b> de cada item. Deixe em branco o que não tiver.</p>
+      Informe o <b>preço por unidade</b> de cada item: <b>À vista</b>, <b>30/60/90 dias</b> e <b>90 dias direto</b>. Deixe em branco o que não tiver.</p>
       ${c.pedido_obs ? `<p><b>Recado:</b> ${esc(c.pedido_obs)}</p>` : ''}
     </div>
     <form class="cartao" id="form">
       ${itens.map((it, i) => `
         <div class="item">
-          <div><b>${esc(it.nome)}</b><span class="suave">${qtd(it.qtd)} ${esc(it.unidade)}</span>
-            <div class="suave" id="sub${i}"></div></div>
-          <div><input inputmode="decimal" id="p${i}" placeholder="R$ por ${esc(it.unidade)}" aria-label="Preço de ${esc(it.nome)}"></div>
+          <b>${esc(it.nome)}</b> <span class="suave">${qtd(it.qtd)} ${esc(it.unidade)}</span>
+          <div class="precos">
+            ${PRAZOS.map((z) => `<div><label for="${z.id}${i}">${z.nome}</label><input inputmode="decimal" id="${z.id}${i}" placeholder="R$ por ${esc(it.unidade)}" aria-label="${z.nome}: ${esc(it.nome)}"></div>`).join('')}
+          </div>
+          <div class="suave" id="sub${i}"></div>
         </div>`).join('')}
       <label for="frete">Frete (R$)</label><input inputmode="decimal" id="frete" placeholder="0,00">
       <label for="prazo">Prazo de entrega</label><input id="prazo" placeholder="Ex.: 2 dias úteis">
       <label for="pag">Forma de pagamento</label><input id="pag" placeholder="Ex.: Pix, boleto 30 dias">
       <label for="obs">Observações</label><textarea id="obs" rows="2"></textarea>
       <label for="nome">Seu nome</label><input id="nome" placeholder="Quem está respondendo">
-      <div class="total"><span>Preço final</span><span id="total">R$ 0,00</span></div>
+      <div class="total"><span>Preço final à vista</span><span id="total">R$ 0,00</span></div>
+      <div class="suave" id="totais"></div>
       <p class="erro" id="erro"></p>
       <button type="submit" id="enviar">Enviar cotação</button>
     </form>`;
   const form = document.getElementById('form');
-  const precos = () => itens.map((_, i) => lerNumero(document.getElementById('p' + i).value));
+  const precos = (z) => itens.map((_, i) => lerNumero(document.getElementById(z.id + i).value));
   const conta = () => {
-    const p = precos();
-    let t = lerNumero(document.getElementById('frete').value) || 0;
-    p.forEach((v, i) => {
-      const sub = document.getElementById('sub' + i);
-      if (v == null) { sub.textContent = ''; return; }
-      const parcial = v * Number(itens[i].qtd || 0);
-      sub.textContent = 'Subtotal: ' + moeda(parcial);
-      t += parcial;
+    const frete = lerNumero(document.getElementById('frete').value) || 0;
+    const somas = PRAZOS.map((z) => {
+      let t = 0, algum = false;
+      precos(z).forEach((v, i) => { if (v != null) { t += v * Number(itens[i].qtd || 0); algum = true; } });
+      return { z, t, algum };
     });
-    document.getElementById('total').textContent = moeda(t);
+    itens.forEach((_, i) => {
+      const partes = PRAZOS.filter((z) => lerNumero(document.getElementById(z.id + i).value) != null)
+        .map((z) => z.nome + ': ' + moeda(lerNumero(document.getElementById(z.id + i).value) * Number(itens[i].qtd || 0)));
+      document.getElementById('sub' + i).textContent = partes.length ? 'Subtotal · ' + partes.join(' · ') : '';
+    });
+    document.getElementById('total').textContent = moeda(somas[0].t + frete);
+    document.getElementById('totais').textContent = somas.slice(1).filter((x) => x.algum).map((x) => x.z.nome + ': ' + moeda(x.t + frete)).join(' · ');
   };
   form.addEventListener('input', conta);
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const p = precos();
+    const [p, p30, p90] = PRAZOS.map(precos);
     const erro = document.getElementById('erro');
-    if (p.every((v) => v == null)) { erro.textContent = 'Informe o preço de pelo menos um item.'; return; }
+    if ([...p, ...p30, ...p90].every((v) => v == null)) { erro.textContent = 'Informe o preço de pelo menos um item.'; return; }
     const botao = document.getElementById('enviar');
     botao.disabled = true;
     botao.textContent = 'Enviando…';
@@ -139,6 +152,8 @@ async function abrir() {
       await updateDoc(doc(db, 'pedidos_cotacao', codigo), {
         status: 'respondida',
         precos: p,
+        precos_30_60_90: p30,
+        precos_90_direto: p90,
         frete: lerNumero(document.getElementById('frete').value),
         prazo: document.getElementById('prazo').value.trim(),
         pagamento: document.getElementById('pag').value.trim(),
@@ -150,7 +165,8 @@ async function abrir() {
     } catch (e) {
       botao.disabled = false;
       botao.textContent = 'Enviar cotação';
-      erro.textContent = 'Não foi possível enviar. Confira a internet e tente de novo.';
+      console.error(e);
+      erro.textContent = 'Não foi possível enviar (' + (e && e.code ? e.code : 'erro') + '). Confira a internet e tente de novo.';
     }
   });
 }

@@ -180,9 +180,11 @@ service cloud.firestore {
       allow update: if (donoDaCotacao(resource.data) && request.resource.data.dono == resource.data.dono)
         || (resource.data.status == 'aberta' && request.resource.data.status == 'respondida'
           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['status', 'precos', 'frete', 'prazo', 'pagamento', 'obs', 'respondido_por', 'respondido_em'])
+            .hasOnly(['status', 'precos', 'precos_30_60_90', 'precos_90_direto', 'frete', 'prazo', 'pagamento', 'obs', 'respondido_por', 'respondido_em'])
           && request.resource.data.precos is list
           && request.resource.data.precos.size() == resource.data.itens.size()
+          && request.resource.data.get('precos_30_60_90', []).size() <= resource.data.itens.size()
+          && request.resource.data.get('precos_90_direto', []).size() <= resource.data.itens.size()
           && request.resource.data.respondido_em == request.time);
       allow delete: if donoDaCotacao(resource.data);
     }

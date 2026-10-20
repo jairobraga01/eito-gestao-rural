@@ -66,6 +66,15 @@ class PedidoCotacao {
     return [for (var i = 0; i < itens.length; i++) i < p.length ? _num(p[i]) : null];
   }
 
+  /// Preço a prazo de cada item: 30/60/90 dias e 90 dias direto (null = não informado).
+  List<double?> get precos30 => _lista('precos_30_60_90');
+  List<double?> get precos90 => _lista('precos_90_direto');
+
+  List<double?> _lista(String campo) {
+    final p = dados[campo] as List? ?? const [];
+    return [for (var i = 0; i < itens.length; i++) i < p.length ? _num(p[i]) : null];
+  }
+
   double get frete => _num(dados['frete']) ?? 0;
   String get prazo => _t(dados['prazo']);
   String get pagamento => _t(dados['pagamento']);

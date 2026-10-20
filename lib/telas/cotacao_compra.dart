@@ -515,7 +515,7 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
           child: Text('Nenhum fornecedor respondeu ainda. Quando responder, aparece o aviso "Cotação Recebida".'),
         ),
       if (resp.isNotEmpty) ...[
-        const Secao('Preço por item (menor em verde)'),
+        const Secao('Preço por item (menor à vista em verde)'),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -531,13 +531,19 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
                 DataRow(cells: [
                   DataCell(Text('${it.nome}\n${_q(it.qtd)} ${it.unidade}')),
                   for (final p in resp)
-                    DataCell(Text(
-                      p.precos[i] == null ? 'não tem' : moeda(p.precos[i]),
-                      style: TextStyle(
-                        color: p.precos[i] != null && p.precos[i] == menores[i] ? Cores.sucesso : null,
-                        fontWeight: p.precos[i] != null && p.precos[i] == menores[i] ? FontWeight.w800 : null,
+                    DataCell(Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(
+                        p.precos[i] == null ? 'à vista: —' : 'à vista: ${moeda(p.precos[i])}',
+                        style: TextStyle(
+                          color: p.precos[i] != null && p.precos[i] == menores[i] ? Cores.sucesso : null,
+                          fontWeight: p.precos[i] != null && p.precos[i] == menores[i] ? FontWeight.w800 : null,
+                        ),
                       ),
-                    )),
+                      if (p.precos30[i] != null)
+                        Text('30/60/90: ${moeda(p.precos30[i])}', style: const TextStyle(fontSize: 12)),
+                      if (p.precos90[i] != null)
+                        Text('90 dias direto: ${moeda(p.precos90[i])}', style: const TextStyle(fontSize: 12)),
+                    ])),
                 ]),
               DataRow(cells: [
                 const DataCell(Text('Frete')),

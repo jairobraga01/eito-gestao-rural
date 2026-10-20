@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/plataforma.dart';
+import '../marca.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
@@ -77,6 +78,12 @@ class _Duvidas extends StatelessWidget {
             label: const Text('Não achei: falar com o suporte'),
             onPressed: () => novoChamado(context),
           ),
+        ),
+        ListTile(
+          leading: const Icon(Icons.mail_outline, color: Cores.oliva),
+          title: const Text('E-mail do Eito'),
+          subtitle: const Text(Marca.email),
+          onTap: () => launchUrl(Uri.parse('mailto:${Marca.email}')),
         ),
       ]);
 }

@@ -60,6 +60,9 @@ class Plataforma {
   /// Telefone digitado no cadastro; vai para a conta no primeiro acesso.
   static String? telefoneNovo;
 
+  /// A conta foi criada agora (mostra as boas-vindas no app).
+  static final contaNova = ValueNotifier<bool>(false);
+
   /// Chamados do usuário com resposta ainda não lida.
   static final naoLidos = ValueNotifier<int>(0);
 
@@ -98,7 +101,10 @@ class Plataforma {
           'plano': 'Teste',
           'teste_ate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 14))),
           'status': 'ativa',
+          'boas_vindas_whats': 'pendente',
         });
+        contaNova.value = papel == 'dono';
+        if (papel == 'dono') await _emailBoasVindas(u);
       } else {
         await ref.update(resumo);
       }
@@ -123,6 +129,25 @@ class Plataforma {
     }
     conta.value = c;
     return c;
+  }
+
+  /// Põe o e-mail de boas-vindas na fila mail/{uid}: a extensão "Trigger Email"
+  /// do Firebase envia (sem ela instalada, fica só guardado).
+  static Future<void> _emailBoasVindas(User u) async {
+    final email = u.email;
+    if (email == null || email.isEmpty) return;
+    try {
+      await _db.collection('mail').doc(u.uid).set({
+        'to': email,
+        'message': {
+          'subject': 'Bem-vindo ao Eito Gestão',
+          'text': textoBoasVindas(u.displayName ?? ''),
+          'html': htmlBoasVindas(u.displayName ?? ''),
+        },
+      });
+    } catch (e) {
+      debugPrint('Eito: e-mail de boas-vindas: $e');
+    }
   }
 
   /// Liga o sininho (respostas dos chamados) e os comunicados.
@@ -222,4 +247,37 @@ class Plataforma {
 
   static Future<void> mudarStatus(String id, String status) =>
       chamados.doc(id).update({'status': status, 'atualizado_em': FieldValue.serverTimestamp()});
+}
+
+// ---------- Boas-vindas ----------
+
+const _site = 'https://eitogestao.com.br';
+
+String _primeiroNome(String nome) => nome.trim().isEmpty ? '' : ', ${nome.trim()}';
+
+/// Mensagem de boas-vindas (WhatsApp e texto do e-mail).
+String textoBoasVindas(String nome) => 'Olá$_primeiroNome(nome)! Sua conta no Eito Gestão está pronta. 🐂\n\n'
+    'Você tem 14 dias com tudo liberado para testar.\n\n'
+    'Comece cadastrando a fazenda e os pastos; depois monte os lotes e lance o rebanho. '
+    'Funciona no curral mesmo sem sinal.\n\n'
+    'Se precisar, fale com a gente pela Ajuda dentro do app.\n\n'
+    'Abrir o Eito: $_site';
+
+String _esc(String t) => t.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+
+/// E-mail de boas-vindas em HTML.
+String htmlBoasVindas(String nome) {
+  final n = nome.trim().isEmpty ? '' : ', ${_esc(nome.trim())}';
+  return '''<div style="background:#f3f5f0;padding:32px 16px;font-family:Arial,Helvetica,sans-serif;color:#0B1F14">
+<div style="max-width:560px;margin:0 auto">
+<div style="font-family:Georgia,serif;font-size:28px;font-weight:bold;color:#00602A;margin:0 0 20px">Eito Gestão</div>
+<div style="background:#fff;border:1px solid #dfe5da;border-radius:14px;padding:28px">
+<h1 style="font-size:24px;margin:0 0 16px">Sua conta está pronta</h1>
+<p style="font-size:16px;line-height:1.6">Olá$n. Você tem 14 dias com tudo liberado para testar.</p>
+<p style="font-size:16px;line-height:1.6">Comece cadastrando a fazenda e os pastos no mapa; depois monte os lotes do rebanho.
+Se precisar, fale com a gente pela Ajuda dentro do app.</p>
+<p style="margin:28px 0 8px"><a href="$_site" style="background:#00602A;color:#fff;text-decoration:none;font-weight:bold;font-size:17px;padding:14px 26px;border-radius:10px;display:inline-block">Abrir o Eito Gestão</a></p>
+</div>
+<p style="font-size:13px;color:#6b7468;margin:16px 4px">Você recebeu este e-mail porque tem uma conta no Eito Gestão.</p>
+</div></div>''';
 }

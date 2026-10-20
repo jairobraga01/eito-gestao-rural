@@ -1,0 +1,30 @@
+# Busca a cotação do boi gordo na B3 todo dia útil, depois do fechamento,
+# e grava no Firestore para o pop-up "Cotação da arroba" do app.
+name: Cotação do boi na B3
+
+on:
+  schedule:
+    - cron: '30 21 * * 1-5' # 18h30 em Brasília
+    - cron: '0 12 * * 1-5' # 9h em Brasília (pega o ajuste da véspera)
+  workflow_dispatch:
+  push:
+    branches: ['claude/**']
+    paths: ['scripts/cotacao_b3.py', '.github/workflows/cotacao-b3.yml']
+
+concurrency:
+  group: cotacao-b3
+  cancel-in-progress: true
+
+jobs:
+  cotacao:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet google-auth requests
+      - name: Buscar e gravar
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python scripts/cotacao_b3.py

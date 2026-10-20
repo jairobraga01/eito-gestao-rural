@@ -166,6 +166,41 @@ service cloud.firestore {
       allow write: if admin();
     }
 
+    // Cotação de medicamentos e insumos: um documento por fornecedor, com um
+    // código sorteado no nome (vai no link do WhatsApp). O fornecedor abre o
+    // link sem login, lê só aquele documento e grava uma vez os preços.
+    function donoDaCotacao(d) {
+      return logado() && (d.dono == request.auth.uid || membro(d.dono));
+    }
+    match /pedidos_cotacao/{codigo} {
+      allow get: if true;
+      allow list: if donoDaCotacao(resource.data);
+      allow create: if donoDaCotacao(request.resource.data)
+        && request.resource.data.status == 'aberta' && codigo.size() >= 20;
+      allow update: if (donoDaCotacao(resource.data) && request.resource.data.dono == resource.data.dono)
+        || (resource.data.status == 'aberta' && request.resource.data.status == 'respondida'
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'precos', 'frete', 'prazo', 'pagamento', 'obs', 'respondido_por', 'respondido_em'])
+          && request.resource.data.precos is list
+          && request.resource.data.precos.size() == resource.data.itens.size()
+          && request.resource.data.respondido_em == request.time);
+      allow delete: if donoDaCotacao(resource.data);
+    }
+
+    // E-mail de boas-vindas (extensão "Trigger Email" do Firebase lê esta
+    // coleção e envia). A pessoa só cria o da própria conta, uma vez.
+    match /mail/{uid} {
+      allow create: if logado() && request.auth.uid == uid
+        && request.resource.data.to == request.auth.token.email;
+      allow read, update, delete: if admin();
+    }
+
+    // Cotação do boi gordo na B3 (o GitHub Actions grava todo dia).
+    match /mercado/{doc} {
+      allow read: if logado();
+      allow write: if admin();
+    }
+
     // Todo o resto fica bloqueado
     match /{document=**} {
       allow read, write: if false;

@@ -12,6 +12,19 @@ List<Reg> contatos() => [
         if (_int(c['propriedade_id']) == Db.pid) c,
     ]..sort((a, b) => _t(a['nome']).toLowerCase().compareTo(_t(b['nome']).toLowerCase()));
 
+/// O que o fornecedor vende (liga o cadastro às cotações e aos estoques).
+const forneceOpcoes = ['Medicamentos', 'Insumos'];
+
+/// O que o fornecedor marcou que vende (vazio = não marcou nada).
+List<String> forneceDo(Reg c) => [for (final x in (c['fornece'] as List? ?? const [])) '$x'];
+
+/// Fornecedores de medicamentos ou de insumos ([tipo] de [forneceOpcoes]).
+/// Quem não marcou o que vende aparece nos dois.
+List<Reg> fornecedoresDe(String tipo) => [
+      for (final c in contatosPara('Fornecedor'))
+        if (forneceDo(c).isEmpty || forneceDo(c).contains(tipo)) c,
+    ];
+
 /// Contatos que servem para [tipo] ('Fornecedor' ou 'Comprador').
 List<Reg> contatosPara(String tipo) =>
     contatos().where((c) => _t(c['tipo']) == 'Os dois' || _t(c['tipo']) == tipo).toList();

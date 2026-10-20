@@ -6,6 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'dados/db.dart';
 import 'dados/equipe.dart';
+import 'dados/cotacao_compra.dart';
 import 'dados/plataforma.dart';
 import 'dispositivos/leitor_teclado.dart';
 import 'firebase_options.dart';
@@ -33,6 +34,7 @@ import 'telas/lotes.dart';
 import 'telas/mapa.dart';
 import 'telas/animais.dart';
 import 'telas/contatos.dart';
+import 'telas/cotacao_compra.dart' show CotacoesCompraPage;
 import 'telas/piquetes.dart';
 import 'telas/producao_leite.dart';
 import 'telas/propriedades.dart';
@@ -131,6 +133,7 @@ class _CarregarDadosState extends State<CarregarDados> {
         dono: acesso?.dono, papel: acesso?.papel ?? 'dono', nome: acesso?.nome ?? u.displayName ?? u.email ?? '');
     await Plataforma.registrarAcesso(u, dono: acesso?.dono, papel: acesso?.papel ?? 'dono');
     Plataforma.iniciarAvisos(u.uid);
+    if (!Db.ehCampo) CotacoesCompra.iniciar();
     // O veterinário abre direto na reprodução.
     if (Db.ehVeterinario) Nav.secao.value = secReproducao;
     if (Db.ehZootecnista) Nav.secao.value = secDieta;
@@ -227,6 +230,9 @@ class _InicioState extends State<Inicio> {
         secProteinado => const ProteinadoPage(),
         secEstoque => const EstoquePage(),
         secMedicamentos => const EstoquePage(medicamentos: true),
+        secCotacaoMedicamentos => const CotacoesCompraPage(tipo: tipoMedicamentos),
+        secCotacaoInsumos => const CotacoesCompraPage(tipo: tipoInsumos),
+        secFornecedores => const ContatosPage(soFornecedores: true),
         secDieta => const DietaPage(),
         secCotacao => const CotacaoArrobaPage(),
         secVender => const VenderEsperarPage(),

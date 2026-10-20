@@ -6,6 +6,7 @@ import '../dados/db.dart';
 import '../dados/estoque.dart' show alertasEstoque;
 import '../dados/mapa.dart' show Rodizio, SituacaoPasto, rodizio;
 import '../dados/planos.dart';
+import '../dados/plataforma.dart' show Plataforma;
 import '../tema.dart';
 import '../util/util.dart';
 import 'animais.dart';
@@ -14,6 +15,7 @@ import 'clima.dart' show iconeTempo;
 import 'fila_do_dia.dart';
 import 'lancamento_voz.dart';
 import 'manejo_em_serie.dart';
+import 'popup_arroba.dart';
 import 'mover.dart' show MudarPastoPage;
 import 'relatorios.dart' show partosPrevistos, diagnosticosAtrasados, aplicacoesProximas, animaisEmCarencia;
 import 'reproducao.dart';
@@ -66,7 +68,27 @@ class _InicioPageState extends State<InicioPage> {
     if (!Db.ehCampo && podeLancar) {
       WidgetsBinding.instance.addPostFrameCallback((_) => conferirLimiteAnimais(hojeIso()));
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (Plataforma.contaNova.value) {
+        Plataforma.contaNova.value = false;
+        await _boasVindas();
+      } else if (!Db.ehCampo && mounted) {
+        await popupArrobaDoDia(context);
+      }
+    });
   }
+
+  Future<void> _boasVindas() => showDialog<void>(
+        context: context,
+        builder: (c) => AlertDialog(
+          icon: const Icon(Icons.celebration_outlined, color: Cores.oliva, size: 40),
+          title: const Text('Sua conta está pronta'),
+          content: const Text('Você tem 14 dias com tudo liberado para testar.\n\n'
+              'Comece cadastrando a fazenda e os pastos no mapa; depois monte os lotes do rebanho. '
+              'Se precisar, fale com a gente pela Ajuda dentro do app.'),
+          actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Começar'))],
+        ),
+      );
 
   void _abrir(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
 
@@ -157,6 +179,7 @@ class _InicioPageState extends State<InicioPage> {
           padding: const EdgeInsets.only(bottom: 88),
           children: [
             const _PrevisaoTopo(),
+            const _AtalhoArroba(),
             const _AvisoPlano(),
             Secao('Alertas (${alertas.length})'),
             if (alertas.isEmpty)
@@ -456,6 +479,37 @@ class _PrevisaoTopoState extends State<_PrevisaoTopo> {
       },
     );
   }
+}
+
+/// Atalho "Cotação da arroba", logo abaixo da previsão do tempo: abre o
+/// quadro da B3 e os sites do Notícias Agrícolas e da Scot Consultoria.
+class _AtalhoArroba extends StatelessWidget {
+  const _AtalhoArroba();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        child: Material(
+          color: const Color(0xFFF1F7F0),
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => mostrarCotacaoArroba(context),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              child: Row(children: [
+                Icon(Icons.trending_up, color: Color(0xFF43A047), size: 30),
+                SizedBox(width: 18),
+                Expanded(
+                  child: Text('Cotação da arroba',
+                      style: TextStyle(fontSize: 18, color: Cores.tinta, fontWeight: FontWeight.w500)),
+                ),
+                Icon(Icons.chevron_right, color: Cores.oliva),
+              ]),
+            ),
+          ),
+        ),
+      );
 }
 
 /// Atalho grande para o Modo Curral (lançar o serviço feito no curral).

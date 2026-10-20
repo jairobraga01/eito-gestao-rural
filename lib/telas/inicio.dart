@@ -488,24 +488,43 @@ class _AtalhoArroba extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
         child: Material(
-          color: const Color(0xFFF1F7F0),
+          elevation: 3,
+          shadowColor: const Color(0xFF1B5E20),
           borderRadius: BorderRadius.circular(16),
           clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => mostrarCotacaoArroba(context),
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              child: Row(children: [
-                Icon(Icons.trending_up, color: Color(0xFF43A047), size: 30),
-                SizedBox(width: 18),
-                Expanded(
-                  child: Text('Cotação da arroba',
-                      style: TextStyle(fontSize: 18, color: Cores.tinta, fontWeight: FontWeight.w500)),
-                ),
-                Icon(Icons.chevron_right, color: Cores.oliva),
-              ]),
+          child: Ink(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+              ),
+            ),
+            child: InkWell(
+              onTap: () => mostrarCotacaoArroba(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.trending_up, color: Color(0xFF2E7D32), size: 28),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Cotação da arroba',
+                          style: TextStyle(fontSize: 19, color: Colors.white, fontWeight: FontWeight.w800)),
+                      SizedBox(height: 2),
+                      Text('Boi gordo na B3 e nos sites de cotação',
+                          style: TextStyle(fontSize: 13, color: Color(0xFFE8F5E9))),
+                    ]),
+                  ),
+                  const Icon(Icons.chevron_right, color: Colors.white, size: 30),
+                ]),
+              ),
             ),
           ),
         ),

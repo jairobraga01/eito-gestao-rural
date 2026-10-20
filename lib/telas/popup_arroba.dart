@@ -1,7 +1,8 @@
 // Pop-up da cotação da arroba no estilo do quadro da B3: contratos por mês,
-// fechamento em R$/@ e variação. Abre pelo atalho do Painel e uma vez por dia.
+// fechamento em R$/@ e variação. Abre pelo atalho do Painel e a cada vez que a página é atualizada (e fecha sozinho em 5 segundos).
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/mercado.dart';
@@ -24,20 +25,49 @@ Future<void> mostrarCotacaoArroba(BuildContext context) async {
   await showDialog<void>(context: context, builder: (_) => _PopupArroba(b3));
 }
 
-/// Abre o pop-up uma vez por dia, quando há cotação da B3 nova.
+/// Já abriu nesta carga da página? (zera quando a página é atualizada)
+bool _abriuNestaCarga = false;
+
+/// Abre o pop-up uma vez a cada vez que a página é carregada ou atualizada,
+/// quando há cotação da B3.
 Future<void> popupArrobaDoDia(BuildContext context) async {
+  if (_abriuNestaCarga) return;
   final b3 = await buscarCotacaoB3();
   if (b3 == null || !context.mounted) return;
-  try {
-    final p = await SharedPreferences.getInstance();
-    final hoje = hojeIso();
-    if (p.getString('popup_arroba') == hoje) return;
-    await p.setString('popup_arroba', hoje);
-  } catch (_) {
-    return;
+  _abriuNestaCarga = true;
+  await showDialog<void>(context: context, builder: (_) => _FechaSozinho(child: _PopupArroba(b3)));
+}
+
+/// Fecha o pop-up automático depois de 5 segundos (o aberto pelo atalho fica até fechar).
+class _FechaSozinho extends StatefulWidget {
+  const _FechaSozinho({required this.child});
+  final Widget child;
+
+  @override
+  State<_FechaSozinho> createState() => _FechaSozinhoState();
+}
+
+class _FechaSozinhoState extends State<_FechaSozinho> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      final rota = ModalRoute.of(context);
+      if (rota != null) Navigator.of(context).removeRoute(rota);
+    });
   }
-  if (!context.mounted) return;
-  await showDialog<void>(context: context, builder: (_) => _PopupArroba(b3));
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _PopupArroba extends StatelessWidget {

@@ -116,6 +116,129 @@ class EstoquePage extends StatelessWidget {
       Navigator.push(context, MaterialPageRoute(builder: (_) => InsumoFormPage(insumo: i)));
 }
 
+/// Cadastro de Insumos ou de Medicamentos: os produtos, com unidade, preço e
+/// fornecedor. O saldo e as entradas ficam no estoque.
+class CadastroProdutosPage extends StatefulWidget {
+  const CadastroProdutosPage({super.key, this.medicamentos = false});
+  final bool medicamentos;
+
+  @override
+  State<CadastroProdutosPage> createState() => _CadastroProdutosPageState();
+}
+
+class _CadastroProdutosPageState extends State<CadastroProdutosPage> {
+  bool get medicamentos => widget.medicamentos;
+  List<String> get categorias => medicamentos ? categoriasMedicamento : categoriasGeral;
+  String get _tipo => medicamentos ? tipoMedicamentos : tipoInsumos;
+
+  /// Produtos marcados para cotar.
+  final _marcados = <int>{};
+
+  /// Quantidade digitada para cada produto.
+  final _qtd = <int, TextEditingController>{};
+
+  TextEditingController _campoQtd(int id) => _qtd.putIfAbsent(id, TextEditingController.new);
+
+  @override
+  void dispose() {
+    for (final c in _qtd.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _cotar() => Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (_) => NovaCotacaoPage(tipo: _tipo, itensIniciais: {..._marcados}, qtdIniciais: {
+                for (final id in _marcados)
+                  if (_qtd[id]?.text.trim().isNotEmpty == true) id: _qtd[id]!.text.trim(),
+              })));
+
+  @override
+  Widget build(BuildContext context) {
+    return Pagina(
+      titulo: medicamentos ? 'Cadastro de Medicamentos' : 'Cadastro de Insumos',
+      acoes: [
+        IconButton(
+          tooltip: 'Cotação de $_tipo',
+          icon: const Icon(Icons.request_quote_outlined),
+          onPressed: () => Nav.ir(medicamentos ? secCotacaoMedicamentos : secCotacaoInsumos),
+        ),
+      ],
+      fab: _marcados.isNotEmpty
+          ? FloatingActionButton.extended(
+              heroTag: null,
+              backgroundColor: coresCotacao(_tipo).$1,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.request_quote_outlined),
+              label: Text('Cotar ${_marcados.length} item(ns)'),
+              onPressed: _cotar,
+            )
+          : FloatingActionButton.extended(
+              heroTag: null,
+              icon: const Icon(Icons.add),
+              label: Text(medicamentos ? 'Novo medicamento' : 'Novo insumo'),
+              onPressed: () =>
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => InsumoFormPage(categorias: categorias))),
+            ),
+      corpo: AoMudar<List<Reg>>(
+        carregar: () async => [
+          for (final i in insumos())
+            if (categorias.contains(categoriaInsumo(i)) && i['pronta_formula_id'] == null) i,
+        ],
+        builder: (context, ins) {
+          if (ins.isEmpty) {
+            return Vazio(
+                medicamentos
+                    ? 'Nenhum medicamento cadastrado.\nCadastre vacinas, remédios e vermífugos com o fornecedor de cada um.'
+                    : 'Nenhum insumo cadastrado.\nCadastre milho, sorgo, sal e ração com o fornecedor de cada um.',
+                icone: medicamentos ? Icons.medication_outlined : Icons.inventory_2_outlined);
+          }
+          return ListView(padding: const EdgeInsets.only(bottom: 88), children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Text('Marque os itens e toque em "Cotar" para pedir preço aos fornecedores.'),
+            ),
+            for (final cat in categorias)
+              if (ins.any((i) => categoriaInsumo(i) == cat)) ...[
+                Secao(cat),
+                for (final i in ins.where((i) => categoriaInsumo(i) == cat))
+                  ListTile(
+                    leading: Checkbox(
+                      value: _marcados.contains(i['id']),
+                      onChanged: (v) =>
+                          setState(() => v == true ? _marcados.add(i['id'] as int) : _marcados.remove(i['id'])),
+                    ),
+                    title: Text(txt(i['nome'])),
+                    subtitle: Text([
+                      unidadeInsumo(i),
+                      if (precoKgInsumo(i) != null) '${moeda(precoKgInsumo(i))}/${unidadeInsumo(i)}',
+                      if (Db.registro('contatos', i['fornecedor_id']) case final f?) 'fornecedor: ${txt(f['nome'])}',
+                    ].join(' · ')),
+                    trailing: SizedBox(
+                      width: 110,
+                      child: TextField(
+                        controller: _campoQtd(i['id'] as int),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(isDense: true, labelText: 'Qtd.', suffixText: unidadeInsumo(i)),
+                        onChanged: (t) {
+                          if (t.trim().isNotEmpty && !_marcados.contains(i['id'])) {
+                            setState(() => _marcados.add(i['id'] as int));
+                          }
+                        },
+                      ),
+                    ),
+                    onTap: () => EstoquePage._abrir(context, i),
+                  ),
+              ],
+          ]);
+        },
+      ),
+    );
+  }
+}
+
 class _InsumoTile extends StatelessWidget {
   const _InsumoTile(this.i, this.hoje);
   final Reg i;

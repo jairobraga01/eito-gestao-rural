@@ -70,7 +70,7 @@ const _assuntos = <_Assunto>[
     'O rodízio mostra dias de ocupação e de descanso, e a lotação aparece em UA/ha.',
   ]),
   (Icons.restaurant_outlined, 'Nutrição, insumos e batidas', 'Dieta, preços dos insumos e custo de cada batida.', [
-    'Menu › Nutrição › Estoque de insumos: cadastre milho, sorgo, sal e ingredientes e lance as entradas.',
+    'Menu › Nutrição/Insumos › Estoque de insumos: cadastre milho, sorgo, sal e ingredientes e lance as entradas.',
     'Toque no insumo e use o cifrão para lançar o preço da embalagem; o histórico mostra a variação.',
     'Em Fórmulas: Proteínados/Racões, monte cada fórmula com os ingredientes e a quantidade da batida.',
     'Em Gerar batida, escolha a fórmula e quantas batidas: o Eito mostra o custo com os preços de hoje, baixa o estoque e guarda a batida.',

@@ -13,6 +13,7 @@ import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
 import 'contatos.dart' show ContatoFormPage;
+import 'estoque.dart' show InsumoFormPage;
 
 String _q(double v) => numeroBr(v, casas: v % 1 == 0 ? 0 : 2);
 
@@ -29,6 +30,23 @@ List<Reg> itensDoTipo(String tipo) {
 
 void _abrirWhats(PedidoCotacao p) => launchUrl(linkWhatsCotacao(p), mode: LaunchMode.externalApplication);
 
+/// Cores de cada cotação: medicamentos em verde-água, insumos em laranja.
+(Color, Color) coresCotacao(String tipo) =>
+    tipo == tipoMedicamentos ? (const Color(0xFF00897B), const Color(0xFF26C6DA)) : (const Color(0xFFEF6C00), const Color(0xFFFFB300));
+
+const _corAguardando = Color(0xFFF9A825);
+const _corParcial = Color(0xFF1E88E5);
+const _corCompleta = Color(0xFF2E7D32);
+const _corNova = Color(0xFFD81B60);
+
+/// Situação da cotação (texto e cor).
+(String, Color) _situacao(GrupoCotacao g) {
+  if (g.respondidas.any((p) => !p.visto)) return ('Resposta nova', _corNova);
+  if (g.respondidas.isEmpty) return ('Aguardando', _corAguardando);
+  if (g.respondidas.length < g.pedidos.length) return ('Parcial', _corParcial);
+  return ('Todos responderam', _corCompleta);
+}
+
 /// Lista das cotações enviadas e o botão de nova cotação.
 class CotacoesCompraPage extends StatelessWidget {
   const CotacoesCompraPage({super.key, required this.tipo});
@@ -36,10 +54,25 @@ class CotacoesCompraPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final (cor, cor2) = coresCotacao(tipo);
     return Pagina(
       titulo: 'Cotação de $tipo',
+      acoes: [
+        IconButton(
+          tooltip: 'Cadastro de $tipo',
+          icon: const Icon(Icons.playlist_add_check),
+          onPressed: () => Nav.ir(tipo == tipoMedicamentos ? secCadastroMedicamentos : secCadastroInsumos),
+        ),
+        IconButton(
+          tooltip: 'Fornecedores de $tipo',
+          icon: const Icon(Icons.local_shipping_outlined),
+          onPressed: () => Nav.ir(tipo == tipoMedicamentos ? secFornecedoresMedicamentos : secFornecedoresInsumos),
+        ),
+      ],
       fab: FloatingActionButton.extended(
         heroTag: null,
+        backgroundColor: cor,
+        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Nova cotação'),
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => NovaCotacaoPage(tipo: tipo))),
@@ -48,31 +81,107 @@ class CotacoesCompraPage extends StatelessWidget {
         valueListenable: CotacoesCompra.pedidos,
         builder: (context, lista, _) {
           final grupos = CotacoesCompra.grupos(tipo, lista);
-          if (grupos.isEmpty) {
-            return Vazio(
-                'Nenhuma cotação ainda.\nEscolha os ${tipo.toLowerCase()} e os fornecedores e mande o link pelo WhatsApp. '
-                'Cada fornecedor preenche os preços no celular, sem entrar no app, e você compara tudo aqui.',
-                icone: Icons.request_quote_outlined);
-          }
+          final respondidas = grupos.fold<int>(0, (s, g) => s + g.respondidas.length);
+          final enviadas = grupos.fold<int>(0, (s, g) => s + g.pedidos.length);
           return ListView(padding: const EdgeInsets.only(bottom: 88), children: [
-            for (final g in grupos)
-              Card(
-                margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                child: ListTile(
-                  leading: Icon(Icons.request_quote_outlined,
-                      color: g.respondidas.any((p) => !p.visto) ? Cores.alerta : Cores.oliva),
-                  title: Text(g.titulo),
-                  subtitle: Text([
-                    _quando(g.primeiro.criadoEm),
-                    '${g.itens.length} ${g.itens.length == 1 ? 'item' : 'itens'}',
-                    '${g.respondidas.length} de ${g.pedidos.length} responderam',
-                    if (g.melhor != null) 'melhor: ${g.melhor!.fornecedor} ${moeda(g.melhor!.total)}',
-                  ].where((t) => t.isNotEmpty).join(' · ')),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                      context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: tipo, grupo: g.primeiro.grupo))),
-                ),
+            Container(
+              margin: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [cor, cor2], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(18),
               ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  CircleAvatar(
+                    backgroundColor: Colors.white,
+                    child: Icon(tipo == tipoMedicamentos ? Icons.medication_outlined : Icons.inventory_2_outlined, color: cor),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text('Cotação de $tipo',
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+                  ),
+                ]),
+                const SizedBox(height: 14),
+                Row(children: [
+                  _Numero('${grupos.length}', 'Cotações', Colors.white),
+                  _Numero('$respondidas', 'Respostas', const Color(0xFFC8F7C5)),
+                  _Numero('${enviadas - respondidas}', 'Aguardando', const Color(0xFFFFF59D)),
+                ]),
+              ]),
+            ),
+            if (grupos.isEmpty) ...[
+              for (final (i, (texto, icone, c)) in <(String, IconData, Color)>[
+                ('Escolha os ${tipo.toLowerCase()} e as quantidades', Icons.checklist, cor),
+                ('Marque os fornecedores', Icons.local_shipping_outlined, _corParcial),
+                ('Envie o link pelo WhatsApp', Icons.chat, const Color(0xFF25D366)),
+                ('Compare os preços que chegarem', Icons.emoji_events_outlined, _corAguardando),
+              ].indexed)
+                ListTile(
+                  leading: CircleAvatar(backgroundColor: c, child: Icon(icone, color: Colors.white)),
+                  title: Text('${i + 1}. $texto'),
+                ),
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Cada fornecedor preenche os preços no celular, sem entrar no app.'),
+              ),
+            ],
+            for (final g in grupos)
+              Builder(builder: (context) {
+                final (sit, corSit) = _situacao(g);
+                return Card(
+                  margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+                  clipBehavior: Clip.antiAlias,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  child: InkWell(
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: tipo, grupo: g.primeiro.grupo))),
+                    child: IntrinsicHeight(
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        Container(width: 8, color: corSit),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Row(children: [
+                                Expanded(
+                                  child: Text(g.titulo, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: corSit, borderRadius: BorderRadius.circular(20)),
+                                  child: Text(sit,
+                                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                                ),
+                              ]),
+                              const SizedBox(height: 4),
+                              Text([
+                                _quando(g.primeiro.criadoEm),
+                                '${g.itens.length} ${g.itens.length == 1 ? 'item' : 'itens'}',
+                                '${g.respondidas.length} de ${g.pedidos.length} responderam',
+                              ].where((t) => t.isNotEmpty).join(' · ')),
+                              if (g.melhor != null) ...[
+                                const SizedBox(height: 6),
+                                Row(children: [
+                                  const Icon(Icons.emoji_events, color: _corAguardando, size: 20),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text('${g.melhor!.fornecedor} · ${moeda(g.melhor!.total)}',
+                                        style: const TextStyle(color: _corCompleta, fontWeight: FontWeight.w800)),
+                                  ),
+                                ]),
+                              ],
+                            ]),
+                          ),
+                        ),
+                        Icon(Icons.chevron_right, color: cor),
+                        const SizedBox(width: 4),
+                      ]),
+                    ),
+                  ),
+                );
+              }),
           ]);
         },
       ),
@@ -80,10 +189,30 @@ class CotacoesCompraPage extends StatelessWidget {
   }
 }
 
+class _Numero extends StatelessWidget {
+  const _Numero(this.valor, this.rotulo, this.cor);
+  final String valor, rotulo;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(valor, style: TextStyle(color: cor, fontSize: 26, fontWeight: FontWeight.w900)),
+          Text(rotulo, style: const TextStyle(color: Colors.white, fontSize: 13)),
+        ]),
+      );
+}
+
 /// Monta a cotação: itens, quantidades e fornecedores.
 class NovaCotacaoPage extends StatefulWidget {
-  const NovaCotacaoPage({super.key, required this.tipo});
+  const NovaCotacaoPage({super.key, required this.tipo, this.itensIniciais = const {}, this.fornecedoresIniciais = const {}, this.qtdIniciais = const {}});
   final String tipo;
+
+  /// Quantidade já digitada para cada produto (id do insumo).
+  final Map<int, String> qtdIniciais;
+
+  /// Produtos (ids de insumos) e fornecedores (ids de contatos) que já vêm marcados.
+  final Set<int> itensIniciais, fornecedoresIniciais;
 
   @override
   State<NovaCotacaoPage> createState() => _NovaCotacaoPageState();
@@ -102,9 +231,27 @@ class _NovaCotacaoPageState extends State<NovaCotacaoPage> {
   final obs = TextEditingController();
   late final linhas = [
     for (final i in itensDoTipo(widget.tipo))
-      _Linha(txt(i['nome']), unidadeInsumo(i), insumoId: i['id'] as int, fornecedorId: i['fornecedor_id'] as int?),
+      _Linha(txt(i['nome']), unidadeInsumo(i), insumoId: i['id'] as int, fornecedorId: i['fornecedor_id'] as int?)
+        ..marcado = widget.itensIniciais.contains(i['id'])
+        ..qtd.text = widget.qtdIniciais[i['id']] ?? '',
   ];
-  final escolhidos = <int>{};
+  late final escolhidos = {...widget.fornecedoresIniciais};
+
+  /// Abre o cadastro de produto e põe na lista o que foi cadastrado.
+  Future<void> _novoProduto() async {
+    final cats = widget.tipo == tipoMedicamentos ? categoriasMedicamento : categoriasGeral;
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => InsumoFormPage(categorias: cats)));
+    if (!mounted) return;
+    final ja = {for (final l in linhas) l.insumoId};
+    setState(() {
+      for (final i in itensDoTipo(widget.tipo)) {
+        if (!ja.contains(i['id'])) {
+          linhas.add(_Linha(txt(i['nome']), unidadeInsumo(i), insumoId: i['id'] as int, fornecedorId: i['fornecedor_id'] as int?)
+            ..marcado = true);
+        }
+      }
+    });
+  }
   bool _enviando = false;
 
   @override
@@ -140,15 +287,18 @@ class _NovaCotacaoPageState extends State<NovaCotacaoPage> {
     if (ok == true && n != null) setState(() => linhas.add(_Linha(n, u)..marcado = true));
   }
 
+  /// Cotações já criadas: a tela passa a mostrar os botões de envio.
+  List<PedidoCotacao>? _criados;
+
   Future<void> _criar() async {
+    final forn = [for (final f in fornecedoresDe(widget.tipo)) if (escolhidos.contains(f['id'])) f];
+    if (forn.isEmpty) return avisar(context, 'Escolha pelo menos um fornecedor.');
     final itens = [
       for (final l in linhas)
         if (l.marcado)
           ItemCotacao(nome: l.nome, unidade: l.unidade, qtd: lerNumero(l.qtd.text) ?? 1, insumoId: l.insumoId),
     ];
     if (itens.isEmpty) return avisar(context, 'Marque pelo menos um item.');
-    final forn = [for (final f in fornecedoresDe(widget.tipo)) if (escolhidos.contains(f['id'])) f];
-    if (forn.isEmpty) return avisar(context, 'Escolha pelo menos um fornecedor.');
     setState(() => _enviando = true);
     final pedidos = await CotacoesCompra.criar(
       tipo: widget.tipo,
@@ -158,83 +308,97 @@ class _NovaCotacaoPageState extends State<NovaCotacaoPage> {
       obs: nulo(obs.text),
     );
     if (!mounted) return;
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => EnviarCotacaoPage(pedidos: pedidos)));
+    // Um fornecedor só: abre o WhatsApp direto.
+    if (pedidos.length == 1) {
+      _abrirWhats(pedidos.first);
+      Navigator.pop(context);
+      return;
+    }
+    setState(() => _criados = pedidos);
   }
+
+  /// Marca o fornecedor e os itens cadastrados com ele.
+  void _escolherFornecedor(int id, bool sim) => setState(() {
+        sim ? escolhidos.add(id) : escolhidos.remove(id);
+        if (sim) {
+          for (final l in linhas) {
+            if (l.fornecedorId == id) l.marcado = true;
+          }
+        }
+      });
 
   @override
   Widget build(BuildContext context) {
     final fornecedores = fornecedoresDe(widget.tipo);
-    // Quem é o fornecedor de algum item marcado já vem escolhido.
-    final sugeridos = {for (final l in linhas) if (l.marcado && l.fornecedorId != null) l.fornecedorId!};
+    final criados = _criados;
     return Scaffold(
-      appBar: AppBar(title: Text('Nova cotação de ${widget.tipo.toLowerCase()}')),
-      bottomNavigationBar: BotaoSalvar(onPressed: _enviando ? null : _criar, texto: 'Criar e enviar pelo WhatsApp'),
-      body: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 32), children: [
-        campoTexto(titulo, 'Nome da cotação'),
-        Secao('1. ${widget.tipo} e quantidades',
-            acao: TextButton.icon(icon: const Icon(Icons.add), label: const Text('Item avulso'), onPressed: _avulso)),
-        if (linhas.isEmpty)
-          Text('Nenhum item no cadastro de ${widget.tipo.toLowerCase()}. Use "Item avulso" ou cadastre no estoque.'),
-        for (final l in linhas)
-          Row(children: [
-            Checkbox(value: l.marcado, onChanged: (v) => setState(() => l.marcado = v ?? false)),
-            Expanded(child: InkWell(onTap: () => setState(() => l.marcado = !l.marcado), child: Text(l.nome))),
-            SizedBox(
-              width: 120,
-              child: TextField(
-                controller: l.qtd,
-                enabled: l.marcado,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(isDense: true, labelText: 'Qtd.', suffixText: l.unidade),
-              ),
-            ),
-          ]),
-        Secao('2. Fornecedores',
-            acao: TextButton.icon(
-              icon: const Icon(Icons.person_add_alt),
-              label: const Text('Novo'),
-              onPressed: () async {
-                await Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => const ContatoFormPage(tipo: 'Fornecedor')));
-                if (mounted) setState(() {});
-              },
-            )),
-        if (fornecedores.isEmpty)
-          const Text('Nenhum fornecedor. Cadastre em Nutrição > Cadastro de Fornecedores, com o WhatsApp.'),
-        for (final f in fornecedores)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            value: escolhidos.contains(f['id']) || (escolhidos.isEmpty && sugeridos.contains(f['id'])),
-            onChanged: (v) => setState(() {
-              if (escolhidos.isEmpty) escolhidos.addAll(sugeridos);
-              v == true ? escolhidos.add(f['id'] as int) : escolhidos.remove(f['id']);
-            }),
-            title: Text(txt(f['nome'])),
-            subtitle: Text(txt(f['telefone']).isEmpty ? 'Sem WhatsApp no cadastro' : txt(f['telefone']),
-                style: TextStyle(color: txt(f['telefone']).isEmpty ? Cores.alerta : null)),
-          ),
-        gap,
-        campoTexto(obs, 'Recado para os fornecedores (prazo, entrega...)', linhas: 2),
-      ]),
-    );
-  }
-}
-
-/// Depois de criar: um botão de WhatsApp para cada fornecedor.
-class EnviarCotacaoPage extends StatelessWidget {
-  const EnviarCotacaoPage({super.key, required this.pedidos});
-  final List<PedidoCotacao> pedidos;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Enviar a cotação')),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        const Text('Toque em cada fornecedor para abrir o WhatsApp com a mensagem e o link. '
-            'Quando ele responder, aparece o aviso "Cotação Recebida".'),
-        gap,
-        for (final p in pedidos) _CartaoEnvio(p),
-      ]),
+      appBar: AppBar(
+        title: Text('Nova cotação de ${widget.tipo.toLowerCase()}'),
+        backgroundColor: coresCotacao(widget.tipo).$1,
+        foregroundColor: Colors.white,
+      ),
+      bottomNavigationBar: criados != null
+          ? BotaoSalvar(onPressed: () => Navigator.pop(context), texto: 'Concluir')
+          : BotaoSalvar(onPressed: _enviando ? null : _criar, texto: 'Enviar pelo WhatsApp'),
+      body: criados != null
+          ? ListView(padding: const EdgeInsets.all(16), children: [
+              Text('3. Enviar a cotação', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              const Text('Toque em cada fornecedor para abrir o WhatsApp com a mensagem e o link. '
+                  'Quando ele responder, aparece o aviso "Cotação Recebida".'),
+              gap,
+              for (final p in criados) _CartaoEnvio(p),
+            ])
+          : ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 32), children: [
+              campoTexto(titulo, 'Nome da cotação'),
+              Secao('1. Fornecedores',
+                  acao: TextButton.icon(
+                    icon: const Icon(Icons.person_add_alt),
+                    label: const Text('Novo'),
+                    onPressed: () async {
+                      await Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => ContatoFormPage(tipo: 'Fornecedor', fornece: widget.tipo)));
+                      if (mounted) setState(() {});
+                    },
+                  )),
+              if (fornecedores.isEmpty)
+                const Text('Nenhum fornecedor. Toque em "Novo" e cadastre com o WhatsApp.'),
+              for (final f in fornecedores)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: escolhidos.contains(f['id']),
+                  onChanged: (v) => _escolherFornecedor(f['id'] as int, v == true),
+                  title: Text(txt(f['nome'])),
+                  subtitle: Text(txt(f['telefone']).isEmpty ? 'Sem WhatsApp no cadastro' : txt(f['telefone']),
+                      style: TextStyle(color: txt(f['telefone']).isEmpty ? Cores.alerta : null)),
+                ),
+              Secao('2. ${widget.tipo} e quantidades',
+                  acao: Row(mainAxisSize: MainAxisSize.min, children: [
+                    TextButton.icon(
+                        icon: const Icon(Icons.playlist_add), label: const Text('Cadastrar'), onPressed: _novoProduto),
+                    TextButton.icon(icon: const Icon(Icons.add), label: const Text('Avulso'), onPressed: _avulso),
+                  ])),
+              if (linhas.isEmpty)
+                Text('Nenhum item no cadastro de ${widget.tipo.toLowerCase()}. Use "Cadastrar" ou "Avulso".'),
+              for (final l in linhas)
+                Row(children: [
+                  Checkbox(value: l.marcado, onChanged: (v) => setState(() => l.marcado = v ?? false)),
+                  Expanded(child: InkWell(onTap: () => setState(() => l.marcado = !l.marcado), child: Text(l.nome))),
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      controller: l.qtd,
+                      onChanged: (t) {
+                        if (t.trim().isNotEmpty && !l.marcado) setState(() => l.marcado = true);
+                      },
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(isDense: true, labelText: 'Qtd.', suffixText: l.unidade),
+                    ),
+                  ),
+                ]),
+              gap,
+              campoTexto(obs, 'Recado para os fornecedores (prazo, entrega...)', linhas: 2),
+            ]),
     );
   }
 }
@@ -333,7 +497,7 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
     return ListView(padding: const EdgeInsets.only(bottom: 32), children: [
       if (melhor != null)
         Card(
-          color: Cores.olivaEscuro,
+          color: coresCotacao(widget.tipo).$1,
           margin: const EdgeInsets.all(12),
           child: ListTile(
             leading: const Icon(Icons.emoji_events_outlined, color: Cores.laranja, size: 36),
@@ -357,7 +521,7 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: DataTable(
             columnSpacing: 18,
-            headingRowColor: WidgetStatePropertyAll(Cores.oliva.withValues(alpha: 0.10)),
+            headingRowColor: WidgetStatePropertyAll(coresCotacao(widget.tipo).$1.withValues(alpha: 0.18)),
             columns: [
               const DataColumn(label: Text('Item')),
               for (final p in resp) DataColumn(label: Text(p.fornecedor), numeric: true),
@@ -393,8 +557,10 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
       const Secao('Fornecedores'),
       for (final p in g.pedidos)
         ListTile(
-          leading: Icon(p.respondida ? Icons.mark_email_read_outlined : Icons.hourglass_empty,
-              color: p.respondida ? Cores.sucesso : Colors.orange),
+          leading: CircleAvatar(
+            backgroundColor: p.respondida ? _corCompleta : _corAguardando,
+            child: Icon(p.respondida ? Icons.mark_email_read_outlined : Icons.hourglass_empty, color: Colors.white),
+          ),
           title: Text(p.fornecedor),
           subtitle: Text(p.respondida
               ? [

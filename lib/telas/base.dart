@@ -481,7 +481,11 @@ class Pagina extends StatelessWidget {
     return Scaffold(
       drawer: largo ? null : const MenuLateral(),
       appBar: AppBar(
-        automaticallyImplyLeading: !largo,
+        automaticallyImplyLeading: false,
+        // Menu com nome escrito: o ícone sozinho passa despercebido.
+        leading: largo ? null : const BotaoMenu(),
+        leadingWidth: largo ? null : 128,
+        titleSpacing: largo ? null : 4,
         title: Text(titulo),
         actions: [
           ...?acoes,
@@ -503,6 +507,43 @@ class Pagina extends StatelessWidget {
               Expanded(child: conteudo),
             ])
           : conteudo,
+    );
+  }
+}
+
+/// Botão do topo que abre o menu lateral, com o nome escrito.
+class BotaoMenu extends StatelessWidget {
+  const BotaoMenu({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 0, 6),
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => Scaffold.of(context).openDrawer(),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 6),
+            child: Row(children: [
+              Icon(Icons.menu, color: Colors.white, size: 26),
+              SizedBox(width: 4),
+              Expanded(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Menu', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800, height: 1.1)),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('(Clique/Aperte Aqui)',
+                        style: TextStyle(color: Cores.laranja, fontSize: 11, fontWeight: FontWeight.w700, height: 1.1)),
+                  ),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }

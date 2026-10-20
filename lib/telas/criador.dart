@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../dados/cotacao_compra.dart' show telefoneWhats;
 import '../dados/plataforma.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -144,6 +146,7 @@ class _ClientesState extends State<_Clientes> {
         'Em teste' => (d['plano'] ?? 'Teste') == 'Teste',
         'Pagantes' => planosPagos.contains(d['plano']),
         'Suspensas' => d['status'] == 'suspensa',
+        'Boas-vindas' => d['boas_vindas_whats'] == 'pendente',
         _ => true,
       };
     }).toList()
@@ -160,7 +163,7 @@ class _ClientesState extends State<_Clientes> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(children: [
-          for (final f in ['Todos', 'Produtores', 'Em teste', 'Pagantes', 'Suspensas'])
+          for (final f in ['Todos', 'Produtores', 'Em teste', 'Pagantes', 'Suspensas', 'Boas-vindas'])
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(label: Text(f), selected: _filtro == f, onSelected: (_) => setState(() => _filtro = f)),
@@ -208,7 +211,8 @@ class _ItemCliente extends StatelessWidget {
       title: Text('${c['email'] ?? d.id}'),
       subtitle: Text([
         if (equipe) 'Equipe (${c['papel']})' else situacaoConta(c),
-        '${c['animais'] ?? 0} animais · último acesso ${_data(c['ultimo_acesso'])}',
+        '${c['animais'] ?? 0} animais · último acesso ${_data(c['ultimo_acesso'])}'
+            '${c['boas_vindas_whats'] == 'pendente' ? ' · boas-vindas no WhatsApp pendente' : ''}',
       ].join('\n')),
       isThreeLine: true,
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => _FichaCliente(uid: d.id))),
@@ -420,6 +424,21 @@ class _FichaClienteState extends State<_FichaCliente> {
                     subtitle: const Text('A pessoa cria a nova senha pelo link recebido'),
                     onTap: () => _redefinirSenha('${c['email'] ?? ''}'),
                   ),
+                  if (telefoneWhats('${c['telefone'] ?? ''}') case final fone?)
+                    ListTile(
+                      leading: const Icon(Icons.chat, color: Color(0xFF25D366)),
+                      title: const Text('Enviar boas-vindas pelo WhatsApp'),
+                      subtitle: Text(c['boas_vindas_whats'] == 'pendente'
+                          ? 'Ainda não enviada'
+                          : c['boas_vindas_whats'] == 'enviada'
+                              ? 'Já enviada'
+                              : 'Mensagem de abertura da conta'),
+                      onTap: () async {
+                        final texto = Uri.encodeComponent(textoBoasVindas('${c['nome'] ?? ''}'));
+                        await launchUrl(Uri.parse('https://wa.me/$fone?text=$texto'), mode: LaunchMode.externalApplication);
+                        await _salvar({'boas_vindas_whats': 'enviada'}, 'Marcada como enviada.');
+                      },
+                    ),
                   ListTile(
                     leading: const Icon(Icons.copy),
                     title: const Text('Copiar e-mail'),

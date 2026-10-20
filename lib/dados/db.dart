@@ -69,6 +69,7 @@ const _camposInteiros = {
   'dg_dias',
   'repasse_de',
   'insumo_id',
+  'fornecedor_id',
   'ponto_id',
   'esperado',
   'contado',
@@ -227,6 +228,9 @@ class Db {
 
   /// Dono dos dados abertos (o próprio usuário ou quem o pôs na equipe).
   static String? _uid;
+
+  /// Uid do dono da fazenda aberta.
+  static String? get dono => _uid;
 
   /// Papel de quem está usando: 'dono', 'gerente', 'peao', 'veterinario', 'zootecnista' ou 'contador'.
   static final papel = ValueNotifier<String>('dono');

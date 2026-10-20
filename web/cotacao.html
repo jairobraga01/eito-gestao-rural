@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cotação · Eito Gestão Rural</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#00602A">
+<link rel="icon" href="favicon.png">
+<style>
+/* Página que o fornecedor abre pelo link do WhatsApp: preenche os preços sem entrar no app. */
+:root{--verde:#00602A;--verde2:#009C3B;--amarelo:#FFDF00;--fundo:#f3f7f1;--tinta:#0B1F14;--cartao:#fff;--borda:#d9e3d4;--suave:#5b6b60;--erro:#B3261E}
+@media (prefers-color-scheme:dark){:root{--fundo:#0f150f;--tinta:#e9efe3;--cartao:#182018;--borda:#2f3a2a;--suave:#a8b5aa}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--fundo);color:var(--tinta);line-height:1.45}
+header{background:var(--verde);color:#fff;padding:20px 16px}
+header .marca{font-weight:800;font-size:1.25rem}
+header .marca span{color:var(--amarelo)}
+header p{margin:4px 0 0;color:#d6e6d6}
+main{max-width:720px;margin:0 auto;padding:16px}
+.cartao{background:var(--cartao);border:1px solid var(--borda);border-radius:14px;padding:16px;margin-bottom:14px}
+h1{font-size:1.3rem;margin:0 0 4px}
+.suave{color:var(--suave);font-size:.95rem}
+.item{display:grid;grid-template-columns:1fr 140px;gap:10px;align-items:center;padding:12px 0;border-top:1px dashed var(--borda)}
+.item:first-of-type{border-top:0}
+.item b{display:block}
+label{display:block;font-size:.9rem;margin:12px 0 4px;color:var(--suave)}
+input,textarea{width:100%;font:inherit;padding:10px 12px;border:1px solid var(--borda);border-radius:10px;background:var(--fundo);color:var(--tinta)}
+input[type=checkbox]{width:auto}
+.nt{display:flex;gap:6px;align-items:center;font-size:.85rem;color:var(--suave);margin-top:4px}
+.total{display:flex;justify-content:space-between;font-size:1.2rem;font-weight:800;padding-top:12px;border-top:2px solid var(--borda);margin-top:8px}
+button{width:100%;font:inherit;font-weight:800;font-size:1.1rem;padding:14px;border:0;border-radius:12px;background:var(--verde2);color:#fff;cursor:pointer}
+button:disabled{opacity:.6}
+.erro{color:var(--erro);font-weight:600}
+.ok{text-align:center;padding:32px 16px}
+.ok .icone{font-size:3rem}
+footer{text-align:center;color:var(--suave);font-size:.85rem;padding:8px 16px 32px}
+</style>
+</head>
+<body>
+<header>
+  <div class="marca">Eito <span>Gestão</span></div>
+  <p>Cotação de preços</p>
+</header>
+<main id="tela">
+  <div class="cartao"><p class="suave">Carregando a cotação…</p></div>
+</main>
+<footer>Enviado pelo aplicativo Eito Gestão Rural · eitogestao.com.br</footer>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-lite.js';
+
+const app = initializeApp({
+  apiKey: 'AIzaSyCqFQD2TOyqMoRQPNGpr7KpWj5fvU_2iIQ',
+  authDomain: 'caderneta-rebanho.firebaseapp.com',
+  projectId: 'caderneta-rebanho',
+  appId: '1:776125088832:web:692a6d0fa9dec625bc8ba5',
+});
+const db = getFirestore(app);
+const tela = document.getElementById('tela');
+const codigo = new URLSearchParams(location.search).get('c') || '';
+
+const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const moeda = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const qtd = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+function lerNumero(t) {
+  t = String(t || '').trim().replace(/\s/g, '').replace(/^R\$/i, '');
+  if (!t) return null;
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+function aviso(titulo, texto) {
+  tela.innerHTML = `<div class="cartao ok"><div class="icone">${titulo.startsWith('Cotação enviada') ? '✅' : 'ℹ️'}</div><h1>${esc(titulo)}</h1><p class="suave">${esc(texto)}</p></div>`;
+}
+
+async function abrir() {
+  if (codigo.length < 20) return aviso('Link incompleto', 'Abra o link exatamente como chegou no WhatsApp.');
+  let s;
+  try {
+    s = await getDoc(doc(db, 'pedidos_cotacao', codigo));
+  } catch (e) {
+    return aviso('Sem conexão', 'Não foi possível abrir a cotação. Confira a internet e tente de novo.');
+  }
+  if (!s.exists()) return aviso('Cotação não encontrada', 'Esta cotação foi encerrada ou o link está errado.');
+  const c = s.data();
+  if (c.status !== 'aberta') {
+    return aviso('Cotação enviada', 'Os preços desta cotação já foram enviados. Obrigado!');
+  }
+  const itens = c.itens || [];
+  tela.innerHTML = `
+    <div class="cartao">
+      <h1>Olá, ${esc(c.fornecedor?.nome)}!</h1>
+      <p class="suave">${esc(c.fazenda || 'A fazenda')} pede uma cotação de ${esc((c.tipo || '').toLowerCase())}.
+      Informe o <b>preço por unidade</b> de cada item. Deixe em branco o que não tiver.</p>
+      ${c.pedido_obs ? `<p><b>Recado:</b> ${esc(c.pedido_obs)}</p>` : ''}
+    </div>
+    <form class="cartao" id="form">
+      ${itens.map((it, i) => `
+        <div class="item">
+          <div><b>${esc(it.nome)}</b><span class="suave">${qtd(it.qtd)} ${esc(it.unidade)}</span>
+            <div class="suave" id="sub${i}"></div></div>
+          <div><input inputmode="decimal" id="p${i}" placeholder="R$ por ${esc(it.unidade)}" aria-label="Preço de ${esc(it.nome)}"></div>
+        </div>`).join('')}
+      <label for="frete">Frete (R$)</label><input inputmode="decimal" id="frete" placeholder="0,00">
+      <label for="prazo">Prazo de entrega</label><input id="prazo" placeholder="Ex.: 2 dias úteis">
+      <label for="pag">Forma de pagamento</label><input id="pag" placeholder="Ex.: Pix, boleto 30 dias">
+      <label for="obs">Observações</label><textarea id="obs" rows="2"></textarea>
+      <label for="nome">Seu nome</label><input id="nome" placeholder="Quem está respondendo">
+      <div class="total"><span>Preço final</span><span id="total">R$ 0,00</span></div>
+      <p class="erro" id="erro"></p>
+      <button type="submit" id="enviar">Enviar cotação</button>
+    </form>`;
+  const form = document.getElementById('form');
+  const precos = () => itens.map((_, i) => lerNumero(document.getElementById('p' + i).value));
+  const conta = () => {
+    const p = precos();
+    let t = lerNumero(document.getElementById('frete').value) || 0;
+    p.forEach((v, i) => {
+      const sub = document.getElementById('sub' + i);
+      if (v == null) { sub.textContent = ''; return; }
+      const parcial = v * Number(itens[i].qtd || 0);
+      sub.textContent = 'Subtotal: ' + moeda(parcial);
+      t += parcial;
+    });
+    document.getElementById('total').textContent = moeda(t);
+  };
+  form.addEventListener('input', conta);
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const p = precos();
+    const erro = document.getElementById('erro');
+    if (p.every((v) => v == null)) { erro.textContent = 'Informe o preço de pelo menos um item.'; return; }
+    const botao = document.getElementById('enviar');
+    botao.disabled = true;
+    botao.textContent = 'Enviando…';
+    erro.textContent = '';
+    try {
+      await updateDoc(doc(db, 'pedidos_cotacao', codigo), {
+        status: 'respondida',
+        precos: p,
+        frete: lerNumero(document.getElementById('frete').value),
+        prazo: document.getElementById('prazo').value.trim(),
+        pagamento: document.getElementById('pag').value.trim(),
+        obs: document.getElementById('obs').value.trim(),
+        respondido_por: document.getElementById('nome').value.trim(),
+        respondido_em: serverTimestamp(),
+      });
+      aviso('Cotação enviada!', 'A fazenda já recebeu os seus preços. Obrigado!');
+    } catch (e) {
+      botao.disabled = false;
+      botao.textContent = 'Enviar cotação';
+      erro.textContent = 'Não foi possível enviar. Confira a internet e tente de novo.';
+    }
+  });
+}
+abrir();
+</script>
+</body>
+</html>

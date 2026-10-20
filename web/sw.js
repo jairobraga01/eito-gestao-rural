@@ -54,6 +54,10 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  // Páginas avulsas (folder, cotação do fornecedor): sempre da rede, sem
+  // trocar o app guardado.
+  if (/\.html$/.test(url.pathname) && !url.pathname.endsWith('/index.html')) return;
+
   // Abrir o app: tenta a rede (versão nova); sem sinal, usa a guardada.
   if (req.mode === 'navigate') {
     e.respondWith(

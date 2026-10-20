@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/db.dart';
+import '../dados/mercado.dart' show siteScotBoi;
 import '../dados/proteinado.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -92,6 +93,12 @@ class CotacaoArrobaPage extends StatelessWidget {
                     icon: const Icon(Icons.open_in_new),
                     label: const Text('Ver cotação no Notícias Agrícolas'),
                     onPressed: () => launchUrl(Uri.parse(siteCotacaoBoi), mode: LaunchMode.externalApplication),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.open_in_new),
+                    label: const Text('Ver cotação na Scot Consultoria'),
+                    onPressed: () => launchUrl(Uri.parse(siteScotBoi), mode: LaunchMode.externalApplication),
                   ),
                   const SizedBox(height: 8),
                   const Text('Confira o preço da sua praça no site e lance aqui. A última arroba lançada passa a valer '

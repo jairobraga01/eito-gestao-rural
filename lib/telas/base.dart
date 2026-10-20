@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../dados/cotacao_compra.dart';
 import '../dados/db.dart';
 import '../dados/equipe.dart';
 import '../dados/plataforma.dart';
@@ -15,6 +16,7 @@ import '../widgets/botao_instalar.dart';
 import '../widgets/logo_eito.dart';
 import 'animais.dart';
 import 'conta.dart';
+import 'cotacao_compra.dart' show FaixaCotacaoRecebida;
 import 'dispositivos.dart';
 import 'equipe.dart';
 import 'indicacoes.dart';
@@ -77,6 +79,9 @@ const itensMenu = <(String, IconData)>[
   ('Fornecedores e compradores', Icons.contacts_outlined),
   ('Guia do Usuário', Icons.menu_book_outlined),
   ('Estoque de Medicamentos', Icons.medication_outlined),
+  ('Cotação de Medicamentos', Icons.request_quote_outlined),
+  ('Cotação de Insumos', Icons.request_quote_outlined),
+  ('Cadastro de Fornecedores', Icons.local_shipping_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -85,7 +90,8 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCustos = 12, secDividas = 13, secContas = 14, secProteinado = 15, secEstoque = 16, secDieta = 17,
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
     secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
-    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35, secMedicamentos = 36;
+    secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35, secMedicamentos = 36,
+    secCotacaoMedicamentos = 37, secCotacaoInsumos = 38, secFornecedores = 39;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -94,7 +100,8 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Saídas: Vendas e Mortes/Outras Causas', iconeSaida, [secVendas, secMortes, secOutrasSaidas]),
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa]),
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
-  ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secMedicamentos, secDieta]),
+  ('Medicamentos', Icons.medication_outlined, [secMedicamentos, secCotacaoMedicamentos]),
+  ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secCotacaoInsumos, secFornecedores, secDieta]),
   ('Financeiro', Icons.attach_money,
       [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secContatos, secDividas, secCotacao, secVender]),
   ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),
@@ -129,7 +136,7 @@ const secoesDono = {secRelatorioFinanceiro};
 /// O que o plano Simples não inclui (financeiro completo, nutrição, mapa e exportações).
 const secoesSoMedia = {
   secRelatorioFinanceiro, secContas, secContatos, secDividas, secPatrimonio, secCotacao, secVender, secExportacoes,
-  secProteinado, secEstoque, secMedicamentos, secDieta, secMapa,
+  secProteinado, secEstoque, secMedicamentos, secDieta, secMapa, secCotacaoMedicamentos, secCotacaoInsumos, secFornecedores,
 };
 
 /// Se quem está usando pode abrir a seção (o dono vê tudo; o gerente, tudo menos o que é só do dono).
@@ -165,6 +172,7 @@ Future<void> sairDaConta(BuildContext context) async {
   );
   if (!ok) return;
   Plataforma.pararAvisos();
+  CotacoesCompra.parar();
   await Db.encerrar();
   await FirebaseAuth.instance.signOut();
   Indicacoes.esquecerAdmin();
@@ -452,6 +460,7 @@ class Pagina extends StatelessWidget {
       const BarraSincronia(),
       const BotaoInstalar(),
       const FaixaComunicados(),
+      const FaixaCotacaoRecebida(),
       const PropriedadeBar(),
       Expanded(child: corpo),
     ]);

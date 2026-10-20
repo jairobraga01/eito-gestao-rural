@@ -7,25 +7,32 @@ import '../util/util.dart';
 import 'base.dart';
 
 class ContatosPage extends StatelessWidget {
-  const ContatosPage({super.key});
+  const ContatosPage({super.key, this.soFornecedores = false});
+
+  /// Cadastro de Fornecedores (Nutrição): só quem vende medicamentos e insumos.
+  final bool soFornecedores;
 
   @override
   Widget build(BuildContext context) {
     return Pagina(
-      titulo: 'Fornecedores e compradores',
+      titulo: soFornecedores ? 'Cadastro de Fornecedores' : 'Fornecedores e compradores',
       fab: FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
-        label: const Text('Novo contato'),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContatoFormPage())),
+        label: Text(soFornecedores ? 'Novo fornecedor' : 'Novo contato'),
+        onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => ContatoFormPage(tipo: soFornecedores ? 'Fornecedor' : 'Os dois'))),
       ),
       corpo: AoMudar<List<Reg>>(
-        carregar: () async => contatos(),
+        carregar: () async => soFornecedores ? contatosPara('Fornecedor') : contatos(),
         builder: (context, lista) {
           if (lista.isEmpty) {
-            return const Vazio(
-                'Nenhum contato.\nCadastre quem vende e quem compra gado de você. '
-                'Nas compras e vendas dá para escolher o nome na lista.',
+            return Vazio(
+                soFornecedores
+                    ? 'Nenhum fornecedor.\nCadastre as revendas de medicamentos e de insumos com o WhatsApp. '
+                        'Eles aparecem para escolher no estoque e nas cotações.'
+                    : 'Nenhum contato.\nCadastre quem vende e quem compra gado de você. '
+                        'Nas compras e vendas dá para escolher o nome na lista.',
                 icone: Icons.contacts_outlined);
           }
           return ListView.separated(
@@ -40,7 +47,8 @@ class ContatosPage extends StatelessWidget {
                     color: k['tipo'] == 'Comprador' ? Colors.red : Colors.green),
                 title: Text(txt(k['nome'])),
                 subtitle: Text([
-                  txt(k['tipo']),
+                  if (soFornecedores) forneceDo(k).isEmpty ? 'Medicamentos e insumos' : forneceDo(k).join(' e ')
+                  else txt(k['tipo']),
                   if (txt(k['telefone']).isNotEmpty) txt(k['telefone']),
                   if (h.compras > 0) '${h.cabecasCompradas} cab. compradas',
                   if (h.vendas > 0) '${h.cabecasVendidas} cab. vendidas',
@@ -72,6 +80,7 @@ class _ContatoFormPageState extends State<ContatoFormPage> {
   late final cidade = TextEditingController(text: txt(c?['cidade']));
   late final obs = TextEditingController(text: txt(c?['obs']));
   late String? tipo = txt(c?['tipo']).isEmpty ? widget.tipo : txt(c?['tipo']);
+  late final fornece = {...?(c == null ? null : forneceDo(c!))};
 
   @override
   void dispose() {
@@ -91,6 +100,7 @@ class _ContatoFormPageState extends State<ContatoFormPage> {
       'tipo': tipo,
       'documento': nulo(doc.text),
       'telefone': nulo(telefone.text),
+      'fornece': tipo == 'Comprador' ? null : [for (final f in forneceOpcoes) if (fornece.contains(f)) f],
       'cidade': nulo(cidade.text),
       'obs': nulo(obs.text),
     };
@@ -130,6 +140,18 @@ class _ContatoFormPageState extends State<ContatoFormPage> {
           gap,
           escolha('É', tipo, tiposContato, (v) => setState(() => tipo = v)),
           gap,
+          if (tipo != 'Comprador') ...[
+            const Text('Vende (para as cotações e o estoque)'),
+            Wrap(spacing: 8, children: [
+              for (final f in forneceOpcoes)
+                FilterChip(
+                  label: Text(f),
+                  selected: fornece.contains(f),
+                  onSelected: (v) => setState(() => v ? fornece.add(f) : fornece.remove(f)),
+                ),
+            ]),
+            gap,
+          ],
           campoTexto(doc, 'CPF ou CNPJ'),
           gap,
           campoTexto(telefone, 'Telefone / WhatsApp'),

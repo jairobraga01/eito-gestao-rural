@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../dados/contatos.dart' show fornecedoresDe;
+import '../dados/cotacao_compra.dart' show tipoInsumos, tipoMedicamentos;
 import '../dados/db.dart';
 import '../dados/estoque.dart';
 import '../dados/proteinado.dart' show historicoPrecos, insumos, lancarPrecoInsumo, precoKgInsumo, variacaoPct;
@@ -7,6 +9,7 @@ import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
 import 'batidas.dart';
+import 'cotacao_compra.dart';
 import 'nota_compra.dart';
 
 String _q(double v) => numeroBr(v, casas: v % 1 == 0 ? 0 : 1);
@@ -31,6 +34,12 @@ class EstoquePage extends StatelessWidget {
         onPressed: () => entradaDialog(context, categorias: categorias),
       ),
       acoes: [
+        IconButton(
+          tooltip: medicamentos ? 'Cotação de Medicamentos' : 'Cotação de Insumos',
+          icon: const Icon(Icons.request_quote_outlined),
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => CotacoesCompraPage(tipo: medicamentos ? tipoMedicamentos : tipoInsumos))),
+        ),
         IconButton(
           tooltip: 'Lançar pela nota de compra',
           icon: const Icon(Icons.document_scanner_outlined),
@@ -213,6 +222,7 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
   late final minimo = TextEditingController(text: _n(i?['estoque_min']));
   late final dose = TextEditingController(text: _n(i?['dose_animal']));
   late String? validade = txt(i?['validade']).isEmpty ? null : txt(i!['validade']);
+  late int? fornecedor = i?['fornecedor_id'] as int?;
 
   @override
   void dispose() {
@@ -234,6 +244,7 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
       'estoque_min': lerNumero(minimo.text),
       'dose_animal': lerNumero(dose.text),
       'validade': validade,
+      'fornecedor_id': fornecedor,
     };
     final p = lerNumero(preco.text), emb = lerNumero(embalagem.text);
     final mudouPreco = p != null && emb != null && emb > 0 && (p != (i?['preco_saco'] as num?) || emb != (i?['kg_saco'] as num?));
@@ -351,6 +362,11 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
           const SizedBox(width: 12),
           Expanded(child: DateField(label: 'Validade', value: validade, onChanged: (v) => setState(() => validade = v))),
         ]),
+        gap,
+        escolhaId('Fornecedor (Cadastro de Fornecedores)', fornecedor,
+            fornecedoresDe(categoriasMedicamento.contains(categoria) ? tipoMedicamentos : tipoInsumos),
+            (v) => setState(() => fornecedor = v),
+            vazio: 'Nenhum'),
         if (sanitario) ...[
           gap,
           campoTexto(dose, 'Dose por animal (baixa na vacinação)', numero: true, sufixo: unidade),

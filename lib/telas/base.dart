@@ -76,12 +76,17 @@ const itensMenu = <(String, IconData)>[
   ('Nascimentos', Icons.child_friendly_outlined),
   ('Mortes', Icons.heart_broken_outlined),
   ('Outras Causas', Icons.more_horiz),
-  ('Fornecedores e compradores', Icons.contacts_outlined),
+  ('Fornecedores e Compradores', Icons.contacts_outlined),
   ('Guia do Usuário', Icons.menu_book_outlined),
   ('Estoque de Medicamentos', Icons.medication_outlined),
   ('Cotação de Medicamentos', Icons.request_quote_outlined),
   ('Cotação de Insumos', Icons.request_quote_outlined),
-  ('Cadastro de Fornecedores', Icons.local_shipping_outlined),
+  ('Fornecedores de Medicamentos', Icons.local_shipping_outlined),
+  ('Fornecedores de Insumos', Icons.local_shipping_outlined),
+  ('Todos os fornecedores', Icons.contacts_outlined),
+  ('Compradores', Icons.storefront_outlined),
+  ('Cadastro de Medicamentos', Icons.medication_outlined),
+  ('Cadastro de Insumos', Icons.inventory_2_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -91,7 +96,9 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secCotacao = 18, secVender = 19, secChuva = 20, secRelatorios = 21, secExportacoes = 22, secBackup = 23,
     secTarefas = 24, secHistorico = 25, secRelatorioFinanceiro = 26, secPatrimonio = 27, secClima = 28,
     secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35, secMedicamentos = 36,
-    secCotacaoMedicamentos = 37, secCotacaoInsumos = 38, secFornecedores = 39;
+    secCotacaoMedicamentos = 37, secCotacaoInsumos = 38, secFornecedoresMedicamentos = 39,
+    secFornecedoresInsumos = 40, secFornecedores = 41, secCompradores = 42, secCadastroMedicamentos = 43,
+    secCadastroInsumos = 44;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -101,7 +108,12 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa]),
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
   ('Medicamentos', Icons.medication_outlined, [secMedicamentos, secCotacaoMedicamentos]),
-  ('Nutrição', Icons.agriculture_outlined, [secProteinado, secEstoque, secCotacaoInsumos, secFornecedores, secDieta]),
+  ('Nutrição/Insumos', Icons.agriculture_outlined, [secProteinado, secEstoque, secCotacaoInsumos, secDieta]),
+  ('Nova Cotação: Insumos/Medicamentos', Icons.request_quote_outlined, [secCotacaoInsumos, secCotacaoMedicamentos]),
+  ('Cadastro de Insumos e Medicamentos', Icons.playlist_add_check, [secCadastroInsumos, secCadastroMedicamentos]),
+  ('Cadastro de Fornecedores', Icons.local_shipping_outlined,
+      [secFornecedoresMedicamentos, secFornecedoresInsumos, secFornecedores]),
+  ('Cadastro de Compradores', Icons.storefront_outlined, [secCompradores]),
   ('Financeiro', Icons.attach_money,
       [secRelatorioFinanceiro, secPatrimonio, secCustos, secContas, secContatos, secDividas, secCotacao, secVender]),
   ('Relatórios e dados', Icons.bar_chart, [secRelatorios, secExportacoes, secHistorico, secBackup]),
@@ -120,13 +132,14 @@ const secoesVeterinario = {
 
 /// Seções do zootecnista: rebanho, pesagem, nutrição e estoque.
 const secoesZootecnista = {
-  secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secDieta, secPiquetes, secPastagem, secTarefas,
+  secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secCadastroInsumos, secDieta, secPiquetes, secPastagem, secTarefas,
   secClima, secAjuda, secGuia,
 };
 
 /// Seções do contador: lança o financeiro; vê compras, vendas, relatórios e exportações.
 const secoesContador = {
   secPainel, secRelatorioFinanceiro, secCustos, secContas, secContatos, secDividas, secPatrimonio, secCotacao,
+  secFornecedoresMedicamentos, secFornecedoresInsumos, secFornecedores, secCompradores,
   secEntradas, secVendas, secRelatorios, secExportacoes, secAjuda, secGuia,
 };
 
@@ -137,6 +150,7 @@ const secoesDono = {secRelatorioFinanceiro};
 const secoesSoMedia = {
   secRelatorioFinanceiro, secContas, secContatos, secDividas, secPatrimonio, secCotacao, secVender, secExportacoes,
   secProteinado, secEstoque, secMedicamentos, secDieta, secMapa, secCotacaoMedicamentos, secCotacaoInsumos, secFornecedores,
+  secFornecedoresMedicamentos, secFornecedoresInsumos, secCompradores, secCadastroMedicamentos, secCadastroInsumos,
 };
 
 /// Se quem está usando pode abrir a seção (o dono vê tudo; o gerente, tudo menos o que é só do dono).

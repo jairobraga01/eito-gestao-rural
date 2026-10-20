@@ -1,38 +1,97 @@
-// Fornecedores e compradores: cadastro e histórico de negócios.
+// Cadastro de fornecedores e de compradores, com o histórico de negócios.
 import 'package:flutter/material.dart';
 
 import '../dados/contatos.dart';
 import '../dados/db.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'cotacao_compra.dart' show NovaCotacaoPage;
+import 'popup_arroba.dart' show mostrarCotacaoArroba;
 
 class ContatosPage extends StatelessWidget {
-  const ContatosPage({super.key, this.soFornecedores = false});
+  const ContatosPage({super.key, this.tipo, this.fornece});
 
-  /// Cadastro de Fornecedores (Nutrição): só quem vende medicamentos e insumos.
-  final bool soFornecedores;
+  /// 'Fornecedor' ou 'Comprador' (null = todos os contatos).
+  final String? tipo;
+
+  /// Só fornecedores de 'Medicamentos' ou de 'Insumos' (de [forneceOpcoes]).
+  final String? fornece;
+
+  String get _titulo => fornece != null
+      ? 'Fornecedores de $fornece'
+      : switch (tipo) {
+          'Fornecedor' => 'Cadastro de Fornecedores',
+          'Comprador' => 'Cadastro de Compradores',
+          _ => 'Fornecedores e Compradores',
+        };
+
+  /// Abre uma cotação nova com este fornecedor já marcado.
+  Future<void> _pedirCotacao(BuildContext context, Reg k) async {
+    final vende = forneceDo(k);
+    var t = fornece ?? (vende.length == 1 ? vende.first : null);
+    t ??= await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final o in forneceOpcoes)
+            ListTile(
+              leading: const Icon(Icons.request_quote_outlined),
+              title: Text('Cotação de $o'),
+              onTap: () => Navigator.pop(c, o),
+            ),
+        ]),
+      ),
+    );
+    if (t == null || !context.mounted) return;
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => NovaCotacaoPage(tipo: t!, fornecedoresIniciais: {k['id'] as int})));
+  }
+
+  List<Reg> _lista() => fornece != null ? fornecedoresDe(fornece!) : (tipo == null ? contatos() : contatosPara(tipo!));
 
   @override
   Widget build(BuildContext context) {
+    final fornecedor = tipo == 'Fornecedor' || fornece != null;
     return Pagina(
-      titulo: soFornecedores ? 'Cadastro de Fornecedores' : 'Fornecedores e compradores',
+      titulo: _titulo,
+      acoes: [
+        if (fornecedor)
+          IconButton(
+            tooltip: 'Cotações',
+            icon: const Icon(Icons.request_quote_outlined),
+            onPressed: () => Nav.ir(fornece == 'Insumos' ? secCotacaoInsumos : secCotacaoMedicamentos),
+          ),
+        if (tipo == 'Comprador')
+          IconButton(
+            tooltip: 'Cotação da arroba',
+            icon: const Icon(Icons.trending_up),
+            onPressed: () => mostrarCotacaoArroba(context),
+          ),
+      ],
       fab: FloatingActionButton.extended(
         heroTag: null,
         icon: const Icon(Icons.add),
-        label: Text(soFornecedores ? 'Novo fornecedor' : 'Novo contato'),
-        onPressed: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => ContatoFormPage(tipo: soFornecedores ? 'Fornecedor' : 'Os dois'))),
+        label: Text(fornecedor ? 'Novo fornecedor' : (tipo == 'Comprador' ? 'Novo comprador' : 'Novo contato')),
+        onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => ContatoFormPage(
+                    tipo: fornecedor ? 'Fornecedor' : (tipo ?? 'Os dois'), fornece: fornece))),
       ),
       corpo: AoMudar<List<Reg>>(
-        carregar: () async => soFornecedores ? contatosPara('Fornecedor') : contatos(),
+        carregar: () async => _lista(),
         builder: (context, lista) {
           if (lista.isEmpty) {
             return Vazio(
-                soFornecedores
-                    ? 'Nenhum fornecedor.\nCadastre as revendas de medicamentos e de insumos com o WhatsApp. '
-                        'Eles aparecem para escolher no estoque e nas cotações.'
-                    : 'Nenhum contato.\nCadastre quem vende e quem compra gado de você. '
-                        'Nas compras e vendas dá para escolher o nome na lista.',
+                fornecedor
+                    ? 'Nenhum fornecedor.\nCadastre as revendas com o WhatsApp. '
+                        'Eles aparecem para escolher no cadastro dos produtos, nas compras e nas cotações.'
+                    : tipo == 'Comprador'
+                        ? 'Nenhum comprador.\nCadastre frigoríficos e quem compra gado de você. '
+                            'Nas vendas dá para escolher o nome na lista.'
+                        : 'Nenhum contato.\nCadastre quem vende e quem compra gado de você. '
+                            'Nas compras e vendas dá para escolher o nome na lista.',
                 icone: Icons.contacts_outlined);
           }
           return ListView.separated(
@@ -47,12 +106,19 @@ class ContatosPage extends StatelessWidget {
                     color: k['tipo'] == 'Comprador' ? Colors.red : Colors.green),
                 title: Text(txt(k['nome'])),
                 subtitle: Text([
-                  if (soFornecedores) forneceDo(k).isEmpty ? 'Medicamentos e insumos' : forneceDo(k).join(' e ')
+                  if (fornecedor) forneceDo(k).isEmpty ? 'Medicamentos e insumos' : forneceDo(k).join(' e ')
                   else txt(k['tipo']),
                   if (txt(k['telefone']).isNotEmpty) txt(k['telefone']),
                   if (h.compras > 0) '${h.cabecasCompradas} cab. compradas',
                   if (h.vendas > 0) '${h.cabecasVendidas} cab. vendidas',
                 ].join(' · ')),
+                trailing: fornecedor && k['tipo'] != 'Comprador'
+                    ? IconButton(
+                        tooltip: 'Pedir cotação',
+                        icon: const Icon(Icons.request_quote_outlined, color: Color(0xFF00897B)),
+                        onPressed: () => _pedirCotacao(context, k),
+                      )
+                    : null,
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ContatoFormPage(contato: k))),
               );
             },
@@ -64,9 +130,12 @@ class ContatosPage extends StatelessWidget {
 }
 
 class ContatoFormPage extends StatefulWidget {
-  const ContatoFormPage({super.key, this.contato, this.tipo = 'Os dois'});
+  const ContatoFormPage({super.key, this.contato, this.tipo = 'Os dois', this.fornece});
   final Reg? contato;
   final String tipo;
+
+  /// O que o fornecedor novo já vem marcado como vendendo.
+  final String? fornece;
 
   @override
   State<ContatoFormPage> createState() => _ContatoFormPageState();
@@ -80,7 +149,7 @@ class _ContatoFormPageState extends State<ContatoFormPage> {
   late final cidade = TextEditingController(text: txt(c?['cidade']));
   late final obs = TextEditingController(text: txt(c?['obs']));
   late String? tipo = txt(c?['tipo']).isEmpty ? widget.tipo : txt(c?['tipo']);
-  late final fornece = {...?(c == null ? null : forneceDo(c!))};
+  late final fornece = {...?(c == null ? null : forneceDo(c!)), if (widget.fornece != null) widget.fornece!};
 
   @override
   void dispose() {
@@ -207,7 +276,7 @@ class CampoContato extends StatelessWidget {
                   if (lista.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(16),
-                      child: Text('Nenhum contato cadastrado. Cadastre em Financeiro > Fornecedores e compradores.'),
+                      child: Text('Nenhum contato cadastrado. Cadastre em Cadastro de Fornecedores ou Cadastro de Compradores, no menu.'),
                     ),
                   for (final k in lista)
                     ListTile(

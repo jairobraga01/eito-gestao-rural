@@ -37,4 +37,22 @@ void main() {
     expect(a.length, 24);
     expect(a, isNot(b));
   });
+
+  test('mensagem do WhatsApp traz propriedade, telefone, prazos e o link', () {
+    final p = PedidoCotacao('c1', {
+      'tipo': tipoMedicamentos,
+      'fazenda': 'Fazenda Boa Vista',
+      'fazenda_telefone': '(62) 99999-1234',
+      'fornecedor': {'nome': 'Agrofort'},
+      'itens': [
+        {'nome': 'Aftosa', 'unidade': 'dose', 'qtd': 100},
+      ],
+    });
+    final t = textoWhatsCotacao(p);
+    expect(t, contains('Olá, Agrofort!'));
+    expect(t, contains('Fazenda Boa Vista (tel. (62) 99999-1234) pede uma cotação de medicamentos'));
+    expect(t, contains('À vista, 30/60/90 dias e 90 dias direto'));
+    expect(t, contains('SIMILAR'));
+    expect(t, contains(p.link));
+  });
 }

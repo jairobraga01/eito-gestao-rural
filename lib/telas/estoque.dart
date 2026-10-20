@@ -213,6 +213,7 @@ class _CadastroProdutosPageState extends State<CadastroProdutosPage> {
                     title: Text(txt(i['nome'])),
                     subtitle: Text([
                       unidadeInsumo(i),
+                      if (movimentos(i['id'] as int).isNotEmpty) 'estoque: ${_q(saldo(i['id'] as int))}',
                       if (precoKgInsumo(i) != null) '${moeda(precoKgInsumo(i))}/${unidadeInsumo(i)}',
                       if (Db.registro('contatos', i['fornecedor_id']) case final f?) 'fornecedor: ${txt(f['nome'])}',
                     ].join(' · ')),

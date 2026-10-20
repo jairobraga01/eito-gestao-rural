@@ -94,12 +94,13 @@ async function abrir() {
     return aviso('Cotação enviada', 'Os preços desta cotação já foram enviados. Obrigado!');
   }
   const itens = c.itens || [];
-  if (c.fazenda) document.getElementById('fazenda').textContent = c.fazenda;
+  if (c.fazenda) document.getElementById('fazenda').textContent = c.fazenda + (c.fazenda_telefone ? ' · ' + c.fazenda_telefone : '');
   tela.innerHTML = `
     <div class="cartao">
       <h1>Olá, ${esc(c.fornecedor?.nome)}!</h1>
       <p class="suave">${esc(c.fazenda || 'A fazenda')} pede uma cotação de ${esc((c.tipo || '').toLowerCase())}.
-      Informe o <b>preço por unidade</b> de cada item: <b>À vista</b>, <b>30/60/90 dias</b> e <b>90 dias direto</b>. Deixe em branco o que não tiver.</p>
+      Informe o <b>preço por unidade</b> de cada item: <b>À vista</b>, <b>30/60/90 dias</b> e <b>90 dias direto</b>. Deixe em branco o que não tiver o produto específico ou similar.
+      No caso de produto <b>similar</b>, coloque o nome do produto em Observações.</p>
       ${c.pedido_obs ? `<p><b>Recado:</b> ${esc(c.pedido_obs)}</p>` : ''}
     </div>
     <form class="cartao" id="form">
@@ -114,7 +115,7 @@ async function abrir() {
       <label for="frete">Frete (R$)</label><input inputmode="decimal" id="frete" placeholder="0,00">
       <label for="prazo">Prazo de entrega</label><input id="prazo" placeholder="Ex.: 2 dias úteis">
       <label for="pag">Forma de pagamento</label><input id="pag" placeholder="Ex.: Pix, boleto 30 dias">
-      <label for="obs">Observações</label><textarea id="obs" rows="2"></textarea>
+      <label for="obs">Observações</label><textarea id="obs" rows="2" placeholder="Produto similar? Escreva o nome aqui"></textarea>
       <label for="nome">Seu nome</label><input id="nome" placeholder="Quem está respondendo">
       <div class="total"><span>Preço final à vista</span><span id="total">R$ 0,00</span></div>
       <div class="suave" id="totais"></div>

@@ -25,12 +25,16 @@ String _t(Object? v) => v == null ? '' : '$v';
 
 /// Item pedido na cotação.
 class ItemCotacao {
-  ItemCotacao({required this.nome, required this.unidade, required this.qtd, this.insumoId});
+  ItemCotacao({required this.nome, required this.unidade, required this.qtd, this.insumoId, this.estoque});
   final String nome, unidade;
   final double qtd;
   final int? insumoId;
 
-  Map<String, Object?> paraMapa() => {'nome': nome, 'unidade': unidade, 'qtd': qtd, 'insumo_id': insumoId};
+  /// Estoque que a fazenda tinha ao pedir (null = item sem controle de estoque).
+  final double? estoque;
+
+  Map<String, Object?> paraMapa() =>
+      {'nome': nome, 'unidade': unidade, 'qtd': qtd, 'insumo_id': insumoId, 'estoque': estoque};
 
   static ItemCotacao deMapa(Object? m) {
     final x = m is Map ? m : const {};
@@ -39,6 +43,7 @@ class ItemCotacao {
       unidade: _t(x['unidade']),
       qtd: _num(x['qtd']) ?? 0,
       insumoId: x['insumo_id'] is num ? (x['insumo_id'] as num).toInt() : null,
+      estoque: _num(x['estoque']),
     );
   }
 }
@@ -201,6 +206,7 @@ class CotacoesCompra {
         'dono': Db.dono,
         'propriedade_id': Db.pid,
         'fazenda': fazenda,
+        'fazenda_telefone': _t(Db.prop.value?['telefone']),
         'tipo': tipo,
         'grupo': grupo,
         'titulo': titulo,
@@ -246,12 +252,16 @@ String? telefoneWhats(String telefone) {
 
 /// Mensagem do WhatsApp para o fornecedor, com o link da cotação.
 String textoWhatsCotacao(PedidoCotacao p) {
-  final fazenda = _t(p.dados['fazenda']);
+  final fazenda = _t(p.dados['fazenda']), fone = _t(p.dados['fazenda_telefone']);
+  final quem = '${fazenda.isEmpty ? 'Nossa propriedade' : fazenda}${fone.isEmpty ? '' : ' (tel. $fone)'}';
   final itens = p.itens;
-  return 'Olá, ${p.fornecedor}! Aqui é da ${fazenda.isEmpty ? 'fazenda' : fazenda}. '
-      'Gostaríamos de uma cotação de ${p.tipo.toLowerCase()} '
-      '(${itens.length} ${itens.length == 1 ? 'item' : 'itens'}).\n\n'
-      'Preencha os preços neste link, não precisa baixar nada:\n${p.link}\n\nObrigado!';
+  return 'Olá, ${p.fornecedor}!\n'
+      '$quem pede uma cotação de ${p.tipo.toLowerCase()} '
+      '(${itens.length} ${itens.length == 1 ? 'item' : 'itens'}).\n'
+      'Informe o preço por unidade de cada item: À vista, 30/60/90 dias e 90 dias direto. '
+      'Deixe em branco o que não tiver o produto específico ou similar.\n'
+      'No caso de produto SIMILAR, coloque o nome do produto em Observações.\n\n'
+      'Preencha neste link, não precisa baixar nada:\n${p.link}\n\nObrigado!';
 }
 
 /// Endereço do WhatsApp para enviar a cotação (com o número, se houver).

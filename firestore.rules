@@ -77,6 +77,10 @@ service cloud.firestore {
     match /usuarios/{u}/{document=**} {
       allow read, write: if logado() && request.auth.uid == u;
     }
+    // O criador vê a fazenda do cliente para dar suporte (só leitura).
+    match /usuarios/{u}/{tabela}/{doc} {
+      allow read: if admin();
+    }
 
     // Equipe: só o dono muda. A pessoa vê a própria ligação, pode sair e,
     // com um convite válido, entra sozinha com o papel do convite.
@@ -138,12 +142,29 @@ service cloud.firestore {
         && request.resource.data.teste_ate < request.time + duration.value(16, 'd');
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades', 'telefone']));
+          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades', 'telefone', 'uf', 'uso', 'aparelhos']));
       allow delete: if admin();
     }
 
     match /contas_notas/{uid} {
       allow read, write: if admin();
+    }
+    // Pagamentos, histórico das mudanças e respostas prontas: só o criador.
+    match /pagamentos/{id} {
+      allow read, write: if admin();
+    }
+    match /contas_historico/{id} {
+      allow read, write: if admin();
+    }
+    match /respostas_prontas/{id} {
+      allow read, write: if admin();
+    }
+    // Nota que o cliente dá ao app (NPS): cada um grava a sua; o criador lê todas.
+    match /nps/{uid} {
+      allow read: if admin() || (logado() && request.auth.uid == uid);
+      allow create, update: if logado() && request.auth.uid == uid
+        && request.resource.data.nota is int
+        && request.resource.data.nota >= 0 && request.resource.data.nota <= 10;
     }
 
     // Chamados de suporte: o cliente vê e conversa nos dele.

@@ -857,7 +857,8 @@ class _EscolherOutrosFornecedoresState extends State<_EscolherOutrosFornecedores
 }
 
 
-/// Ícone "cotação respondida" ao lado do sininho: aparece com o número de respostas novas.
+/// Ícone de cotações ao lado do sininho: com o número de respostas novas quando há,
+/// e sempre à mão para abrir as cotações.
 class AlertaCotacaoRespondida extends StatelessWidget {
   const AlertaCotacaoRespondida({super.key});
 
@@ -866,22 +867,77 @@ class AlertaCotacaoRespondida extends StatelessWidget {
         valueListenable: CotacoesCompra.recebidas,
         builder: (context, lista, _) {
           final daqui = [for (final p in lista) if (txt(p.dados['propriedade_id']) == '${Db.pid}') p];
-          if (daqui.isEmpty) return const SizedBox.shrink();
-          final p = daqui.first;
+          final p = daqui.firstOrNull;
           return IconButton(
-            tooltip: daqui.length == 1
-                ? 'Cotação respondida: ${p.fornecedor}'
-                : '${daqui.length} cotações respondidas',
+            tooltip: p == null
+                ? 'Cotações'
+                : daqui.length == 1
+                    ? 'Cotação respondida: ${p.fornecedor}'
+                    : '${daqui.length} cotações respondidas',
             icon: Badge(
+              isLabelVisible: daqui.isNotEmpty,
               label: Text('${daqui.length}'),
               backgroundColor: Cores.sucesso,
-              child: const Icon(Icons.request_quote, color: Cores.laranja),
+              child: Icon(daqui.isEmpty ? Icons.request_quote_outlined : Icons.request_quote,
+                  color: daqui.isEmpty ? null : Cores.laranja),
             ),
             onPressed: () => daqui.length == 1
                 ? Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: p.tipo, grupo: p.grupo)))
-                : Nav.ir(p.tipo == tipoMedicamentos ? secCotacaoMedicamentos : secCotacaoInsumos),
+                    context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: p!.tipo, grupo: p.grupo)))
+                : Nav.ir(p?.tipo == tipoInsumos ? secCotacaoInsumos : secCotacaoMedicamentos),
           );
         },
       );
+}
+
+/// Cartão do Painel: cotações respondidas nos últimos 14 dias (as novas em destaque).
+class CartaoCotacoesRespondidas extends StatelessWidget {
+  const CartaoCotacoesRespondidas({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<List<PedidoCotacao>>(
+        valueListenable: CotacoesCompra.pedidos,
+        builder: (context, lista, _) {
+          final corte = DateTime.now().subtract(const Duration(days: 14));
+          final grupos = [
+            for (final t in [tipoMedicamentos, tipoInsumos])
+              for (final g in CotacoesCompra.grupos(t, lista))
+                if (g.respondidas.any((p) => (p.respondidoEm ?? corte).isAfter(corte) || !p.visto)) g,
+          ]..sort((a, b) => _ultima(b).compareTo(_ultima(a)));
+          if (grupos.isEmpty) return const SizedBox.shrink();
+          return Card(
+            margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Cores.sucesso, width: 1.5)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Row(children: [
+                  Icon(Icons.request_quote, color: Cores.laranja),
+                  SizedBox(width: 8),
+                  Text('Cotações respondidas', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                ]),
+              ),
+              for (final g in grupos.take(3))
+                ListTile(
+                  title: Text(g.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  subtitle: Text('${g.respondidas.length} de ${g.pedidos.length} fornecedores responderam'
+                      '${g.melhor == null ? '' : ' · melhor: ${g.melhor!.fornecedor} ${moeda(g.melhor!.total)}'}'),
+                  trailing: g.respondidas.any((p) => !p.visto)
+                      ? const Chip(
+                          label: Text('NOVA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                          backgroundColor: Cores.sucesso,
+                          visualDensity: VisualDensity.compact)
+                      : const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.push(
+                      context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: g.tipo, grupo: g.primeiro.grupo))),
+                ),
+              const SizedBox(height: 4),
+            ]),
+          );
+        },
+      );
+
+  static DateTime _ultima(GrupoCotacao g) =>
+      g.respondidas.map((p) => p.respondidoEm ?? DateTime(2000)).reduce((a, b) => a.isAfter(b) ? a : b);
 }

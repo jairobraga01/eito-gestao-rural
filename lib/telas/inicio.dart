@@ -12,6 +12,7 @@ import '../util/util.dart';
 import 'animais.dart';
 import 'base.dart';
 import 'clima.dart' show iconeTempo;
+import 'cotacao_compra.dart' show CartaoCotacoesRespondidas;
 import 'fila_do_dia.dart';
 import 'lancamento_voz.dart';
 import 'manejo_em_serie.dart';
@@ -180,6 +181,7 @@ class _InicioPageState extends State<InicioPage> {
           children: [
             const _PrevisaoTopo(),
             const _AtalhoArroba(),
+            const CartaoCotacoesRespondidas(),
             const _AvisoPlano(),
             Secao('Alertas (${alertas.length})'),
             if (alertas.isEmpty)

@@ -15,6 +15,8 @@ import 'package:flutter/foundation.dart';
 import '../marca.dart';
 import 'db.dart';
 import 'equipe.dart';
+import 'painel_criador.dart';
+import 'planos.dart';
 
 // O painel do criador abre para quem está em admins/{uid} (o mesmo
 // administrador dos códigos de indicação, ver Indicacoes.souAdmin).
@@ -23,6 +25,24 @@ import 'equipe.dart';
 const planos = ['Teste', 'Simples', 'Média', 'Plus', 'Cortesia'];
 const planosPagos = ['Simples', 'Média', 'Plus', 'Essencial', 'Profissional', 'Completa'];
 const categoriasChamado = ['Dúvida', 'Problema no app', 'Sugestão', 'Financeiro / plano', 'Outro'];
+
+/// Preço mensal de tabela do plano (0 para Teste e Cortesia).
+double precoMensal(Object? plano) =>
+    planosPagos.contains(plano) ? double.parse(PlanoEito.de(plano).mes.replaceAll(',', '.')) : 0;
+
+/// Nome atual do plano (os antigos viram Simples, Média e Plus).
+String nomePlano(Object? plano) => planosPagos.contains(plano) ? PlanoEito.de(plano).nome : '${plano ?? 'Teste'}';
+
+/// Link do cadastro da conta no console do Firebase (Firestore).
+String linkFirebaseConta(String uid) =>
+    'https://console.firebase.google.com/project/caderneta-rebanho/firestore/databases/-default-/data/~2Fcontas~2F$uid';
+
+/// Dados da fazenda da conta no console do Firebase (usuarios/{uid}).
+String linkFirebaseDados(String uid) =>
+    'https://console.firebase.google.com/project/caderneta-rebanho/firestore/databases/-default-/data/~2Fusuarios~2F$uid';
+
+/// Lista de logins no console do Firebase (Authentication).
+const linkFirebaseLogins = 'https://console.firebase.google.com/project/caderneta-rebanho/authentication/users';
 
 DateTime? dataDe(Object? v) => switch (v) {
       Timestamp t => t.toDate(),
@@ -88,7 +108,10 @@ class Plataforma {
       'ultimo_acesso': FieldValue.serverTimestamp(),
       'animais': Db.registros('animais').where((a) => (a['status'] ?? 'Ativo') == 'Ativo').length,
       'propriedades': Db.registros('propriedades').length,
+      'aparelhos': FieldValue.arrayUnion([await PainelCriador.idDoAparelho()]),
     };
+    final uf = Db.registros('propriedades').map((p) => '${p['uf'] ?? ''}').where((u) => u.isNotEmpty).firstOrNull;
+    if (uf != null) resumo['uf'] = uf;
     Map<String, dynamic>? c;
     final fone = telefoneNovo;
     if (fone != null) resumo['telefone'] = fone;
@@ -187,6 +210,8 @@ class Plataforma {
     return switch ('${a['publico'] ?? 'todos'}') {
       'teste' => plano == 'Teste',
       'pagantes' => plano != 'Teste' && plano != 'Cortesia',
+      'Simples' || 'Média' || 'Plus' => nomePlano(plano) == a['publico'],
+      'uf' => '${a['uf'] ?? ''}'.toUpperCase() == (ufDaConta(conta.value ?? const {}) ?? ''),
       _ => true,
     };
   }
@@ -257,11 +282,31 @@ const _site = 'https://eitogestao.com.br';
 String _primeiroNome(String nome) => nome.trim().isEmpty ? '' : ', ${nome.trim()}';
 
 /// Mensagem de boas-vindas (WhatsApp e texto do e-mail).
-String textoBoasVindas(String nome) => 'Olá$_primeiroNome(nome)! Sua conta no Eito Gestão está pronta. 🐂\n\n'
+String textoBoasVindas(String nome) => 'Olá${_primeiroNome(nome)}! Sua conta no Eito Gestão está pronta. 🐂\n\n'
     'Você tem 14 dias com tudo liberado para testar.\n\n'
     'Comece cadastrando a fazenda e os pastos; depois monte os lotes e lance o rebanho. '
     'Funciona no curral mesmo sem sinal.\n\n'
     'Se precisar, fale com a gente pela Ajuda dentro do app ou pelo e-mail ${Marca.email}.\n\n'
+    'Abrir o Eito: $_site';
+
+String _ddmm(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+/// Mensagem pronta para quem está com o teste terminando ou vencido.
+String textoCobrancaTeste(String nome, DateTime? ate) {
+  final quando = ate == null
+      ? 'Seu teste do Eito Gestão está no fim'
+      : ate.isBefore(DateTime.now())
+          ? 'Seu teste do Eito Gestão terminou em ${_ddmm(ate)}'
+          : 'Seu teste do Eito Gestão termina em ${_ddmm(ate)}';
+  final tabela = PlanoEito.todos.map((p) => '• ${p.nome}: R\$ ${p.mes}/mês ou R\$ ${p.ano}/ano (${p.resumoLimite})').join('\n');
+  return 'Olá${_primeiroNome(nome)}! $quando. 🐂\n\n'
+      'Para continuar com o rebanho no app, é só escolher um plano:\n$tabela\n\n'
+      'Qualquer dúvida, responda aqui que a gente ajuda.';
+}
+
+/// Mensagem pronta para quem não abre o app há um tempo.
+String textoSumido(String nome) => 'Olá${_primeiroNome(nome)}! Faz uns dias que você não aparece no Eito Gestão. 🐂\n\n'
+    'Ficou alguma dúvida para lançar o rebanho? Se quiser, a gente te ajuda a deixar tudo pronto.\n\n'
     'Abrir o Eito: $_site';
 
 String _esc(String t) => t.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');

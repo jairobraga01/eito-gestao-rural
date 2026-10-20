@@ -1,0 +1,26 @@
+# Manda todo dia, às 7h de Brasília, o resumo do Painel do criador por e-mail
+# (precisa da extensão "Trigger Email" instalada no Firebase para sair de fato).
+name: Resumo diário do criador
+
+on:
+  schedule:
+    - cron: '0 10 * * *' # 7h em Brasília
+  workflow_dispatch:
+
+concurrency:
+  group: resumo-criador
+  cancel-in-progress: true
+
+jobs:
+  resumo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet google-auth requests
+      - name: Montar e pôr na fila
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python scripts/resumo_criador.py

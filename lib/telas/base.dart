@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../dados/cotacao_compra.dart';
 import '../dados/db.dart';
 import '../dados/equipe.dart';
+import '../dados/painel_criador.dart';
 import '../dados/plataforma.dart';
 import '../dados/indicacoes.dart';
 import '../dados/planos.dart';
@@ -35,7 +36,10 @@ import 'sanidade.dart';
 class Nav {
   Nav._();
   static final secao = ValueNotifier<int>(0);
-  static void ir(int i) => secao.value = i;
+  static void ir(int i) {
+    secao.value = i;
+    if (i < itensMenu.length) PainelCriador.contarTela(itensMenu[i].$1);
+  }
 
   /// Usuário logado (mostrado no menu).
   static User? usuario;

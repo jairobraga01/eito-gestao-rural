@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/plataforma.dart';
+import '../dados/painel_criador.dart';
 import '../marca.dart';
 import '../tema.dart';
 import '../util/util.dart';
@@ -234,6 +235,42 @@ class _ChamadoPageState extends State<ChamadoPage> {
     if (mounted) setState(() => _enviando = false);
   }
 
+  /// Respostas prontas do suporte (as padrão e as que o criador salvou).
+  Future<void> _respostasProntas() async {
+    final escolhida = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: PainelCriador.respostas.snapshots(),
+        builder: (ctx, s) => ListView(shrinkWrap: true, children: [
+          const ListTile(title: Text('Respostas prontas', style: TextStyle(fontWeight: FontWeight.w800))),
+          for (final t in respostasPadrao) ListTile(title: Text(t), onTap: () => Navigator.pop(ctx, t)),
+          for (final d in s.data?.docs ?? const <QueryDocumentSnapshot<Map<String, dynamic>>>[])
+            ListTile(
+              leading: const Icon(Icons.bookmark_outline),
+              title: Text('${d.data()['texto'] ?? ''}'),
+              onTap: () => Navigator.pop(ctx, '${d.data()['texto'] ?? ''}'),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Apagar',
+                onPressed: () => d.reference.delete(),
+              ),
+            ),
+          ListTile(
+            leading: const Icon(Icons.add),
+            title: const Text('Salvar o texto escrito como resposta pronta'),
+            enabled: _texto.text.trim().isNotEmpty,
+            onTap: () async {
+              await PainelCriador.respostas.add({'texto': _texto.text.trim(), 'em': FieldValue.serverTimestamp()});
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+          ),
+        ]),
+      ),
+    );
+    if (escolhida != null) _texto.text = escolhida;
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -296,6 +333,12 @@ class _ChamadoPageState extends State<ChamadoPage> {
               child: Padding(
                 padding: const EdgeInsets.all(8),
                 child: Row(children: [
+                  if (widget.equipe)
+                    IconButton(
+                      icon: const Icon(Icons.quickreply_outlined),
+                      tooltip: 'Respostas prontas',
+                      onPressed: _respostasProntas,
+                    ),
                   Expanded(
                     child: TextField(
                       controller: _texto,

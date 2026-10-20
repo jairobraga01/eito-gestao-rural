@@ -114,4 +114,10 @@ class Indicacoes {
     final q = await _banco.collection('usuarios').where('indicacao', isEqualTo: codigo).count().get();
     return q.count ?? 0;
   }
+
+  /// Código de indicação usado por cada conta (uid → código).
+  static Future<Map<String, String>> codigoPorConta() async {
+    final q = await _banco.collection('usuarios').where('indicacao', isGreaterThan: '').get();
+    return {for (final d in q.docs) d.id: '${d.data()['indicacao']}'};
+  }
 }

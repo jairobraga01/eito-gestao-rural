@@ -21,6 +21,7 @@ import 'mover.dart' show MudarPastoPage;
 import 'relatorios.dart' show partosPrevistos, diagnosticosAtrasados, aplicacoesProximas, animaisEmCarencia;
 import 'reproducao.dart';
 import 'sanidade.dart';
+import 'nps.dart';
 
 class _Painel {
   int ativos = 0, femeas = 0, machos = 0, prenhes = 0, lotes = 0, avisosEstoque = 0;
@@ -75,6 +76,7 @@ class _InicioPageState extends State<InicioPage> {
         await _boasVindas();
       } else if (!Db.ehCampo && mounted) {
         await popupArrobaDoDia(context);
+        if (Db.ehDono && mounted) await pedirNps(context);
       }
     });
   }

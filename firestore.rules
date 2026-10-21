@@ -57,7 +57,8 @@ service cloud.firestore {
     }
     // Quem administra os códigos de indicação (admins/{uid}, criado no console).
     function admin() {
-      return logado() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return logado() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+        && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.get('ativo', true) != false;
     }
     // Tabelas que o zootecnista grava.
     function zootGrava(t) {

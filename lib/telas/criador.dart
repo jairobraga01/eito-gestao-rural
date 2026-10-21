@@ -78,6 +78,21 @@ class CriadorPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Só o criador e os administradores (admins/{uid}) entram; as regras do Firestore também barram.
+    return FutureBuilder<bool>(
+      future: Indicacoes.souAdmin(),
+      builder: (context, s) => switch (s.data) {
+        true => _painel(context),
+        false => Scaffold(
+            appBar: AppBar(title: const Text('Painel do criador')),
+            body: const Vazio('Área só do criador e dos administradores do Eito.', icone: Icons.lock_outline),
+          ),
+        null => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      },
+    );
+  }
+
+  Widget _painel(BuildContext context) {
     return DefaultTabController(
       length: 6,
       child: Scaffold(

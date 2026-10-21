@@ -223,7 +223,7 @@ class MenuLateral extends StatelessWidget {
             Container(
               decoration: const BoxDecoration(
                 color: _MenuCores.topo,
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+                border: Border(bottom: BorderSide(color: _MenuCores.linha)),
               ),
               padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 20, 20, 18),
               child: Column(
@@ -234,22 +234,22 @@ class MenuLateral extends StatelessWidget {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(Marca.nome,
-                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700)),
+                          style: TextStyle(color: _MenuCores.titulo, fontSize: 24, fontWeight: FontWeight.w700)),
                     ),
                   ]),
                   const SizedBox(height: 12),
                   ValueListenableBuilder<Reg?>(
                     valueListenable: Db.prop,
                     builder: (c, p, _) => Text(txt(p?['nome']),
-                        style: const TextStyle(color: Cores.laranja, fontSize: 16, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(color: Cores.oliva, fontSize: 16, fontWeight: FontWeight.w700)),
                   ),
                   if (Nav.usuario?.email != null)
-                    Text(Nav.usuario!.email!, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    Text(Nav.usuario!.email!, style: const TextStyle(color: _MenuCores.suave, fontSize: 13)),
                   if (Equipe.atual != null)
                     Text(
                         '${papeis[Equipe.atual!.papel] ?? ''} · fazenda de '
                         '${Equipe.atual!.donoNome.isEmpty ? 'outra conta' : Equipe.atual!.donoNome}',
-                        style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                        style: const TextStyle(color: _MenuCores.suave, fontSize: 13)),
                 ],
               ),
             ),
@@ -262,14 +262,14 @@ class MenuLateral extends StatelessWidget {
             if (podeLancar) Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Material(
-                color: Cores.laranja,
+                color: Cores.laranja.withValues(alpha: 0.28),
                 borderRadius: BorderRadius.circular(12),
                 child: ListTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  leading: const Icon(Icons.contactless_outlined, color: Colors.white),
+                  leading: const Icon(Icons.contactless_outlined, color: _MenuCores.titulo),
                   title: const Text('Modo Curral',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-                  subtitle: const Text('Lançar o serviço do curral', style: TextStyle(color: Colors.white70)),
+                      style: TextStyle(color: _MenuCores.titulo, fontSize: 16, fontWeight: FontWeight.w800)),
+                  subtitle: const Text('Lançar o serviço do curral', style: TextStyle(color: _MenuCores.suave)),
                   onTap: () {
                     fechar();
                     abrirModoCurral(context);
@@ -281,14 +281,14 @@ class MenuLateral extends StatelessWidget {
             if (podeLancar && planoAtual().completo) Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Material(
-                color: Cores.azul,
+                color: Cores.azul.withValues(alpha: 0.10),
                 borderRadius: BorderRadius.circular(12),
                 child: ListTile(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  leading: const Icon(Icons.favorite_border, color: Cores.laranja),
+                  leading: const Icon(Icons.favorite_border, color: Cores.azul),
                   title: const Text('Modo Inseminação',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-                  subtitle: const Text('IA, IATF e diagnóstico', style: TextStyle(color: Colors.white70)),
+                      style: TextStyle(color: Cores.azul, fontSize: 16, fontWeight: FontWeight.w800)),
+                  subtitle: const Text('IA, IATF e diagnóstico', style: TextStyle(color: _MenuCores.suave)),
                   onTap: () {
                     fechar();
                     abrirModoInseminacao(context);
@@ -337,7 +337,7 @@ class MenuLateral extends StatelessWidget {
                       item(Icons.admin_panel_settings_outlined, 'Gestão de Clientes (Painel do criador)', () {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const CriadorPage()));
-                      }, cor: Cores.laranja),
+                      }, cor: Cores.azul),
                       item(Icons.dashboard_outlined, 'Relatório Gado Guaraí', () {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const PainelGadoPage()));
@@ -374,13 +374,18 @@ class MenuLateral extends StatelessWidget {
   }
 }
 
-/// Cores do menu lateral: fundo sólido no verde do tema, texto branco.
+/// Cores do menu lateral: tons claros do verde do tema, texto escuro.
 class _MenuCores {
   _MenuCores._();
-  static const fundo = Cores.olivaEscuro;
-  static const topo = Color(0xFF004D22);
-  static const rotulo = Colors.white60;
-  static const sair = Color(0xFFFFB4AB);
+  static const fundo = Color(0xFFF3F8F4);
+  static const topo = Color(0xFFE3EFE6);
+  static const titulo = Cores.olivaEscuro;
+  static const texto = Color(0xFF24382C);
+  static const icone = Color(0xFF3F7A55);
+  static const suave = Color(0xFF5E7166);
+  static const rotulo = Color(0xFF7C9486);
+  static const linha = Color(0xFFD3E3D8);
+  static const sair = Cores.alerta;
 }
 
 /// Rótulo de seção do menu (como "SGD" no exemplo).
@@ -412,7 +417,7 @@ class _ItemMenu extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
-        color: atual ? Colors.white.withValues(alpha: 0.14) : Colors.transparent,
+        color: atual ? Cores.oliva.withValues(alpha: 0.12) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -420,13 +425,13 @@ class _ItemMenu extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
             child: Row(children: [
-              Icon(icone, size: 26, color: cor ?? (atual ? Cores.laranja : Colors.white)),
+              Icon(icone, size: 26, color: cor ?? (atual ? Cores.oliva : _MenuCores.icone)),
               const SizedBox(width: 22),
               Expanded(
                 child: Text(texto,
                     style: TextStyle(
                       fontSize: 16.5,
-                      color: cor ?? Colors.white,
+                      color: cor ?? (atual ? _MenuCores.titulo : _MenuCores.texto),
                       fontWeight: atual ? FontWeight.w800 : FontWeight.w600,
                     )),
               ),
@@ -465,7 +470,7 @@ class _GrupoMenuState extends State<_GrupoMenu> {
         seta: AnimatedRotation(
           turns: aberto ? 0.25 : 0,
           duration: const Duration(milliseconds: 180),
-          child: const Icon(Icons.chevron_right, color: Colors.white70, size: 24),
+          child: const Icon(Icons.chevron_right, color: _MenuCores.rotulo, size: 24),
         ),
       ),
       AnimatedSize(
@@ -475,7 +480,7 @@ class _GrupoMenuState extends State<_GrupoMenu> {
             ? Container(
                 margin: const EdgeInsets.only(left: 20, right: 4, bottom: 4),
                 decoration: const BoxDecoration(
-                  border: Border(left: BorderSide(color: Colors.white24, width: 2)),
+                  border: Border(left: BorderSide(color: _MenuCores.linha, width: 2)),
                 ),
                 child: Column(children: widget.children),
               )

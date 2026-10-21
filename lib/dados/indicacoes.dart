@@ -67,30 +67,37 @@ class Indicacoes {
       }, SetOptions(merge: true));
 
   static bool? _admin;
+  static String? _adminUid; // de quem é a resposta guardada em _admin
 
   static const emailDoCriador = 'eitogestaorural@gmail.com';
 
-  /// Se quem está logado administra os códigos (admins/{uid} existe).
+  /// Se quem está logado é o criador ou administrador (admins/{uid} existe e
+  /// não está com ativo: false). A resposta guardada vale só para o mesmo login.
   static Future<bool> souAdmin() async {
     final u = FirebaseAuth.instance.currentUser;
     final uid = u?.uid;
     if (uid == null) return false;
     try {
-      if (_admin != null) return _admin!;
+      if (_admin != null && _adminUid == uid) return _admin!;
       final ref = _banco.collection('admins').doc(uid);
-      var existe = (await ref.get()).exists;
+      final doc = await ref.get();
+      var existe = doc.exists && doc.data()?['ativo'] != false;
       // A conta do criador se registra sozinha (as regras só deixam o e-mail dele, confirmado).
-      if (!existe && u!.emailVerified && u.email == emailDoCriador) {
+      if (!doc.exists && u!.emailVerified && u.email == emailDoCriador) {
         await ref.set({'ativo': true, 'email': u.email});
         existe = true;
       }
+      _adminUid = uid;
       return _admin = existe;
     } catch (_) {
       return false; // sem permissão: não é administrador
     }
   }
 
-  static void esquecerAdmin() => _admin = null;
+  static void esquecerAdmin() {
+    _admin = null;
+    _adminUid = null;
+  }
 
   static Future<List<Indicacao>> todas() async {
     final q = await _codigos.get();

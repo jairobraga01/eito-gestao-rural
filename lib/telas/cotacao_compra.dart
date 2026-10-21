@@ -890,7 +890,7 @@ class AlertaCotacaoRespondida extends StatelessWidget {
       );
 }
 
-/// Cartão do Painel: cotações respondidas nos últimos 14 dias (as novas em destaque).
+/// Cartão do Painel, numa linha: quantas cotações foram respondidas nos últimos 14 dias.
 class CartaoCotacoesRespondidas extends StatelessWidget {
   const CartaoCotacoesRespondidas({super.key});
 
@@ -905,37 +905,56 @@ class CartaoCotacoesRespondidas extends StatelessWidget {
                 if (g.respondidas.any((p) => (p.respondidoEm ?? corte).isAfter(corte) || !p.visto)) g,
           ]..sort((a, b) => _ultima(b).compareTo(_ultima(a)));
           if (grupos.isEmpty) return const SizedBox.shrink();
+          final n = grupos.length;
+          final novas = grupos.any((g) => g.respondidas.any((p) => !p.visto));
           return Card(
             margin: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Cores.sucesso, width: 1.5)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Row(children: [
-                  Icon(Icons.request_quote, color: Cores.laranja),
-                  SizedBox(width: 8),
-                  Text('Cotações respondidas', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                ]),
-              ),
-              for (final g in grupos.take(3))
-                ListTile(
-                  title: Text(g.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text('${g.respondidas.length} de ${g.pedidos.length} fornecedores responderam'
-                      '${g.melhor == null ? '' : ' · melhor: ${g.melhor!.fornecedor} ${moeda(g.melhor!.total)}'}'),
-                  trailing: g.respondidas.any((p) => !p.visto)
-                      ? const Chip(
-                          label: Text('NOVA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                          backgroundColor: Cores.sucesso,
-                          visualDensity: VisualDensity.compact)
-                      : const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.push(
-                      context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: g.tipo, grupo: g.primeiro.grupo))),
-                ),
-              const SizedBox(height: 4),
-            ]),
+            child: ListTile(
+              leading: const Icon(Icons.request_quote, color: Cores.laranja),
+              title: const Text('Existem cotações respondidas', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              subtitle: Text('${n.toString().padLeft(2, '0')} ${n == 1 ? 'cotação respondida' : 'cotações respondidas'}'),
+              trailing: novas
+                  ? const Chip(
+                      label: Text('NOVA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                      backgroundColor: Cores.sucesso,
+                      visualDensity: VisualDensity.compact)
+                  : const Icon(Icons.chevron_right),
+              onTap: () => n == 1 ? _abrir(context, grupos.first) : _lista(context, grupos),
+            ),
           );
         },
+      );
+
+  static void _abrir(BuildContext context, GrupoCotacao g) =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => GrupoCotacaoPage(tipo: g.tipo, grupo: g.primeiro.grupo)));
+
+  /// Lista das cotações respondidas (abre ao tocar no cartão quando há mais de uma).
+  static Future<void> _lista(BuildContext context, List<GrupoCotacao> grupos) => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) => SafeArea(
+          child: ListView(shrinkWrap: true, children: [
+            const ListTile(title: Text('Cotações respondidas', style: TextStyle(fontWeight: FontWeight.w800))),
+            for (final g in grupos)
+              ListTile(
+                title: Text(g.titulo, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text('${g.respondidas.length} de ${g.pedidos.length} fornecedores responderam'
+                    '${g.melhor == null ? '' : ' · melhor: ${g.melhor!.fornecedor} ${moeda(g.melhor!.total)}'}'),
+                trailing: g.respondidas.any((p) => !p.visto)
+                    ? const Chip(
+                        label: Text('NOVA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+                        backgroundColor: Cores.sucesso,
+                        visualDensity: VisualDensity.compact)
+                    : const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _abrir(context, g);
+                },
+              ),
+          ]),
+        ),
       );
 
   static DateTime _ultima(GrupoCotacao g) =>

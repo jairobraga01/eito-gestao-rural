@@ -209,22 +209,11 @@ class MenuLateral extends StatelessWidget {
     }
 
     Widget item(IconData icone, String texto, VoidCallback onTap, {bool atual = false, Color? cor}) {
-      return ListTile(
-        leading: Icon(icone, color: cor ?? (atual ? Cores.laranja : Cores.oliva)),
-        title: Text(texto,
-            style: TextStyle(
-              fontSize: 16,
-              color: cor ?? (atual ? Cores.oliva : Cores.tinta),
-              fontWeight: atual ? FontWeight.w800 : FontWeight.w500,
-            )),
-        selected: atual,
-        selectedTileColor: Cores.oliva.withValues(alpha: 0.10),
-        onTap: onTap,
-      );
+      return _ItemMenu(icone: icone, texto: texto, onTap: onTap, atual: atual, cor: cor);
     }
 
     return Drawer(
-      backgroundColor: Cores.palha,
+      backgroundColor: _MenuCores.fundo,
       shape: fixo ? const RoundedRectangleBorder() : null,
       child: ValueListenableBuilder<int>(
         valueListenable: Nav.secao,
@@ -232,7 +221,10 @@ class MenuLateral extends StatelessWidget {
           padding: EdgeInsets.zero,
           children: [
             Container(
-              color: Cores.olivaEscuro,
+              decoration: const BoxDecoration(
+                color: _MenuCores.topo,
+                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2))],
+              ),
               padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 20, 20, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -242,7 +234,7 @@ class MenuLateral extends StatelessWidget {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(Marca.nome,
-                          style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800)),
+                          style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700)),
                     ),
                   ]),
                   const SizedBox(height: 12),
@@ -261,6 +253,7 @@ class MenuLateral extends StatelessWidget {
                 ],
               ),
             ),
+            const _RotuloMenu('Principal'),
             item(itensMenu[0].$2, itensMenu[0].$1, () {
               fechar();
               Nav.ir(0);
@@ -307,27 +300,23 @@ class MenuLateral extends StatelessWidget {
               fechar();
               Nav.ir(secTarefas);
             }, atual: atual == secTarefas),
+            const _RotuloMenu('Fazenda'),
             for (final (titulo, icone, todos) in gruposMenu)
               if (todos.where(podeVer).toList() case final itens when itens.isNotEmpty)
-              Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                child: ExpansionTile(
-                  key: PageStorageKey('menu_$titulo'),
-                  leading: Icon(icone, color: itens.contains(atual) ? Cores.laranja : Cores.oliva),
-                  title: Text(titulo,
-                      style: const TextStyle(fontSize: 16, color: Cores.tinta, fontWeight: FontWeight.w800)),
-                  initiallyExpanded: itens.contains(atual),
-                  childrenPadding: const EdgeInsets.only(left: 12),
-                  children: [
-                    for (final i in itens)
-                      item(itensMenu[i].$2, itensMenu[i].$1, () {
-                        fechar();
-                        Nav.ir(i);
-                      }, atual: i == atual),
-                  ],
-                ),
+              _GrupoMenu(
+                key: ValueKey('menu_$titulo'),
+                icone: icone,
+                titulo: titulo,
+                ativo: itens.contains(atual),
+                children: [
+                  for (final i in itens)
+                    item(itensMenu[i].$2, itensMenu[i].$1, () {
+                      fechar();
+                      Nav.ir(i);
+                    }, atual: i == atual),
+                ],
               ),
-            const Divider(),
+            const _RotuloMenu('Ferramentas'),
             item(Icons.bluetooth, 'Bastão e balança', () {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
@@ -348,7 +337,7 @@ class MenuLateral extends StatelessWidget {
                       item(Icons.admin_panel_settings_outlined, 'Gestão de Clientes (Painel do criador)', () {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const CriadorPage()));
-                      }, cor: Cores.azul),
+                      }, cor: Cores.laranja),
                       item(Icons.dashboard_outlined, 'Relatório Gado Guaraí', () {
                         fechar();
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const PainelGadoPage()));
@@ -360,6 +349,7 @@ class MenuLateral extends StatelessWidget {
                     ])
                   : const SizedBox.shrink(),
             ),
+            const _RotuloMenu('Conta e ajuda'),
             item(itensMenu[secGuia].$2, itensMenu[secGuia].$1, () {
               fechar();
               Nav.ir(secGuia);
@@ -375,12 +365,123 @@ class MenuLateral extends StatelessWidget {
             item(Icons.logout, 'Sair da conta', () {
               fechar();
               sairDaConta(context);
-            }, cor: Cores.alerta),
+            }, cor: _MenuCores.sair),
             const SizedBox(height: 16),
           ],
         ),
       ),
     );
+  }
+}
+
+/// Cores do menu lateral: fundo sólido no verde do tema, texto branco.
+class _MenuCores {
+  _MenuCores._();
+  static const fundo = Cores.olivaEscuro;
+  static const topo = Color(0xFF004D22);
+  static const rotulo = Colors.white60;
+  static const sair = Color(0xFFFFB4AB);
+}
+
+/// Rótulo de seção do menu (como "SGD" no exemplo).
+class _RotuloMenu extends StatelessWidget {
+  const _RotuloMenu(this.texto);
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 20, 6),
+        child: Text(texto.toUpperCase(),
+            style: const TextStyle(
+                color: _MenuCores.rotulo, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+      );
+}
+
+/// Linha do menu: ícone grande e texto branco, bem espaçados.
+class _ItemMenu extends StatelessWidget {
+  const _ItemMenu({required this.icone, required this.texto, required this.onTap, this.atual = false, this.cor, this.seta});
+  final IconData icone;
+  final String texto;
+  final VoidCallback onTap;
+  final bool atual;
+  final Color? cor;
+  final Widget? seta;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: atual ? Colors.white.withValues(alpha: 0.14) : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(children: [
+              Icon(icone, size: 26, color: cor ?? (atual ? Cores.laranja : Colors.white)),
+              const SizedBox(width: 22),
+              Expanded(
+                child: Text(texto,
+                    style: TextStyle(
+                      fontSize: 16.5,
+                      color: cor ?? Colors.white,
+                      fontWeight: atual ? FontWeight.w800 : FontWeight.w600,
+                    )),
+              ),
+              if (seta != null) seta!,
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Grupo expansível com seta ">" que gira ao abrir.
+class _GrupoMenu extends StatefulWidget {
+  const _GrupoMenu({super.key, required this.icone, required this.titulo, required this.ativo, required this.children});
+  final IconData icone;
+  final String titulo;
+  final bool ativo;
+  final List<Widget> children;
+
+  @override
+  State<_GrupoMenu> createState() => _GrupoMenuState();
+}
+
+class _GrupoMenuState extends State<_GrupoMenu> {
+  late bool aberto = widget.ativo;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(children: [
+      _ItemMenu(
+        icone: widget.icone,
+        texto: widget.titulo,
+        atual: widget.ativo && !aberto,
+        onTap: () => setState(() => aberto = !aberto),
+        seta: AnimatedRotation(
+          turns: aberto ? 0.25 : 0,
+          duration: const Duration(milliseconds: 180),
+          child: const Icon(Icons.chevron_right, color: Colors.white70, size: 24),
+        ),
+      ),
+      AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        alignment: Alignment.topCenter,
+        child: aberto
+            ? Container(
+                margin: const EdgeInsets.only(left: 20, right: 4, bottom: 4),
+                decoration: const BoxDecoration(
+                  border: Border(left: BorderSide(color: Colors.white24, width: 2)),
+                ),
+                child: Column(children: widget.children),
+              )
+            : const SizedBox(width: double.infinity),
+      ),
+    ]);
   }
 }
 

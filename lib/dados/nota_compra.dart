@@ -279,3 +279,32 @@ Future<int> lancarNota(NotaCompra nota, {required String data}) async {
   }
   return n;
 }
+
+/// Valor total do documento (nota, cupom ou recibo). Procura "valor total da nota",
+/// "total a pagar", "a quantia de" etc. Sem rótulo, soma os itens lidos.
+double? totalDoDocumento(String texto, {NotaCompra? nota}) {
+  final xml = RegExp(r'<vNF>\s*([\d.]+)\s*</vNF>').firstMatch(texto);
+  if (xml != null) return double.tryParse(xml[1]!);
+  final linhas = texto.split(RegExp(r'[\r\n]+')).map((l) => _semAcento(l).toUpperCase()).toList();
+  final valor = RegExp(r'\d{1,3}(?:\.\d{3})+,\d{2}|\d+,\d{2}');
+  double? ultimo(String l) {
+    final ms = valor.allMatches(l).toList();
+    return ms.isEmpty ? null : lerValor(ms.last[0]!);
+  }
+
+  const rotulos = [
+    'VALOR TOTAL DA NOTA', 'V. TOTAL DA NOTA', 'TOTAL DA NOTA', 'TOTAL A PAGAR', 'VALOR A PAGAR',
+    'VALOR PAGO', 'TOTAL GERAL', 'QUANTIA DE', 'IMPORTANCIA DE', 'VALOR TOTAL', 'TOTAL',
+  ];
+  for (final r in rotulos) {
+    for (var i = 0; i < linhas.length; i++) {
+      final k = linhas[i].indexOf(r);
+      if (k < 0) continue;
+      // Valor na mesma linha, depois do rótulo; senão na linha de baixo (DANFE).
+      final v = ultimo(linhas[i].substring(k)) ?? (i + 1 < linhas.length ? ultimo(linhas[i + 1]) : null);
+      if (v != null && v > 0) return v;
+    }
+  }
+  final soma = nota?.itens.fold<double>(0, (s, i) => s + i.total) ?? 0;
+  return soma > 0 ? double.parse(soma.toStringAsFixed(2)) : null;
+}

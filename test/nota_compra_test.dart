@@ -2,6 +2,7 @@ import 'package:eito_gestao_rural/dados/db.dart';
 import 'package:eito_gestao_rural/dados/estoque.dart';
 import 'package:eito_gestao_rural/dados/nota_compra.dart';
 import 'package:eito_gestao_rural/dados/proteinado.dart';
+import 'package:eito_gestao_rural/dados/voz.dart' show categoriaDespesa;
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -79,5 +80,21 @@ TOTAL DA NOTA 10.205,00''';
     await pumpEventQueue();
     expect(Db.registros('insumos').length, 3);
     expect(saldo(sal['id'] as int), 500);
+  });
+
+  test('total do documento: rótulo na linha, na linha de baixo, recibo e soma dos itens', () {
+    expect(totalDoDocumento('<vNF>1234.50</vNF>'), 1234.5);
+    expect(totalDoDocumento('POSTO BOI GORDO\nDIESEL S10 120 L\nTOTAL A PAGAR R\$ 1.020,00'), 1020);
+    expect(totalDoDocumento('VALOR TOTAL DOS PRODUTOS   VALOR TOTAL DA NOTA\n10.000,00   10.205,00'), 10205);
+    expect(totalDoDocumento('Recebi de Jairo Braga a quantia de R\$ 350,00 referente a conserto de cerca'), 350);
+    final n = lerNotaTexto('MILHO 10 KG 2,00 20,00\nSAL 2 SC 50,00 100,00');
+    expect(totalDoDocumento('sem rótulo', nota: n), 120);
+    expect(totalDoDocumento('nada aqui'), isNull);
+  });
+
+  test('categoria da despesa pelo texto da nota', () {
+    expect(categoriaDespesa('POSTO BOI GORDO ÓLEO DIESEL S10'), 'Combustível e máquinas');
+    expect(categoriaDespesa('Conserto de cerca'), 'Pastagem e arrendamento');
+    expect(categoriaDespesa('VACINA AFTOSA'), 'Sanidade');
   });
 }

@@ -293,6 +293,9 @@ ComandoVoz? interpretarVoz(String frase, {List<String> insumos = const []}) {
   return ComandoVoz(TipoVoz.sanidade, brinco: brinco, produto: produto, categoria: categoria);
 }
 
+/// Categoria de custo pelo texto (nota, recibo ou frase): diesel → Combustível e máquinas.
+String categoriaDespesa(String texto) => _categoriaDespesa(semAcento(texto));
+
 String _categoriaDespesa(String d) {
   bool tem(List<String> ps) => ps.any(d.contains);
   final c = tem(['diesel', 'gasolina', 'oleo', 'trator', 'maquina', 'pneu', 'combustivel'])

@@ -15,6 +15,7 @@ import 'clima.dart' show iconeTempo;
 import 'cotacao_compra.dart' show CartaoCotacoesRespondidas;
 import 'fila_do_dia.dart';
 import 'lancamento_voz.dart';
+import 'lancar_documento.dart';
 import 'lancar_whatsapp.dart';
 import 'manejo_em_serie.dart';
 import 'popup_arroba.dart';
@@ -212,10 +213,19 @@ class _InicioPageState extends State<InicioPage> {
                 Expanded(
                     child: _Modo('Lançar por voz', Icons.mic_none, const Color(0xFF6A1B9A),
                         () => _abrir(const LancamentoVozPage()))),
-                const SizedBox(width: 8),
+              ]),
+            ),
+            if (podeLancar)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Row(children: [
                 Expanded(
                     child: _Modo('Lançar do WhatsApp', Icons.chat_outlined, const Color(0xFF2E7D32),
                         () => _abrir(const LancarWhatsAppPage()))),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: _Modo('Lançar por foto ou PDF', Icons.document_scanner_outlined, const Color(0xFF5D4037),
+                        () => _abrir(const LancarDocumentoPage()))),
               ]),
             ),
             SizedBox(

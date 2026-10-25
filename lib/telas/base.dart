@@ -25,6 +25,7 @@ import 'criador.dart';
 import 'eito360_api_page.dart';
 import 'entradas.dart' show iconeEntrada, iconeSaida;
 import 'lancamento_voz.dart';
+import 'lancar_documento.dart';
 import 'lancar_whatsapp.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
@@ -379,14 +380,14 @@ class MenuLateral extends StatelessWidget {
 /// Cores do menu lateral: tons claros do verde do tema, texto escuro.
 class _MenuCores {
   _MenuCores._();
-  static const fundo = Color(0xFFF3F8F4);
-  static const topo = Color(0xFFE3EFE6);
+  static const fundo = Color(0xFFDDEBE1);
+  static const topo = Color(0xFFCADFCF);
   static const titulo = Cores.olivaEscuro;
   static const texto = Color(0xFF24382C);
   static const icone = Color(0xFF3F7A55);
-  static const suave = Color(0xFF5E7166);
-  static const rotulo = Color(0xFF7C9486);
-  static const linha = Color(0xFFD3E3D8);
+  static const suave = Color(0xFF4D6055);
+  static const rotulo = Color(0xFF627A6B);
+  static const linha = Color(0xFFBCD3C3);
   static const sair = Cores.alerta;
 }
 
@@ -419,7 +420,7 @@ class _ItemMenu extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
-        color: atual ? Cores.oliva.withValues(alpha: 0.12) : Colors.transparent,
+        color: atual ? Cores.oliva.withValues(alpha: 0.18) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -675,6 +676,7 @@ class AcoesFab extends StatelessWidget {
     ('Modo Curral', Icons.contactless_outlined, () => const ModoCurral()),
     ('Lançar por voz', Icons.mic, () => const LancamentoVozPage()),
     ('Lançar do WhatsApp', Icons.chat_outlined, () => const LancarWhatsAppPage()),
+    ('Lançar por foto ou PDF', Icons.document_scanner_outlined, () => const LancarDocumentoPage()),
     ('Propriedade', Icons.home_work_outlined, () => const PropriedadeFormPage()),
     ('Lote', Icons.workspaces_outline, () => const LoteFormPage()),
     ('Animal', Icons.pets, () => const AnimalFormPage()),

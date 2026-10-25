@@ -11,7 +11,10 @@ String _q(double v) => numeroBr(v, casas: v % 1 == 0 ? 0 : 2);
 
 /// Conferência dos itens lidos: a pessoa corrige e confirma antes de entrar no estoque.
 class NotaCompraPage extends StatefulWidget {
-  const NotaCompraPage({super.key, this.categorias});
+  const NotaCompraPage({super.key, this.categorias, this.inicial});
+
+  /// Nota já lida em outra tela (Lançar por foto ou PDF).
+  final NotaCompra? inicial;
 
   /// Categorias que a tela oferece (medicamentos ou insumos em geral); null = todas.
   final List<String>? categorias;
@@ -21,8 +24,8 @@ class NotaCompraPage extends StatefulWidget {
 }
 
 class _NotaCompraPageState extends State<NotaCompraPage> {
-  NotaCompra? nota;
-  String data = hojeIso();
+  late NotaCompra? nota = widget.inicial;
+  late String data = widget.inicial?.data ?? hojeIso();
   String status = '';
   bool lendo = false;
   bool salvando = false;

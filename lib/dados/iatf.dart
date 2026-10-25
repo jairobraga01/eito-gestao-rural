@@ -213,13 +213,26 @@ Future<void> descartarDoProtocolo(int protocoloId, int vacaId, {String? motivo})
 }
 
 /// Vacas vazias ou com perda do protocolo, ainda ativas e não descartadas.
-List<int> vaziasParaRessinc(Reg p) => [
-      for (final v in resultadoProtocolo(p).vacas)
-        if ((v.situacao == SituacaoIatf.vazia || v.situacao == SituacaoIatf.perda) &&
-            v.animal['status'] == 'Ativo' &&
-            v.animal['descarte'] != true)
-          _int(v.animal['id'])!,
-    ];
+List<int> vaziasParaRessinc(Reg p) {
+  // Já ressincronizadas a partir deste protocolo não entram de novo.
+  final jaRessinc = {
+    for (final x in Db.registros('protocolos'))
+      if (_int(x['origem_id']) == _int(p['id'])) ...((x['femeas'] as List?) ?? const []).map(_int),
+  };
+  return [
+    for (final v in resultadoProtocolo(p).vacas)
+      if ((v.situacao == SituacaoIatf.vazia || v.situacao == SituacaoIatf.perda) &&
+          v.animal['status'] == 'Ativo' &&
+          v.animal['descarte'] != true &&
+          !jaRessinc.contains(_int(v.animal['id'])) &&
+          // Emprenhou (ou foi servida de novo) depois, no repasse ou em outro serviço.
+          !Db.registros('reproducoes').any((r) =>
+              _int(r['femea_id']) == _int(v.animal['id']) &&
+              r['parto_data'] == null &&
+              (r['diagnostico'] == 'Pendente' || r['diagnostico'] == 'Prenhe')))
+        _int(v.animal['id'])!,
+  ];
+}
 
 /// Novo protocolo com as vazias, com as mesmas etapas, começando em [inicio].
 Future<int?> ressincronizar(Reg p, String inicio) async {
@@ -287,6 +300,7 @@ List<LinhaConcepcao> concepcaoPorFator(String fator, {int? protocoloId, int? ano
   final valor = fatoresConcepcao[fator]!;
   final linhas = <String, LinhaConcepcao>{};
   final p = protocoloId == null ? null : Db.registro('protocolos', protocoloId);
+  if (protocoloId != null && p == null) return []; // protocolo apagado: não mostra a fazenda toda
   final servicos = p != null
       ? [for (final v in resultadoProtocolo(p).vacas) if (v.servico != null) v.servico!]
       : Db.registros('reproducoes');
@@ -419,7 +433,8 @@ List<int> vacasNoManejo(Reg p) {
   final descartes = {for (final d in (p['descartes'] as List?) ?? const []) _int(d)};
   return [
     for (final f in (p['femeas'] as List?) ?? const [])
-      if (!descartes.contains(_int(f)) && Db.registro('animais', f) != null) _int(f)!,
+      // Vaca vendida ou morta antes da etapa não recebe hormônio.
+      if (!descartes.contains(_int(f)) && Db.registro('animais', f)?['status'] == 'Ativo') _int(f)!,
   ];
 }
 
@@ -446,6 +461,8 @@ Future<int> darBaixaEtapa(int protocoloId, int dia, String data) async {
   final etapa = etapasDe(p).where((e) => _int(e['dia']) == dia).firstOrNull;
   if (etapa == null) return 0;
   final vacas = vacasNoManejo(p).length;
+  // Marca antes de baixar: se algo falhar no meio, não baixa de novo no próximo toque.
+  await Db.atualizar('protocolos', protocoloId, {'baixas': [...baixasFeitas(p), dia]});
   var n = 0;
   for (final x in produtosDaEtapa(etapa)) {
     final qtd = x['qtd'] is num ? (x['qtd'] as num).toDouble() : 0.0;
@@ -460,7 +477,6 @@ Future<int> darBaixaEtapa(int protocoloId, int dia, String data) async {
     });
     n++;
   }
-  await Db.atualizar('protocolos', protocoloId, {'baixas': [...baixasFeitas(p), dia]});
   return n;
 }
 

@@ -35,6 +35,14 @@ void main() {
     expect((milho.unidade, milho.embalagem, milho.valorUnit), ('kg', 1, 1.2));
   });
 
+  test('XML com 3 casas decimais não vira milhar', () {
+    const xml = '<nfeProc><NFe><infNFe><emit><xNome>X</xNome></emit>'
+        '<det nItem="1"><prod><xProd>MILHO MOIDO</xProd><uCom>KG</uCom><qCom>2.500</qCom>'
+        '<vUnCom>125.000</vUnCom></prod></det></infNFe></NFe></nfeProc>';
+    final i = lerNotaXml(xml)!.itens.single;
+    expect((i.valorUnit, i.qtdEstoque), (125.0, 2.5));
+  });
+
   test('texto de PDF ou foto: linhas com unidade e sem unidade', () {
     const t = '''
 AGRO VETERINARIA CENTRAL LTDA

@@ -242,6 +242,7 @@ class _DietaFormPageState extends State<DietaFormPage> {
   }
 
   Future<void> _excluir() async {
+    if (!await confirmar(context, 'Excluir dieta', 'Excluir esta dieta?')) return;
     await Db.excluir('dietas', d!['id'] as int);
     if (mounted) Navigator.pop(context);
   }

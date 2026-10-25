@@ -94,7 +94,7 @@ class _ManejoEmSerieState extends State<ManejoEmSerie> {
   Future<void> _receberBrinco(String codigo) async {
     if (_buscando) return;
     setState(() => _buscando = true);
-    final a = await Db.buscarPorCodigo(codigo);
+    final a = await Db.buscarPorCodigo(codigo, soDestaFazenda: true);
     if (!mounted) return;
     setState(() => _buscando = false);
 
@@ -123,6 +123,12 @@ class _ManejoEmSerieState extends State<ManejoEmSerie> {
     final id = a['id'] as int;
 
     if (_pesagem) {
+      final noTronco = _atual;
+      if (noTronco != null && noTronco['id'] == id) return; // releitura do mesmo brinco: mantém o peso
+      if (noTronco != null && _peso.value.isNotEmpty) {
+        _avisar('Confirme o peso do brinco ${noTronco['brinco']} antes de ler outro.', cor: Cores.alerta);
+        return;
+      }
       _peso.value = '';
       setState(() {
         _atual = a;

@@ -574,14 +574,18 @@ class _NascimentoFormPageState extends State<NascimentoFormPage> {
   void _definirMae(Reg m) {
     setState(() {
       mae = m;
-      if (widget.reproducao == null) servico = null;
+      if (!_usaServicoOriginal(m)) servico = null;
     });
     _completarMae(m);
   }
 
+  /// O serviço recebido só vale enquanto a mãe for a mesma de quando a tela abriu.
+  bool _usaServicoOriginal(Reg m) =>
+      widget.reproducao != null && widget.reproducao!['femea_id'] == m['id'];
+
   Future<void> _completarMae(Reg m) async {
     final completo = await Db.animal(m['id'] as int);
-    final rep = widget.reproducao ?? await Db.reproducaoAberta(m['id'] as int);
+    final rep = _usaServicoOriginal(m) ? widget.reproducao : await Db.reproducaoAberta(m['id'] as int);
     if (!mounted) return;
     setState(() {
       servico = rep;
@@ -605,6 +609,10 @@ class _NascimentoFormPageState extends State<NascimentoFormPage> {
     }
     if (brinco.text.trim().isEmpty) {
       avisar(context, 'Informe o brinco da cria.');
+      return;
+    }
+    if (data.compareTo(hojeIso()) > 0) {
+      avisar(context, 'A data do parto está no futuro.');
       return;
     }
     setState(() => salvando = true);

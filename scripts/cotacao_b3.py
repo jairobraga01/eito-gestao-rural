@@ -91,7 +91,8 @@ def pagina_b3():
             return url, baixar(url)
         except Exception as e:  # noqa: BLE001
             print('Falhou', url, e)
-    return INDICE, indice
+    # Sem a página da B3 não grava: a tabela do índice é de outra cotação.
+    sys.exit('Não consegui baixar a página da B3; nada gravado.')
 
 
 def main():

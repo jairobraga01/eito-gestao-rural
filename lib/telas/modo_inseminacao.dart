@@ -104,7 +104,7 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
   Future<void> _receberBrinco(String codigo) async {
     if (_buscando) return;
     setState(() => _buscando = true);
-    final a = await Db.buscarPorCodigo(codigo);
+    final a = await Db.buscarPorCodigo(codigo, soDestaFazenda: true);
     if (!mounted) return;
     setState(() => _buscando = false);
 
@@ -113,6 +113,14 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
     if (a['status'] != 'Ativo') return _avisar('Brinco $brinco já saiu do rebanho (${a['status']}).', cor: Cores.alerta);
     if (a['sexo'] != 'F') return _avisar('Brinco $brinco é macho.', cor: Cores.alerta);
     final id = a['id'] as int;
+    // Outra vaca chegou com a atual ainda na tela sem registro: pergunta antes de trocar.
+    final naTela = _atual;
+    if (naTela != null && naTela['id'] != id &&
+        !await _perguntar('Brinco ${naTela['brinco']} ainda não foi registrada',
+            'Trocar para o brinco $brinco? A ${naTela['brinco']} fica sem ${_inseminar ? 'inseminação' : 'diagnóstico'}.', 'TROCAR')) {
+      return;
+    }
+    if (!mounted) return;
     final aberto = await Db.reproducaoAberta(id);
     if (!mounted) return;
 
@@ -128,6 +136,13 @@ class _ModoInseminacaoState extends State<ModoInseminacao> {
             aberto == null
                 ? 'Brinco $brinco não tem serviço aguardando diagnóstico.'
                 : 'Brinco $brinco já está PRENHE · parto previsto ${br(aberto['parto_previsto'])}.',
+            cor: Cores.alerta);
+      }
+      // 1º diagnóstico (ultrassom) só a partir de 28 dias da IA.
+      final dias = txt(aberto['data']).isEmpty ? 999 : diasEntre(txt(aberto['data']), _data);
+      if (aberto['diagnostico'] == 'Pendente' && dias < 28) {
+        return _avisar(
+            'Brinco $brinco: ${aberto['tipo']} há $dias dia(s). Diagnóstico só a partir de ${br(somaDias(txt(aberto['data']), 28))}.',
             cor: Cores.alerta);
       }
       setState(() {

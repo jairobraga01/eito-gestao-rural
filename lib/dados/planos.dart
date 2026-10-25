@@ -90,7 +90,14 @@ int? diasParaTravar(String hoje) {
 String? bloqueioDeAnimais(String hoje, {int novos = 1}) {
   final p = planoAtual();
   final m = p.maxAnimais;
-  if (m == null || p.situacao(animaisAtivos()) != 'acima') return null; // passar do limite só começa a contar
+  if (m == null) return null;
+  final depois = animaisAtivos() + novos;
+  // Em lote (planilha, compra), a tolerância cobre só uma folga de 10% acima do limite.
+  if (novos > 1 && depois > (m * 11 + 9) ~/ 10) {
+    return 'O plano ${p.nome} vai até $m animais; com estes $novos o rebanho ficaria com $depois. '
+        'Mude para um plano maior ou cadastre menos animais.';
+  }
+  if (p.situacao(animaisAtivos()) != 'acima') return null; // passar do limite só começa a contar
   final d = diasParaTravar(hoje);
   if (d != null && d > 0) return null; // ainda na tolerância: só avisa
   return 'O plano ${p.nome} vai até $m animais e já passou de $diasDeTolerancia dias acima disso. '

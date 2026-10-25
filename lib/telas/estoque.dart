@@ -4,7 +4,7 @@ import '../dados/contatos.dart' show fornecedoresDe;
 import '../dados/cotacao_compra.dart' show tipoInsumos, tipoMedicamentos;
 import '../dados/db.dart';
 import '../dados/estoque.dart';
-import '../dados/proteinado.dart' show historicoPrecos, insumos, lancarPrecoInsumo, precoKgInsumo, variacaoPct;
+import '../dados/proteinado.dart' show apagarPrecoInsumo, historicoPrecos, insumos, lancarPrecoInsumo, precoKgInsumo, variacaoPct;
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
@@ -371,7 +371,9 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
       'fornecedor_id': fornecedor,
     };
     final p = lerNumero(preco.text), emb = lerNumero(embalagem.text);
-    final mudouPreco = p != null && emb != null && emb > 0 && (p != (i?['preco_saco'] as num?) || emb != (i?['kg_saco'] as num?));
+    // Compara com o insumo gravado agora (um preço lançado nesta tela já pode ter mudado o vigente).
+    final atual = i == null ? null : Db.registro('insumos', i!['id']);
+    final mudouPreco = p != null && emb != null && emb > 0 && (p != (atual?['preco_saco'] as num?) || emb != (atual?['kg_saco'] as num?));
     final int id;
     if (i == null) {
       id = await Db.inserir('insumos', {...dados, 'propriedade_id': Db.pid});
@@ -421,9 +423,11 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
     if (ok != true || vp == null || ve == null || ve <= 0) return;
     await lancarPrecoInsumo(i!['id'] as int, data: data, precoEmbalagem: vp, kgEmbalagem: ve);
     if (!mounted) return;
+    // Mostra o preço vigente: um preço com data antiga só entra no histórico.
+    final atual = Db.registro('insumos', i!['id']);
     setState(() {
-      preco.text = _n(vp);
-      embalagem.text = _n(ve);
+      preco.text = _n(atual?['preco_saco']);
+      embalagem.text = _n(atual?['kg_saco']);
     });
   }
 
@@ -517,8 +521,12 @@ class _InsumoFormPageState extends State<InsumoFormPage> {
                   tooltip: 'Apagar',
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: () async {
-                    await Db.excluir('precos_insumo', p['id'] as int);
-                    setState(() {});
+                    await apagarPrecoInsumo(p);
+                    final atual = Db.registro('insumos', i!['id']);
+                    setState(() {
+                      preco.text = _n(atual?['preco_saco']);
+                      embalagem.text = _n(atual?['kg_saco']);
+                    });
                   },
                 ),
               );

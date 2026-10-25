@@ -589,10 +589,16 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
   }
 
   Future<void> _adicionar(String codigo) async {
-    final a = await Db.buscarPorCodigo(codigo);
+    final a = await Db.buscarPorCodigo(codigo, soDestaFazenda: true);
     if (!mounted) return;
     if (a == null || a['status'] != 'Ativo' || a['sexo'] != 'F') {
       avisar(context, a == null ? 'Brinco $codigo não cadastrado.' : 'Brinco ${a['brinco']} não é fêmea ativa.');
+      return;
+    }
+    final aberto = await Db.reproducaoAberta(a['id'] as int);
+    if (!mounted) return;
+    if (aberto?['diagnostico'] == 'Prenhe') {
+      avisar(context, 'Brinco ${a['brinco']} está PRENHE. Não entra no protocolo.');
       return;
     }
     if (vacas.any((v) => v['id'] == a['id'])) {
@@ -610,9 +616,20 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
   Future<void> _escolher() async {
     final r = await pickAnimais(context, titulo: 'Vacas do protocolo', iniciais: [for (final v in vacas) v['id'] as int]);
     if (r == null) return;
+    final prenhes = <String>[];
+    final ok = <Reg>[];
+    for (final a in r.where((a) => a['sexo'] == 'F')) {
+      if ((await Db.reproducaoAberta(a['id'] as int))?['diagnostico'] == 'Prenhe') {
+        prenhes.add('${a['brinco']}');
+      } else {
+        ok.add(a);
+      }
+    }
+    if (!mounted) return;
     setState(() => vacas
       ..clear()
-      ..addAll(r.where((a) => a['sexo'] == 'F')));
+      ..addAll(ok));
+    if (prenhes.isNotEmpty) avisar(context, 'Ficaram de fora por estarem prenhes: ${prenhes.join(', ')}.');
   }
 
   Future<void> _salvar() async {
@@ -625,6 +642,21 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
       avisar(context, 'Informe as etapas do protocolo.');
       return;
     }
+    // Dia vazio viraria D0 e mudaria a data da IA, do DG e do parto.
+    if (lista.any((e) => int.tryParse(e.dia.text.trim()) == null || e.d < 0)) {
+      avisar(context, 'Informe o dia de cada etapa (0, 8, 10...).');
+      return;
+    }
+    if (lista.map((e) => e.d).toSet().length != lista.length) {
+      avisar(context, 'Duas etapas no mesmo dia. Junte os produtos numa etapa só.');
+      return;
+    }
+    // Etapa que já teve baixa e mudou de dia continua marcada (não baixa de novo).
+    final baixasAntigas = p == null ? <int>{} : baixasFeitas(p!);
+    final baixas = <int>[
+      for (final e in lista)
+        if (etapasDe(p ?? const {}).any((v) => baixasAntigas.contains(_diaEtapa(v)) && txt(v['nome']) == e.nome.text.trim())) e.d,
+    ];
     await Db.salvarProtocolo(
       id: p?['id'] as int?,
       nome: nome.text.trim().isEmpty ? 'IATF' : nome.text.trim(),
@@ -639,7 +671,7 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
           },
       ],
       femeas: [for (final v in vacas) v['id'] as int],
-      extras: {'dg_dias': dgDias, 'veterinario': nulo(veterinario.text)},
+      extras: {'dg_dias': dgDias, 'veterinario': nulo(veterinario.text), if (p != null) 'baixas': baixas},
     );
     if (mounted) Navigator.pop(context);
   }
@@ -756,3 +788,5 @@ class _ProtocoloFormPageState extends State<ProtocoloFormPage> {
     );
   }
 }
+
+int? _diaEtapa(Map<String, Object?> e) => e['dia'] is num ? (e['dia'] as num).toInt() : int.tryParse('${e['dia']}');

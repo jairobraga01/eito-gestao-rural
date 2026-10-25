@@ -26,5 +26,6 @@ jobs:
       - run: pip install --quiet google-auth requests
       - name: Buscar e gravar
         env:
-          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          # No push de uma branch de teste roda a seco: código não revisado não grava em produção.
+          FIREBASE_SA: ${{ github.event_name != 'push' && secrets.FIREBASE_SERVICE_ACCOUNT || '' }}
         run: python scripts/cotacao_b3.py

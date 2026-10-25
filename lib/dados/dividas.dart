@@ -24,13 +24,16 @@ List<Map<String, Object?>> parcelas(Reg d) => [
 List<Map<String, Object?>> gerarParcelas(double total, int quantidade, String primeiro, {int intervaloMeses = 12}) {
   if (quantidade <= 0) return [];
   final base = DateTime.parse(primeiro);
-  final valor = (total / quantidade * 100).floorToDouble() / 100;
+  // Em centavos inteiros: com double, 1.009,80 em 10 dava 9 × 100,97 + 101,07.
+  final centavos = (total * 100).round();
+  final cada = centavos ~/ quantidade;
+  final valor = cada / 100;
   return [
     for (var i = 0; i < quantidade; i++)
       {
         'vencimento': _iso(_somaMeses(base, i * intervaloMeses)),
         // A última leva os centavos que sobram.
-        'valor': i == quantidade - 1 ? double.parse((total - valor * (quantidade - 1)).toStringAsFixed(2)) : valor,
+        'valor': i == quantidade - 1 ? (centavos - cada * (quantidade - 1)) / 100 : valor,
         'pago': false,
       },
   ];

@@ -253,7 +253,8 @@ class _TelaContaState extends State<TelaConta> {
             title: const Text('Trocar a senha'),
             onTap: _trocarSenha,
           ),
-          if (!peao)
+          // Quem é da equipe entra pelo convite do e-mail: trocar o e-mail tira a pessoa da fazenda.
+          if (!peao && Equipe.atual == null)
           ListTile(
             leading: const Icon(Icons.alternate_email, color: Cores.oliva),
             title: const Text('Trocar o e-mail'),

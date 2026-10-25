@@ -118,6 +118,68 @@ void main() {
       expect(d('bom dia'), isNull);
     });
 
+    test('brinco falado dígito a dígito, mil no meio e vírgula digitada', () {
+      String? d(String f) => interpretarVoz(f)?.descricao;
+      expect(d('brinco um dois três peso 300'), 'Brinco 123 · peso 300 kg');
+      expect(d('brinco 1 2 3 peso 300'), 'Brinco 123 · peso 300 kg');
+      expect(d('brinco 45 peso mil cento e vinte'), 'Brinco 45 · peso 1120 kg');
+      expect(d('brinco 45, peso 450'), 'Brinco 45 · peso 450 kg');
+      expect(d('brinco número 45 peso 450'), 'Brinco 45 · peso 450 kg');
+      expect(d('brinco cento e vinte e três pesou quatrocentos e cinquenta quilos'), 'Brinco 123 · peso 450 kg');
+    });
+
+    test('voz para os outros lançamentos', () {
+      String? d(String f, {List<String> insumos = const []}) => interpretarVoz(f, insumos: insumos)?.descricao;
+      expect(d('vaca 12 inseminada touro bravo'), 'Brinco 12 · inseminação · touro Bravo');
+      expect(d('vaca 12 monta'), 'Brinco 12 · monta natural');
+      expect(d('vaca 12 pariu macho brinco 300'), 'Brinco 12 · pariu macho · cria 300');
+      expect(d('brinco 45 morreu picada de cobra'), 'Brinco 45 · morte: Picada cobra');
+      expect(d('brinco 45 escore 3 e meio'), 'Brinco 45 · escore 3,5');
+      expect(d('brinco 45 piquete 3'), 'Brinco 45 · para o piquete 3');
+      expect(d('despesa 350 reais diesel'), 'Despesa R\$ 350 · Diesel (Combustível e máquinas)');
+      expect(d('entrada 20 sal mineral', insumos: ['Sal mineral']), 'Entrada no estoque: 20 Sal mineral');
+    });
+
+    test('voz grava inseminação, parto, escore, piquete, morte e despesa', () async {
+      final v = await animal('12', sexo: 'F');
+      final b = await animal('45');
+      final pq = await Db.inserir('piquetes', {'propriedade_id': Db.pid, 'nome': 'Piquete 3'});
+      await pumpEventQueue();
+      await executarVoz(interpretarVoz('vaca 12 inseminada touro bravo')!, data: '2026-01-10');
+      await pumpEventQueue();
+      expect(Db.registros('reproducoes').single['touro'], 'Bravo');
+      await executarVoz(interpretarVoz('vaca 12 pariu femea brinco 300')!, data: '2026-10-20');
+      await executarVoz(interpretarVoz('brinco 45 escore 3 e meio')!, data: '2026-10-20');
+      await executarVoz(interpretarVoz('brinco 45 piquete 3')!, data: '2026-10-20');
+      await executarVoz(interpretarVoz('despesa 350 reais diesel')!, data: '2026-10-20');
+      await pumpEventQueue();
+      expect(Db.registros('animais').any((a) => a['brinco'] == '300' && a['mae_id'] == v), isTrue);
+      expect(Db.registros('escores').single['ecc'], 3.5);
+      expect(Db.registro('animais', b)!['piquete_id'], pq);
+      expect(Db.registros('custos').single['categoria'], 'Combustível e máquinas');
+      await executarVoz(interpretarVoz('brinco 45 morreu raio')!, data: '2026-10-21');
+      await pumpEventQueue();
+      expect(Db.registro('animais', b)!['status'], 'Morto');
+    });
+
+    test('mensagens coladas do WhatsApp', () {
+      final m = lerConversaWhatsApp('[25/10/2026 14:20:01] Zé: brinco 45 peso 450\n'
+          '25/10/26 14:21 - Zé: <Mídia oculta>\n'
+          '26/10/2026 07:02 - João: vaca 12 prenhe\n'
+          'bom dia pessoal\n'
+          'chuva 20 mm');
+      expect(m.length, 4);
+      expect((m[0].data, m[0].autor, m[0].comando?.descricao), ('2026-10-25', 'Zé', 'Brinco 45 · peso 450 kg'));
+      expect((m[1].data, m[1].comando?.descricao), ('2026-10-26', 'Brinco 12 · diagnóstico: Prenhe'));
+      expect(m[2].comando, isNull);
+      expect((m[3].data, m[3].comando?.descricao), (null, 'Chuva 20 mm'));
+    });
+
+    test('voz recusa peso zero', () async {
+      await animal('78');
+      expect(() => executarVoz(interpretarVoz('brinco 78 peso zero')!, data: '2026-10-15'), throwsStateError);
+    });
+
     test('grava pesagem e diagnóstico pelo brinco', () async {
       final a = await animal('77', sexo: 'F');
       await executarVoz(interpretarVoz('brinco 77 peso 380')!, data: '2026-10-15');
@@ -140,5 +202,18 @@ void main() {
     await Db.salvarFoto(a, null);
     await Db.importarJson(texto);
     expect(await Db.foto(a), 'Zm90bw==');
+  });
+
+  test('backup leva patrimônio e dados do LCDPR (config)', () async {
+    await animal('6');
+    await Db.salvarConfig('patrimonio', {'valor_cabeca': 3000});
+    await Db.salvarConfig('fila', {'dia': '2026-10-20'});
+    await pumpEventQueue();
+    final texto = Db.exportarJson();
+    await Db.salvarConfig('patrimonio', {'valor_cabeca': 0});
+    await Db.importarJson(texto);
+    await pumpEventQueue();
+    expect(Db.registro('config', 'patrimonio')!['valor_cabeca'], 3000);
+    expect(texto, isNot(contains('2026-10-20')));
   });
 }

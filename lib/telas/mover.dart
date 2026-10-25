@@ -63,6 +63,9 @@ class _MoverAnimaisPageState extends State<MoverAnimaisPage> {
         if (lote == _manter) lote = _nenhum;
         if (piquete == _manter) piquete = _nenhum;
       }
+      // Lote ou piquete escolhido em outra propriedade não vale aqui.
+      if (lote > 0 && !l.any((x) => x['id'] == lote)) lote = mesmaPropriedade ? _manter : _nenhum;
+      if (piquete > 0 && !p.any((x) => x['id'] == piquete)) piquete = mesmaPropriedade ? _manter : _nenhum;
     });
   }
 
@@ -94,7 +97,14 @@ class _MoverAnimaisPageState extends State<MoverAnimaisPage> {
       }
     }
     setState(() => salvando = true);
-    await Db.moverAnimais(animais, m, data);
+    try {
+      await Db.moverAnimais(animais, m, data);
+    } on RegistroDuplicado catch (e) {
+      if (!mounted) return;
+      setState(() => salvando = false);
+      avisar(context, e.mensagem);
+      return;
+    }
     if (!mounted) return;
     avisar(context, '${animais.length} animal(is) movido(s).');
     Navigator.pop(context, true);

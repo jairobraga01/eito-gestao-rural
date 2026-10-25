@@ -160,6 +160,18 @@ class _DividaFormPageState extends State<DividaFormPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Informe o valor da dívida.')));
       return;
     }
+    // Sem parcelas a dívida ficaria com saldo zero: vira parcela única.
+    var parcelasFinais = ps.isEmpty ? gerarParcelas(total, 1, primeiro ?? data ?? hojeIso()) : ps;
+    final soma = parcelasFinais.fold<double>(0, (s, p) => s + ((p['valor'] as num?)?.toDouble() ?? 0));
+    if ((soma - total).abs() > 0.01) {
+      if (parcelasFinais.any((p) => p['pago'] == true)) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('As parcelas somam ${moeda(soma)} e o valor total é ${moeda(total)}. Ajuste antes de salvar.')));
+        return;
+      }
+      // Valor mudou e nada foi pago: refaz as parcelas com o mesmo número e o mesmo 1º vencimento.
+      parcelasFinais = gerarParcelas(total, parcelasFinais.length, '${parcelasFinais.first['vencimento']}', intervaloMeses: intervalo);
+    }
     final dados = <String, Object?>{
       'credor': nulo(credor.text),
       'tipo': tipo,
@@ -167,7 +179,7 @@ class _DividaFormPageState extends State<DividaFormPage> {
       'data': data,
       'valor_total': total,
       'taxa': lerNumero(taxa.text),
-      'parcelas': ps.isEmpty && primeiro != null ? gerarParcelas(total, 1, primeiro!) : ps,
+      'parcelas': parcelasFinais,
       'onus': onus,
       'bem': onus == 'Nenhum' ? null : nulo(bem.text),
       'registro': onus == 'Nenhum' ? null : nulo(registro.text),

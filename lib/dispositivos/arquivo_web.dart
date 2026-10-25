@@ -42,8 +42,17 @@ Future<String?> escolherArquivoTexto({String aceitar = '.json'}) {
           if (!c.isCompleted) c.complete(null);
           return;
         }
-        final t = await f.callMethod<JSPromise<JSString>>('text'.toJS).toDart;
-        if (!c.isCompleted) c.complete(t.toDart);
+        // CSV do Excel em português vem em Windows-1252: se não for UTF-8 válido, lê como latin1.
+        final buf = await f.callMethod<JSPromise<JSArrayBuffer>>('arrayBuffer'.toJS).toDart;
+        final bytes = buf.toDart.asUint8List();
+        String t;
+        try {
+          t = const Utf8Decoder().convert(bytes);
+        } on FormatException {
+          t = latin1.decode(bytes);
+        }
+        if (t.startsWith('\uFEFF')) t = t.substring(1);
+        if (!c.isCompleted) c.complete(t);
       } catch (_) {
         if (!c.isCompleted) c.complete(null);
       }

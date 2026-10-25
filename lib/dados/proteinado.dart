@@ -177,10 +177,32 @@ Future<void> excluirBatida(Reg b) async {
     await Db.excluir('custos', custo); // apaga também o histórico e devolve o estoque
     return;
   }
-  for (final e in Db.registros('estoque').where((x) => _t(x['grupo']) == _t(b['grupo']) && _t(b['grupo']).isNotEmpty).toList()) {
+  final movs = Db.registros('estoque').where((x) => _t(x['grupo']) == _t(b['grupo']) && _t(b['grupo']).isNotEmpty).toList();
+  // Ração pronta que já foi dada no trato não pode voltar: o custo dela já está em Custos.
+  final entrada = movs.where((e) => _n(e['qtd']) > 0).firstOrNull;
+  final prontaId = _int(entrada?['insumo_id']);
+  Reg? pronta;
+  double saldoAntes = 0, kg = 0;
+  if (prontaId != null) {
+    kg = _n(entrada!['qtd']);
+    saldoAntes = Db.registros('estoque').where((e) => _int(e['insumo_id']) == prontaId).fold(0.0, (s, e) => s + _n(e['qtd']));
+    if (saldoAntes + 0.001 < kg) {
+      throw StateError('Esta ração já foi usada no trato (sobram ${_qtd(saldoAntes)} de ${_qtd(kg)} kg). Não dá para apagar a batida.');
+    }
+    pronta = Db.registro('insumos', prontaId);
+  }
+  for (final e in movs) {
     await Db.excluir('estoque', _int(e['id'])!);
   }
   await Db.excluir('batidas', _int(b['id'])!);
+  // Tira esta batida do preço médio da ração pronta que sobrou.
+  final resta = saldoAntes - kg;
+  final precoAntes = pronta == null ? null : precoKgInsumo(pronta);
+  final custoKg = _n(b['custo_kg']);
+  if (pronta != null && precoAntes != null && resta > 0.001 && custoKg > 0) {
+    final medio = (saldoAntes * precoAntes - kg * custoKg) / resta;
+    if (medio > 0) await Db.atualizar('insumos', prontaId!, {'preco_saco': double.parse(medio.toStringAsFixed(4)), 'kg_saco': 1});
+  }
 }
 
 /// Variação em % entre dois valores (null se não dá para comparar).
@@ -211,6 +233,17 @@ Future<void> lancarPrecoInsumo(int insumoId, {required String data, required dou
   final ultimo = historicoPrecos(insumoId).first;
   if (_int(ultimo['id']) == null || _t(ultimo['data']).compareTo(data) <= 0) {
     await Db.atualizar('insumos', insumoId, {'preco_saco': precoEmbalagem, 'kg_saco': kgEmbalagem});
+  }
+}
+
+/// Apaga um preço do histórico. Se era o vigente, o insumo volta ao preço anterior.
+Future<void> apagarPrecoInsumo(Reg p) async {
+  final insumoId = _int(p['insumo_id'])!;
+  final eraVigente = _int(historicoPrecos(insumoId).firstOrNull?['id']) == _int(p['id']);
+  await Db.excluir('precos_insumo', _int(p['id'])!);
+  final anterior = historicoPrecos(insumoId).firstOrNull;
+  if (eraVigente && anterior != null) {
+    await Db.atualizar('insumos', insumoId, {'preco_saco': anterior['preco_saco'], 'kg_saco': anterior['kg_saco']});
   }
 }
 
@@ -308,7 +341,7 @@ Future<void> excluirCotacao(int id) async {
 
 Future<void> _usarUltima() async {
   final ultima = cotacoes().firstOrNull;
-  if (ultima == null) return;
   final abate = Db.registro('config', 'abate') ?? const {};
-  await Db.salvarConfig('abate', {...abate, 'arroba': ultima['valor']}..remove('id'));
+  // Sem cotação nenhuma, a arroba antiga não pode continuar valendo nos custos.
+  await Db.salvarConfig('abate', {...abate, 'arroba': ultima?['valor']}..remove('id'));
 }

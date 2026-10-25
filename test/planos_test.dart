@@ -61,6 +61,14 @@ void main() {
     expect(bloqueioDeAnimais('2026-11-04'), isNotNull);
   });
 
+  test('cadastro em lote não passa muito do limite do plano', () async {
+    Db.planoDaFazenda.value = 'Simples';
+    await animais(199);
+    expect(bloqueioDeAnimais('2026-10-19', novos: 5000), isNotNull);
+    expect(bloqueioDeAnimais('2026-10-19', novos: 21), isNull); // 220 = folga de 10%
+    expect(bloqueioDeAnimais('2026-10-19', novos: 22), isNotNull);
+  });
+
   test('sem plano definido (teste) nada é travado', () async {
     Db.planoDaFazenda.value = 'Teste';
     await animais(3);

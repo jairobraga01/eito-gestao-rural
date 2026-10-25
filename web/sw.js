@@ -6,6 +6,9 @@
 // para os aparelhos baixarem o app novo.
 const CACHE = 'eito-v1';
 const ESSENCIAIS = ['./', 'index.html', 'manifest.json', 'flutter_bootstrap.js', 'main.dart.js', 'favicon.png', 'icons/Icon-192.png'];
+// Demais arquivos do app (CanvasKit, fontes, imagens). A lista é preenchida
+// pela publicação; sem ela, esses arquivos vêm da versão anterior guardada.
+const DO_BUILD = [/* ARQUIVOS_DO_BUILD */];
 
 // Scripts do Firebase e fontes vêm de servidores do Google: guardar também,
 // senão o app não abre sem internet. Os pedaços do mapa (satélite e ruas) já
@@ -18,15 +21,46 @@ const EXTERNOS = [
   'https://tile.openstreetmap.org',
 ];
 
+// Instala a versão nova inteira antes de trocar: se o aparelho ficar sem
+// sinal logo depois da atualização, o app ainda abre.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ESSENCIAIS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
+  e.waitUntil(
+    caches.open(CACHE).then(async (c) => {
+      await c.addAll(ESSENCIAIS.map((u) => new Request(u, { cache: 'reload' })));
+      // Os outros um a um: um arquivo que falhe não impede a atualização.
+      await Promise.all(
+        DO_BUILD.map((u) =>
+          fetch(new Request(u, { cache: 'reload' }))
+            .then((r) => (r.ok ? c.put(u, r) : null))
+            .catch(() => null)
+        )
+      );
+    }).then(() => self.skipWaiting())
+  );
 });
 
+// Antes de apagar a versão antiga, traz dela o que a nova não conseguiu
+// baixar (CanvasKit, fontes, mapas já vistos).
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys()
-      .then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
+    (async () => {
+      const nova = await caches.open(CACHE);
+      for (const k of await caches.keys()) {
+        if (k === CACHE) continue;
+        const velha = await caches.open(k);
+        for (const req of await velha.keys()) {
+          const u = new URL(req.url);
+          const doApp = u.origin === self.location.origin;
+          if (doApp && ESSENCIAIS.some((x) => u.pathname.endsWith('/' + x.replace('./', '')))) continue;
+          if (!(await nova.match(req))) {
+            const r = await velha.match(req);
+            if (r) await nova.put(req, r);
+          }
+        }
+        await caches.delete(k);
+      }
+      await self.clients.claim();
+    })()
   );
 });
 
@@ -63,8 +97,12 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req)
         .then((r) => {
-          const copia = r.clone();
-          caches.open(CACHE).then((c) => c.put('index.html', copia));
+          // Só guarda o app de verdade: nada de erro, redirecionamento ou portal de Wi-Fi.
+          const tipo = r.headers.get('content-type') || '';
+          if (r.ok && !r.redirected && tipo.includes('text/html')) {
+            const copia = r.clone();
+            caches.open(CACHE).then((c) => c.put('index.html', copia));
+          }
           return r;
         })
         .catch(() => caches.match('index.html'))

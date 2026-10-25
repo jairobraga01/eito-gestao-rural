@@ -1,6 +1,7 @@
 // Importação de animais por planilha (CSV), com conferência linha a linha
 // antes de gravar. Aceita o arquivo salvo pelo Excel (separado por ; ) ou
 // por vírgula, com ou sem acentos no cabeçalho.
+import '../util/formato.dart';
 import 'db.dart';
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
@@ -109,12 +110,7 @@ String? dataImportada(String s) {
   return '${a.toString().padLeft(4, '0')}-${me.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
 }
 
-double? _numero(String s) {
-  var t = s.trim().toLowerCase().replaceAll('kg', '').replaceAll(' ', '');
-  if (t.isEmpty) return null;
-  if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
-  return double.tryParse(t);
-}
+double? _numero(String s) => lerNumero(s.toLowerCase().replaceAll('kg', ''));
 
 String? _sexo(String s) {
   final t = _chave(s);

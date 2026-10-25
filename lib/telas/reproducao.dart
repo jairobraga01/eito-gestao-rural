@@ -248,7 +248,29 @@ class _ReproducaoFormPageState extends State<ReproducaoFormPage> {
       avisar(context, 'Escolha a fêmea.');
       return;
     }
+    if (data.compareTo(hojeIso()) > 0) {
+      avisar(context, 'A data do serviço está no futuro.');
+      return;
+    }
+    if (diagnostico != 'Pendente' && (dataDiag ?? hojeIso()).compareTo(data) < 0) {
+      avisar(context, 'O diagnóstico não pode ser antes do serviço.');
+      return;
+    }
     setState(() => salvando = true);
+    if (r == null) {
+      // Mesmas regras do Modo Inseminação: fêmea prenhe não recebe serviço novo
+      // e o serviço anterior sem diagnóstico fecha como vazia.
+      final aberto = await Db.reproducaoAberta(femea!['id'] as int);
+      if (!mounted) return;
+      if (aberto?['diagnostico'] == 'Prenhe') {
+        setState(() => salvando = false);
+        avisar(context, 'Esta fêmea já está prenhe. Registre o parto ou o diagnóstico antes.');
+        return;
+      }
+      if (aberto != null && aberto['diagnostico'] == 'Pendente') {
+        await Db.atualizar('reproducoes', aberto['id'] as int, {'diagnostico': 'Vazia', 'data_diagnostico': data});
+      }
+    }
     final v = <String, Object?>{
       'femea_id': femea!['id'],
       'tipo': tipo,

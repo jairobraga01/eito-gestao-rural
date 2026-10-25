@@ -756,8 +756,9 @@ class Db {
       ]..sort((x, y) => _comparaDataDesc(x['nascimento'], y['nascimento']));
 
   /// Busca pelo brinco eletrônico (RFID), pelo número oficial (SISBOV) ou pelo brinco visual.
-  /// Procura primeiro os ativos da propriedade aberta, depois os demais.
-  static Future<Reg?> buscarPorCodigo(String codigo) async {
+  /// Procura primeiro na propriedade aberta (ativos, depois os demais) e só então nas outras.
+  /// Com [soDestaFazenda], não devolve animal de outra propriedade (lançamentos de campo).
+  static Future<Reg?> buscarPorCodigo(String codigo, {bool soDestaFazenda = false}) async {
     final c = codigo.trim().toLowerCase();
     if (c.isEmpty) return null;
     bool bate(Reg a) =>
@@ -766,9 +767,10 @@ class Db {
         '${a['brinco'] ?? ''}'.trim().toLowerCase() == c;
     final todos = _todos('animais').where(bate).toList();
     if (todos.isEmpty) return null;
-    int peso(Reg a) =>
-        (a['status'] == 'Ativo' ? 0 : 2) + (_int(a['propriedade_id']) == _int(prop.value?['id']) ? 0 : 1);
+    bool daqui(Reg a) => _int(a['propriedade_id']) == _int(prop.value?['id']);
+    int peso(Reg a) => (a['status'] == 'Ativo' ? 0 : 1) + (daqui(a) ? 0 : 2);
     todos.sort((x, y) => peso(x).compareTo(peso(y)));
+    if (soDestaFazenda && !daqui(todos.first)) return null;
     return animal(_int(todos.first['id'])!);
   }
 
@@ -909,6 +911,12 @@ class Db {
   /// Aplica [mudancas] (chaves propriedade_id, lote_id, piquete_id) aos animais.
   /// Quando o piquete muda, registra a saída e a entrada no histórico de pastagem.
   static Future<void> moverAnimais(List<Reg> animais, Reg mudancas, String data) async {
+    // Transferência: o brinco não pode repetir entre os ativos do destino.
+    if (mudancas.containsKey('propriedade_id')) {
+      for (final a in animais) {
+        _checarAnimal({...?_reg('animais', a['id']), ...mudancas});
+      }
+    }
     final m = _Mudancas();
     if (mudancas.containsKey('piquete_id')) {
       final novo = _int(mudancas['piquete_id']);
@@ -1342,7 +1350,17 @@ class Db {
     final insumo = _todos('insumos').where((i) =>
         _int(i['propriedade_id']) == pid && '${i['nome'] ?? ''}'.trim().toLowerCase() == produto).firstOrNull;
     if (insumo == null) return;
-    final dose = insumo['dose_animal'] is num && (insumo['dose_animal'] as num) > 0 ? insumo['dose_animal'] as num : 1;
+    // Dose digitada no manejo ("10 ml") vale mais que a cadastrada no insumo.
+    final digitada = RegExp(r'\d+(?:[.,]\d+)?').firstMatch('${valores['dose'] ?? ''}');
+    final doseForm = digitada == null ? null : double.tryParse(digitada[0]!.replaceAll(',', '.'));
+    final num? dose = doseForm != null && doseForm > 0
+        ? doseForm
+        : insumo['dose_animal'] is num && (insumo['dose_animal'] as num) > 0
+            ? insumo['dose_animal'] as num
+            : insumo['unidade'] == 'dose'
+                ? 1
+                : null; // ml ou g sem dose: não dá para saber quanto saiu
+    if (dose == null) return;
     m.gravar('estoque', {
       'id': novoId(),
       'propriedade_id': pid,
@@ -1431,6 +1449,12 @@ class Db {
   static Future<Reg?> saida(int id) async => registro('saidas', id);
 
   static Future<int> registrarSaida(Reg saida, List<int> animalIds) async {
+    // Animal que já saiu (por exemplo, morte lançada em outro aparelho) não entra em outra saída.
+    final inativos = [
+      for (final a in animalIds)
+        if (_reg('animais', a) != null && _reg('animais', a)!['status'] != 'Ativo') '${_reg('animais', a)!['brinco']}',
+    ];
+    if (inativos.isNotEmpty) throw RegistroDuplicado('Já saíram do rebanho: ${inativos.join(', ')}.');
     final status = statusPorSaida[saida['tipo']] ?? 'Baixado';
     final id = novoId();
     final m = _Mudancas()
@@ -1515,7 +1539,8 @@ class Db {
   static Future<void> excluirEntrada(int id, {bool apagarAnimais = false}) async {
     final m = _Mudancas();
     if (apagarAnimais) {
-      for (final a in _todos('animais').where((x) => _int(x['entrada_id']) == id)) {
+      // Só os que ainda estão no rebanho: os vendidos ou mortos ficam ligados às saídas.
+      for (final a in _todos('animais').where((x) => _int(x['entrada_id']) == id && x['status'] == 'Ativo')) {
         _apagarCascata(m, 'animais', _int(a['id'])!);
       }
     }
@@ -1531,8 +1556,12 @@ class Db {
     final dados = <String, Object?>{};
     for (final t in tabelas) {
       if (t == 'config') {
+        // Patrimônio, LCDPR, calendário sanitário e parâmetros vão junto;
+        // a fila do dia e o aviso do plano são do momento e ficam de fora.
         dados[t] = [
           if (prop.value != null) {'chave': 'propriedade', 'valor': '$pid'},
+          for (final c in _todos('config'))
+            if (!_configDoMomento.contains(c['id'])) c,
         ];
       } else {
         dados[t] = _todos(t)..sort((a, b) => _comparaId(a['id'], b['id']));
@@ -1551,6 +1580,8 @@ class Db {
     });
   }
 
+  static const _configDoMomento = {'fila', 'plano_aviso'};
+
   /// Substitui todos os dados (na nuvem e no aparelho) pelos do backup.
   /// Aceita também backups da versão antiga (APK). Retorna o nº de animais.
   static Future<int> importarJson(String texto) async {
@@ -1563,13 +1594,18 @@ class Db {
 
     final novos = <String, List<Reg>>{};
     int? propriedadeEscolhida;
+    final configs = <Reg>[];
     for (final t in tabelas) {
       final linhas = (tabelasBackup[t] as List? ?? const [])
           .map((l) => _normalizar(Map<String, dynamic>.from(l as Map)))
           .toList();
       if (t == 'config') {
         for (final l in linhas) {
-          if (l['chave'] == 'propriedade') propriedadeEscolhida = _int(l['valor']);
+          if (l['chave'] == 'propriedade') {
+            propriedadeEscolhida = _int(l['valor']);
+          } else if (l['id'] is String && !_configDoMomento.contains(l['id'])) {
+            configs.add(l);
+          }
         }
         continue;
       }
@@ -1611,6 +1647,9 @@ class Db {
       for (final l in novos[t]!) {
         m.gravar(t, {...l, 'id': _int(l['id'])});
       }
+    }
+    for (final c in configs) {
+      m.gravar('config', c);
     }
     m.enviar();
 

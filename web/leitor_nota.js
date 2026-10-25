@@ -12,7 +12,8 @@
         var s = document.createElement('script');
         s.src = src;
         s.onload = ok;
-        s.onerror = function () { erro(new Error('Sem internet para carregar o leitor.')); };
+        // Falhou: esquece, para tentar de novo quando voltar o sinal.
+        s.onerror = function () { delete carregados[src]; s.remove(); erro(new Error('Sem internet para carregar o leitor.')); };
         document.head.appendChild(s);
       });
     }

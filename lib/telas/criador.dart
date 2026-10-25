@@ -325,6 +325,11 @@ class _ClientesState extends State<_Clientes> {
       ]),
     );
     if (dias == null) return;
+    // Cliente pagante ou com cortesia não volta para Teste (perderia os dias pagos).
+    final pagantes = sel.where((c) => (c.data()['plano'] ?? 'Teste') != 'Teste').length;
+    sel = sel.where((c) => (c.data()['plano'] ?? 'Teste') == 'Teste').toList();
+    if (pagantes > 0 && mounted) avisar(context, '$pagantes conta(s) com plano pago ou cortesia ficaram de fora.');
+    if (sel.isEmpty) return;
     final lote = Plataforma.contas.firestore.batch();
     for (final c in sel) {
       final atual = dataDe(c.data()['teste_ate']);
@@ -717,8 +722,12 @@ class _FichaClienteState extends State<_FichaCliente> {
     final v = lerNumero(valor.text)?.toDouble() ?? 0;
     valor.dispose();
     if (ok != true) return;
+    if (v <= 0) {
+      if (mounted) avisar(context, 'Informe o valor pago.');
+      return;
+    }
     final pagoEm = DateTime.tryParse(data ?? '') ?? DateTime.now();
-    final vence = vencimentoAposPagamento(dataDe(c['plano_ate']), DateTime.now(), periodo);
+    final vence = vencimentoAposPagamento(dataDe(c['plano_ate']), pagoEm, periodo);
     try {
       await PainelCriador.pagamentos.add({
         'uid': widget.uid,
@@ -854,11 +863,12 @@ class _FichaClienteState extends State<_FichaCliente> {
                         MaterialPageRoute(builder: (_) => FazendaDoCliente(uid: '${c['dono'] ?? widget.uid}', email: '${c['email'] ?? ''}'))),
                   ),
                   if ((c['papel'] ?? 'dono') == 'dono') ...[
-                    ListTile(
-                      leading: const Icon(Icons.more_time),
-                      title: const Text('Estender o teste'),
-                      onTap: () => _estenderTeste(c),
-                    ),
+                    if ((c['plano'] ?? 'Teste') == 'Teste')
+                      ListTile(
+                        leading: const Icon(Icons.more_time),
+                        title: const Text('Estender o teste'),
+                        onTap: () => _estenderTeste(c),
+                      ),
                     ListTile(
                       leading: const Icon(Icons.workspace_premium_outlined),
                       title: const Text('Conceder plano (cortesia ou contrato)'),

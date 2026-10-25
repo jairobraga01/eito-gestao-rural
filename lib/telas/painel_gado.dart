@@ -46,7 +46,7 @@ class _PainelGadoPageState extends State<PainelGadoPage> with SingleTickerProvid
     final (rotulo, pagina) = switch (abas.index) {
       1 => ('+ Nova compra', const EntradaFormPage() as Widget),
       2 => ('+ Nova venda', const SaidaFormPage()),
-      3 => ('+ Nova saída', const SaidaFormPage()),
+      3 => ('+ Nova saída', const SaidaFormPage(tipoInicial: 'Morte')),
       4 => ('+ Nova despesa', const CustoFormPage()),
       _ => ('', const SizedBox()),
     };
@@ -205,7 +205,7 @@ class _PainelGadoPageState extends State<PainelGadoPage> with SingleTickerProvid
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(children: [
-                SizedBox(width: 92, child: Text('${c.n}ª · ${br(c.data).substring(0, 5)}', style: const TextStyle(fontSize: 13))),
+                SizedBox(width: 92, child: Text('${c.n}ª · ${br(c.data).length >= 5 ? br(c.data).substring(0, 5) : '-'}', style: const TextStyle(fontSize: 13))),
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, cx) => Stack(children: [

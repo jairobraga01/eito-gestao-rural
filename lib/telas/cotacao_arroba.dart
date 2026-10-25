@@ -107,7 +107,7 @@ class CotacaoArrobaPage extends StatelessWidget {
               ),
             ),
             if (ano.length >= 2)
-              Barras({for (final c in ano.length > 12 ? ano.sublist(ano.length - 12) : ano) br(c['data']): (c['valor'] as num).toDouble()},
+              Barras({for (final c in ano.length > 12 ? ano.sublist(ano.length - 12) : ano) '${br(c['data'])} ${txt(c['praca'])}'.trim(): (c['valor'] as num).toDouble()},
                   sufixo: ''),
             Secao('Histórico (${cs.length})'),
             for (final c in cs)

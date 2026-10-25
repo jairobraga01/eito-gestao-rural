@@ -535,7 +535,8 @@ class _GrupoCotacaoPageState extends State<GrupoCotacaoPage> {
                         ok: 'Excluir')) {
                       return;
                     }
-                    await CotacoesCompra.excluirGrupo(g);
+                    // Sem sinal o commit só termina quando a nuvem confirmar: não espera por ele.
+                    CotacoesCompra.excluirGrupo(g).catchError((Object e) => debugPrint('Eito: excluir cotação: $e'));
                     if (context.mounted) Navigator.pop(context);
                   },
                 ),

@@ -112,6 +112,14 @@ class EntradasPage extends StatelessWidget {
     if (op == null) return;
     await Db.excluirEntrada(e['id'] as int, apagarAnimais: op == 'apagar');
     await apagarParcelasAbertas('entrada:${e['id']}');
+    final pagas = contasPagasDe('entrada:${e['id']}');
+    if (pagas.isNotEmpty &&
+        context.mounted &&
+        await confirmar(context, 'Apagar também ${pagas.length} conta(s) já paga(s)?',
+            'Elas vieram desta compra e continuam no livro caixa, no LCDPR e no Imposto de Renda.',
+            ok: 'Apagar')) {
+      await apagarContasPagas('entrada:${e['id']}');
+    }
   }
 }
 

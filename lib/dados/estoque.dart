@@ -223,13 +223,14 @@ Reg? racaoPronta(Object? formulaId) {
 /// põe a ração pronta no estoque, pelo custo médio por quilo. O custo só vai para
 /// Custos quando a ração é dada no cocho (trato). Devolve o custo do quilo, ou
 /// null se a fórmula não tem ingredientes.
-Future<double?> baterRacao(Reg formula, {required String data, required double kgBatidos}) async {
+/// [foraDoEstoque]: ingredientes que vieram de fora; entram no custo, mas não baixam o estoque.
+Future<double?> baterRacao(Reg formula, {required String data, required double kgBatidos, Set<int> foraDoEstoque = const {}, String? fornecedor}) async {
   final c = CalculoFormula(formula);
   if (c.kgBatida <= 0 || kgBatidos <= 0) return null;
   final batidas = kgBatidos / c.kgBatida;
   final grupo = 'racao_${DateTime.now().microsecondsSinceEpoch}';
   for (final l in c.linhas) {
-    if (l.insumo == null) continue;
+    if (l.insumo == null || foraDoEstoque.contains(_int(l.insumo!['id']))) continue;
     await Db.inserir('estoque', {
       'propriedade_id': Db.pid,
       'insumo_id': l.insumo!['id'],
@@ -278,9 +279,11 @@ Future<double?> baterRacao(Reg formula, {required String data, required double k
     'custo_total': double.parse((precoKgNovo * kgBatidos).toStringAsFixed(2)),
     'custo_kg': double.parse(precoKgNovo.toStringAsFixed(4)),
     'grupo': grupo,
+    if (fornecedor != null && fornecedor.isNotEmpty) 'fornecedor': fornecedor,
     'itens': [
       for (final l in c.linhas)
         {
+          if (foraDoEstoque.contains(_int(l.insumo?['id']))) 'fora_estoque': true,
           'insumo_id': l.insumo?['id'],
           'nome': l.nome,
           'kg': double.parse((l.kg * batidas).toStringAsFixed(3)),

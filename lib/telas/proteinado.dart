@@ -5,6 +5,7 @@ import '../dados/proteinado.dart';
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'batidas.dart' show GerarBatidaPage;
 import 'estoque.dart';
 
 const _outro = 'Outro tipo…';
@@ -204,38 +205,9 @@ class _FormulaPageState extends State<FormulaPage> {
     if (mounted) Navigator.pop(context);
   }
 
+  /// Abre a tela da batida já com esta fórmula: insumos de fora do estoque, fornecedor e WhatsApp.
   Future<void> _batida() async {
-    var data = hojeIso();
-    int? lote;
-    final qtd = TextEditingController(text: '1');
-    final lotes = await Db.lotes();
-    if (!mounted) return;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => AlertDialog(
-          title: const Text('Registrar batida'),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            DateField(label: 'Data', value: data, obrigatorio: true, onChanged: (v) => set(() => data = v!)),
-            gap,
-            campoTexto(qtd, 'Batidas', numero: true),
-            gap,
-            escolhaId('Lote que vai comer', lote, lotes, (v) => set(() => lote = v), vazio: 'Geral'),
-            gap,
-            const Text('O custo entra em Custos e margem, como Ração e sal.'),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Lançar')),
-          ],
-        ),
-      ),
-    );
-    final n = lerNumero(qtd.text);
-    qtd.dispose();
-    if (ok != true || n == null || n <= 0) return;
-    await registrarBatida({...?f, ..._dados}, data: data, batidas: n, loteId: lote);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Batida lançada em Custos.')));
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => GerarBatidaPage(formulaFixa: {...?f, ..._dados})));
   }
 
   Widget _num(TextEditingController c, String rotulo, {String? sufixo, String? prefixo}) => Expanded(

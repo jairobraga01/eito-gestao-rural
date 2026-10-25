@@ -42,6 +42,20 @@ void main() {
     expect(saldo(racaoPronta(f['id'])!['id'] as int), closeTo(2 * c.kgBatida, 1e-6));
   });
 
+  test('bater ração com ingrediente de fora do estoque não baixa esse ingrediente', () async {
+    await carregarPlanilhaProteinado();
+    await pumpEventQueue();
+    final milho = insumos().firstWhere((i) => i['nome'] == 'Milho')['id'] as int;
+    await entradaEstoque(milho, 500, data: '2026-10-01');
+    final f = formulas().firstWhere((f) => f['nome'] == 'Fortaleza');
+    final kg = CalculoFormula(f).kgBatida;
+    await baterRacao(f, data: '2026-10-10', kgBatidos: kg, foraDoEstoque: {milho}, fornecedor: 'Agro Boi');
+    await pumpEventQueue();
+    expect(saldo(milho), 500);
+    expect(saldo(racaoPronta(f['id'])!['id'] as int), closeTo(kg, 1e-6));
+    expect(batidasFeitas().first['fornecedor'], 'Agro Boi');
+  });
+
   test('não apaga batida de ração já usada no trato', () async {
     await carregarPlanilhaProteinado();
     await pumpEventQueue();

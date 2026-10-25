@@ -155,7 +155,11 @@ class _BatidasPageState extends State<BatidasPage> {
     );
     if (apagar == true && mounted) {
       if (await confirmar(context, 'Apagar a batida?', 'O custo some e o que saiu do estoque volta.', ok: 'Apagar')) {
-        await excluirBatida(b);
+        try {
+          await excluirBatida(b);
+        } on StateError catch (e) {
+          if (mounted) avisar(context, e.message);
+        }
       }
     }
   }

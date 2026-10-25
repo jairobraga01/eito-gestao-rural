@@ -26,6 +26,22 @@ void main() {
     expect(variacaoPct(1.6, 1.8), closeTo(12.5, 1e-9));
   });
 
+  test('apagar o preço vigente devolve o anterior ao insumo', () async {
+    final milho = await Db.inserir('insumos', {'propriedade_id': Db.pid, 'nome': 'Milho', 'preco_saco': 80, 'kg_saco': 50});
+    await lancarPrecoInsumo(milho, data: '2026-09-01', precoEmbalagem: 80, kgEmbalagem: 50);
+    await lancarPrecoInsumo(milho, data: '2026-10-01', precoEmbalagem: 900, kgEmbalagem: 50); // digitado errado
+    await pumpEventQueue();
+    await apagarPrecoInsumo(historicoPrecos(milho).first);
+    await pumpEventQueue();
+    expect(Db.registro('insumos', milho)!['preco_saco'], 80);
+    // Apagar um preço antigo não mexe no vigente.
+    await lancarPrecoInsumo(milho, data: '2026-08-01', precoEmbalagem: 70, kgEmbalagem: 50);
+    await pumpEventQueue();
+    await apagarPrecoInsumo(historicoPrecos(milho).last);
+    await pumpEventQueue();
+    expect(Db.registro('insumos', milho)!['preco_saco'], 80);
+  });
+
   test('gerar batida grava o histórico com os preços do dia e apagar devolve o estoque', () async {
     final milho = await Db.inserir('insumos', {'propriedade_id': Db.pid, 'nome': 'Milho', 'preco_saco': 100, 'kg_saco': 50});
     final soja = await Db.inserir('insumos', {'propriedade_id': Db.pid, 'nome': 'Soja', 'preco_saco': 120, 'kg_saco': 60});

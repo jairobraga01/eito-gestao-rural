@@ -133,7 +133,15 @@ String? ufDaConta(Map<String, dynamic> c) {
 /// (se ainda não passou) ou de hoje.
 DateTime vencimentoAposPagamento(DateTime? atual, DateTime hoje, String periodo) {
   final base = atual != null && atual.isAfter(hoje) ? atual : hoje;
-  return periodo == 'anual' ? DateTime(base.year + 1, base.month, base.day) : DateTime(base.year, base.month + 1, base.day);
+  return _somaMeses(base, periodo == 'anual' ? 12 : 1);
+}
+
+/// Soma meses sem pular para o mês seguinte: 31/01 + 1 mês = 28/02.
+DateTime _somaMeses(DateTime d, int n) {
+  final m = d.month - 1 + n;
+  final ano = d.year + m ~/ 12, mes = m % 12 + 1;
+  final ultimo = DateTime(ano, mes + 1, 0).day;
+  return DateTime(ano, mes, d.day > ultimo ? ultimo : d.day);
 }
 
 /// Valor de tabela do plano no período, com o desconto da indicação quando houver.

@@ -6,7 +6,8 @@ import '../dispositivos/voz_stub.dart' if (dart.library.js_interop) '../disposit
 import '../tema.dart';
 import '../util/util.dart';
 
-/// Fala o serviço do curral e o app lança: peso, vacina, diagnóstico, leite e chuva.
+/// Fala o serviço e o app lança: peso, vacina, diagnóstico, inseminação, parto,
+/// morte, escore, piquete, leite, chuva, despesa e entrada no estoque.
 class LancamentoVozPage extends StatefulWidget {
   const LancamentoVozPage({super.key});
 
@@ -136,13 +137,21 @@ class _LancamentoVozPageState extends State<LancamentoVozPage> {
         ],
         const SizedBox(height: 16),
         Text('Exemplos', style: tema.titleSmall),
-        const Text('• "Brinco 123 peso 450"\n'
-            '• "Brinco 45 vacina aftosa"\n'
-            '• "Brinco 45 vermífugo ivermectina"\n'
-            '• "Brinco 45 prenhe" ou "brinco 45 vazia"\n'
-            '• "Vaca 12 leite 18 litros"\n'
-            '• "Chuva 25 milímetros"'),
+        const Text(exemplosVoz),
       ]),
     );
   }
 }
+
+const exemplosVoz = '• "Brinco 123 peso 450"\n'
+    '• "Brinco 45 vacina aftosa" ou "brinco 45 vermífugo ivermectina"\n'
+    '• "Brinco 45 prenhe" ou "brinco 45 vazia"\n'
+    '• "Vaca 12 inseminada touro Bravo" ou "vaca 12 monta"\n'
+    '• "Vaca 12 pariu macho brinco 300"\n'
+    '• "Brinco 45 morreu picada de cobra"\n'
+    '• "Brinco 45 escore 3 e meio"\n'
+    '• "Brinco 45 piquete 3"\n'
+    '• "Vaca 12 leite 18 litros"\n'
+    '• "Chuva 25 milímetros"\n'
+    '• "Despesa 350 reais diesel"\n'
+    '• "Entrada 20 sal mineral" (no estoque)';

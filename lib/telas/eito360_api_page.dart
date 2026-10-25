@@ -62,8 +62,11 @@ class _Eito360ApiPageState extends State<Eito360ApiPage> {
     final result = await _api.criarContaRural(nomeConta: _tenantName.text.trim(), nomeFazenda: _farmName.text.trim(),
       municipio: _municipality.text.trim().isEmpty ? null : _municipality.text.trim(), estado: _state.text.trim().isEmpty ? null : _state.text.trim());
     final tenant = result['tenant'] as Map<String, dynamic>;
-    setState(() { _tenantId = tenant['id'].toString(); _message = 'Conta criada. A fazenda inicial já está cadastrada.'; });
-    await _loadTenants();
+    setState(() => _tenantId = tenant['id'].toString());
+    final rows = await _api.listarMinhasContas();
+    if (mounted) setState(() => _tenants = rows);
+    await _loadData();
+    if (mounted) setState(() => _message = 'Conta criada. A fazenda inicial já está cadastrada.');
   });
 
   Future<void> _createFarm() => _run(() async {
@@ -72,6 +75,7 @@ class _Eito360ApiPageState extends State<Eito360ApiPage> {
   });
   Future<void> _createAnimal() => _run(() async {
     if (_farmId.text.trim().isEmpty) throw StateError('Selecione uma fazenda.');
+    if (_farmId.text.startsWith('local-')) throw StateError('Esta fazenda ainda está só no aparelho. Envie as pendências ou use "Guardar animal offline".');
     await _api.criarAnimal(fazendaId: _farmId.text.trim(), identificacao: _tag.text.trim(), nome: _animalName.text.trim().isEmpty ? null : _animalName.text.trim(), raca: _breed.text.trim().isEmpty ? null : _breed.text.trim());
     await _loadData(); setState(() => _message = 'Animal cadastrado na API.');
   });
@@ -132,7 +136,11 @@ class _Eito360ApiPageState extends State<Eito360ApiPage> {
       const SizedBox(height: 8),
       FilledButton.icon(onPressed: _busy ? null : _loadTenants, icon: const Icon(Icons.sync), label: const Text('Carregar minhas contas')),
       if (_tenants.isNotEmpty) ...[
-        DropdownButtonFormField<String>(value: _tenantId, decoration: const InputDecoration(labelText: 'Conta rural ativa'), items: [for (final t in _tenants) DropdownMenuItem(value: t['id'].toString(), child: Text('${t['name']} · ${t['role']}'))], onChanged: _busy ? null : (v) => setState(() => _tenantId = v)),
+        DropdownButtonFormField<String>(value: _tenantId, decoration: const InputDecoration(labelText: 'Conta rural ativa'), items: [for (final t in _tenants) DropdownMenuItem(value: t['id'].toString(), child: Text('${t['name']} · ${t['role']}'))], onChanged: _busy ? null : (v) {
+          // Outra conta: as fazendas e os animais da anterior não valem mais.
+          setState(() { _tenantId = v; _farms = []; _animals = []; _farmId.clear(); });
+          _run(() async { await _loadData(); await _refreshPending(); });
+        }),
         FilledButton.tonal(onPressed: _busy ? null : () => _run(_loadData), child: const Text('Atualizar fazendas e animais')),
         const SizedBox(height: 8),
         Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -166,7 +174,11 @@ class _Eito360ApiPageState extends State<Eito360ApiPage> {
       ]),
       const Divider(height: 32),
       const Text('Animais cadastrados pela API', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      if (_farms.isNotEmpty) DropdownButtonFormField<String>(value: _farms.any((f) => f['id'].toString() == _farmId.text) ? _farmId.text : _farms.first['id'].toString(), decoration: const InputDecoration(labelText: 'Fazenda do animal'), items: [for (final f in _farms) DropdownMenuItem(value: f['id'].toString(), child: Text(f['name'].toString()))], onChanged: (v) => setState(() => _farmId.text = v ?? '')),
+      if (_farms.isNotEmpty) DropdownButtonFormField<String>(value: _farms.any((f) => f['id'].toString() == _farmId.text) || _farmId.text.startsWith('local-') ? _farmId.text : null, decoration: const InputDecoration(labelText: 'Fazenda do animal'), items: [
+        for (final f in _farms) DropdownMenuItem(value: f['id'].toString(), child: Text(f['name'].toString())),
+        // Fazenda guardada só no aparelho: aparece com o nome digitado, para o valor mostrado ser o enviado.
+        if (_farmId.text.startsWith('local-')) DropdownMenuItem(value: _farmId.text, child: Text('${_farmName.text.trim().isEmpty ? 'Fazenda' : _farmName.text.trim()} (offline)')),
+      ], onChanged: (v) => setState(() => _farmId.text = v ?? '')),
       TextField(controller: _tag, decoration: const InputDecoration(labelText: 'Identificação / brinco')),
       TextField(controller: _animalName, decoration: const InputDecoration(labelText: 'Nome (opcional)')),
       TextField(controller: _breed, decoration: const InputDecoration(labelText: 'Raça (opcional)')),

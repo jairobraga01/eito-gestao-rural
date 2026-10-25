@@ -80,4 +80,22 @@ void main() {
     // Mesmo dia: não calcula
     expect(await Db.registrarPesagem(a, 331, data: '2026-01-31'), isNull);
   });
+
+  test('brinco: a fazenda aberta vem antes; transferência não duplica brinco', () async {
+    final b = await Db.inserir('propriedades', {'nome': 'Fazenda B'});
+    final vendido = await animal('15');
+    await Db.atualizar('animais', vendido, {'status': 'Vendido'});
+    await Db.inserir('animais', {'propriedade_id': b, 'brinco': '15', 'sexo': 'F', 'status': 'Ativo'});
+    await pumpEventQueue();
+    expect((await Db.buscarPorCodigo('15'))!['id'], vendido);
+    await Db.atualizar('animais', vendido, {'propriedade_id': b});
+    await pumpEventQueue();
+    expect(await Db.buscarPorCodigo('15', soDestaFazenda: true), isNull);
+
+    final a = await animal('20');
+    await Db.inserir('animais', {'propriedade_id': b, 'brinco': '20', 'sexo': 'F', 'status': 'Ativo'});
+    await pumpEventQueue();
+    expect(() => Db.moverAnimais([Db.registro('animais', a)!], {'propriedade_id': b}, '2026-10-20'),
+        throwsA(isA<RegistroDuplicado>()));
+  });
 }

@@ -12,9 +12,13 @@ class PoligonoKml {
 String _semTags(String s) => s
     .replaceAll(RegExp(r'<!\[CDATA\[|\]\]>'), '')
     .replaceAll(RegExp(r'<[^>]*>'), '')
-    .replaceAll('&amp;', '&')
+    .replaceAllMapped(RegExp(r'&#(x?)([0-9a-fA-F]+);'),
+        (m) => String.fromCharCode(int.parse(m[2]!, radix: m[1]!.isEmpty ? 10 : 16)))
     .replaceAll('&lt;', '<')
     .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&apos;', "'")
+    .replaceAll('&amp;', '&') // por último: "&amp;lt;" fica "&lt;"
     .trim();
 
 /// Pontos de um bloco <coordinates> ("lng,lat[,alt]" separados por espaço).

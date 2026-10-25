@@ -42,6 +42,25 @@ void main() {
     expect(saldo(racaoPronta(f['id'])!['id'] as int), closeTo(2 * c.kgBatida, 1e-6));
   });
 
+  test('não apaga batida de ração já usada no trato', () async {
+    await carregarPlanilhaProteinado();
+    await pumpEventQueue();
+    final f = formulas().firstWhere((f) => f['nome'] == 'Fortaleza');
+    final kg = CalculoFormula(f).kgBatida;
+    await baterRacao(f, data: '2026-10-10', kgBatidos: kg);
+    await pumpEventQueue();
+    final pronta = racaoPronta(f['id'])!['id'] as int;
+    await Db.inserir('estoque', {'propriedade_id': pid, 'insumo_id': pronta, 'data': '2026-10-11', 'qtd': -10.0});
+    await pumpEventQueue();
+    final b = batidasFeitas().first;
+    expect(() => excluirBatida(b), throwsStateError);
+    await Db.inserir('estoque', {'propriedade_id': pid, 'insumo_id': pronta, 'data': '2026-10-12', 'qtd': 10.0});
+    await pumpEventQueue();
+    await excluirBatida(b);
+    await pumpEventQueue();
+    expect(saldo(pronta), closeTo(0, 1e-6));
+  });
+
   test('histórico do contato junta compras e vendas pelo nome', () async {
     final id = await Db.inserir('contatos', {'propriedade_id': pid, 'nome': 'João da Silva', 'tipo': 'Os dois'});
     await Db.inserir('entradas', {

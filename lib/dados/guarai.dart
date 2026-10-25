@@ -80,6 +80,13 @@ Future<ResultadoGuarai> importarGuarai(Map<String, Object?> b) async {
   for (final e in Db.registros('entradas')) {
     if (_int(e['propriedade_id']) == pid && e['guarai_id'] != null) entradaDe[_t(e['guarai_id'])] = _int(e['id'])!;
   }
+  // Números de compra já usados nesta propriedade: uma compra nova com data
+  // antiga não pode repetir a numeração dos animais de outra.
+  final numerosUsados = <int>{
+    for (final a in Db.registros('animais'))
+      if (_int(a['propriedade_id']) == pid)
+        if (RegExp(r'^gg_c(\d+)_').firstMatch(_t(a['brinco'])) case final m?) int.parse(m[1]!),
+  };
   for (final (i, c) in compras.indexed) {
     final gid = 'compra:${c['id']}';
     if (jaEntradas.contains(gid)) {
@@ -96,7 +103,10 @@ Future<ResultadoGuarai> importarGuarai(Map<String, Object?> b) async {
       nota: _n(c['nota']),
       frete: _n(c['frete']),
     );
-    final n = '${i + 1}'.padLeft(2, '0');
+    var numero = i + 1;
+    if (numerosUsados.contains(numero)) numero = numerosUsados.reduce((a, b) => a > b ? a : b) + 1;
+    numerosUsados.add(numero);
+    final n = '$numero'.padLeft(2, '0');
     final id = await Db.registrarEntrada({
       'tipo': 'Compra',
       'data': _t(c['data']),

@@ -59,9 +59,11 @@ class _NotaCompraPageState extends State<NotaCompraPage> {
 
   Future<void> _editar(ItemNota i) async {
     final nome = TextEditingController(text: i.descricao);
-    final qtd = TextEditingController(text: _q(i.qtd));
-    final preco = TextEditingController(text: _q(i.valorUnit));
-    final emb = TextEditingController(text: _q(i.embalagem));
+    // Guarda o texto mostrado: só grava o número que a pessoa mudou (o mostrado é arredondado).
+    final qtdTxt = _q(i.qtd), precoTxt = _q(i.valorUnit), embTxt = _q(i.embalagem);
+    final qtd = TextEditingController(text: qtdTxt);
+    final preco = TextEditingController(text: precoTxt);
+    final emb = TextEditingController(text: embTxt);
     var categoria = i.categoria, unidade = i.unidade;
     final ok = await showDialog<bool>(
       context: context,
@@ -94,7 +96,12 @@ class _NotaCompraPageState extends State<NotaCompraPage> {
         ),
       ),
     );
-    final v = (nome.text.trim(), lerNumero(qtd.text), lerNumero(preco.text), lerNumero(emb.text));
+    final v = (
+      nome.text.trim(),
+      qtd.text == qtdTxt ? null : lerNumero(qtd.text),
+      preco.text == precoTxt ? null : lerNumero(preco.text),
+      emb.text == embTxt ? null : lerNumero(emb.text),
+    );
     for (final c in [nome, qtd, preco, emb]) {
       c.dispose();
     }

@@ -151,6 +151,14 @@ class SaidasPage extends StatelessWidget {
         ok: 'Excluir')) {
       await Db.excluirSaida(s['id'] as int);
       await apagarParcelasAbertas('saida:${s['id']}');
+      final pagas = contasPagasDe('saida:${s['id']}');
+      if (pagas.isNotEmpty &&
+          context.mounted &&
+          await confirmar(context, 'Apagar também ${pagas.length} conta(s) já recebida(s)?',
+              'Elas vieram desta venda e continuam no livro caixa, no LCDPR e no Imposto de Renda.',
+              ok: 'Apagar')) {
+        await apagarContasPagas('saida:${s['id']}');
+      }
     }
   }
 }
@@ -293,7 +301,9 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
         if (conta.porArroba) 'rendimento_pct': conta.rendimentoPct,
       });
     }
-    final id = await Db.registrarSaida({
+    final int id;
+    try {
+      id = await Db.registrarSaida({
       'tipo': tipo,
       'data': data,
       'peso_total': lerNumero(peso.text),
@@ -314,6 +324,12 @@ class _SaidaFormPageState extends State<SaidaFormPage> {
       if (tipo == 'Morte') 'causa': causa,
       'obs': nulo(obs.text),
     }, [for (final a in animais) a['id'] as int]);
+    } on RegistroDuplicado catch (e) {
+      if (!mounted) return;
+      setState(() => salvando = false);
+      avisar(context, e.mensagem);
+      return;
+    }
     if (conta != null && aPrazo) {
       await lancarParcelas(
         receita: true,

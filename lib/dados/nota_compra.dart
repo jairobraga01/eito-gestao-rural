@@ -182,8 +182,9 @@ NotaCompra? lerNotaXml(String xml) {
   for (final b in blocos) {
     final t = b[1]!;
     final nome = _tag(t, 'xProd');
-    final q = lerValor(_tag(t, 'qCom') ?? '');
-    final v = lerValor(_tag(t, 'vUnCom') ?? '');
+    // No XML o ponto é sempre decimal ("2.500" = 2,5).
+    final q = double.tryParse((_tag(t, 'qCom') ?? '').trim());
+    final v = double.tryParse((_tag(t, 'vUnCom') ?? '').trim());
     if (nome == null || q == null || v == null || q <= 0) continue;
     itens.add(_item(_desfazerEntidades(nome), q, v, _tag(t, 'uCom') ?? ''));
   }

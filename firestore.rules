@@ -97,7 +97,10 @@ service cloud.firestore {
       allow read: if tabela != 'equipe' && membro(u)
         && !(papel(u) in ['peao', 'veterinario', 'zootecnista'] && semFinanceiro(tabela));
       allow write: if tabela != 'equipe' && membro(u) && papel(u) == 'gerente';
-      allow create, update: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela);
+      allow create: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela);
+      // Quem lançou não muda: senão bastaria trocar o criado_por para poder apagar.
+      allow update: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela)
+        && request.resource.data.get('criado_por', '') == resource.data.get('criado_por', '');
       allow delete: if tabela != 'equipe' && membro(u) && campoGrava(papel(u), tabela)
         && resource.data.get('criado_por', '') == request.auth.uid;
     }
@@ -214,8 +217,11 @@ service cloud.firestore {
     // E-mail de boas-vindas (extensão "Trigger Email" do Firebase lê esta
     // coleção e envia). A pessoa só cria o da própria conta, uma vez.
     match /mail/{uid} {
+      // Só o destinatário e a mensagem: sem cc, bcc, from ou replyTo (evita spam pelo remetente do app).
       allow create: if logado() && request.auth.uid == uid
-        && request.resource.data.to == request.auth.token.email;
+        && request.resource.data.keys().hasOnly(['to', 'message'])
+        && request.resource.data.to == request.auth.token.email
+        && request.resource.data.message.keys().hasOnly(['subject', 'text', 'html']);
       allow read, update, delete: if admin();
     }
 

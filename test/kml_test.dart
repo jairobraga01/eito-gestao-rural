@@ -25,4 +25,11 @@ void main() {
   test('arquivo sem polígono', () {
     expect(lerKml('<kml></kml>'), isEmpty);
   });
+
+  test('nomes com entidades do QGIS e do ArcGIS', () {
+    const k = '<kml><Placemark><name>Pasto da Jos&#233; &amp; Cia &amp;lt;1&amp;gt;</name><Polygon><outerBoundaryIs>'
+        '<LinearRing><coordinates>-49.2,-15.4 -49.19,-15.4 -49.19,-15.39</coordinates></LinearRing>'
+        '</outerBoundaryIs></Polygon></Placemark></kml>';
+    expect(lerKml(k).single.nome, 'Pasto da José & Cia &lt;1&gt;');
+  });
 }

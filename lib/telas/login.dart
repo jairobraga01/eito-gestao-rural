@@ -27,6 +27,7 @@ class _TelaLoginState extends State<TelaLogin> {
   final _indicacao = TextEditingController();
   final _ddd = TextEditingController();
   final _telefone = TextEditingController();
+  final _focoSenha = FocusNode();
   bool _criando = false;
   bool _ocupado = false;
   bool _verSenha = false;
@@ -39,6 +40,7 @@ class _TelaLoginState extends State<TelaLogin> {
     _indicacao.dispose();
     _ddd.dispose();
     _telefone.dispose();
+    _focoSenha.dispose();
     super.dispose();
   }
 
@@ -85,10 +87,25 @@ class _TelaLoginState extends State<TelaLogin> {
     } on FirebaseAuthMultiFactorException catch (e) {
       await _segundaEtapa(e);
     } on FirebaseAuthException catch (e) {
-      setState(() => _erro = _mensagem(e));
+      if (mounted) setState(() => _erro = _mensagem(e));
+      _tentarDeNovo();
+    } catch (e) {
+      // Qualquer outro erro do navegador também libera a tela para tentar de novo.
+      if (mounted) setState(() => _erro = 'Não foi possível entrar. Confira a senha e tente de novo.');
+      _tentarDeNovo();
     } finally {
       if (mounted) setState(() => _ocupado = false);
     }
+  }
+
+  /// Depois de um erro: limpa a senha e devolve o cursor ao campo, para digitar de novo
+  /// (no celular, o Enter tira o foco e o campo podia não voltar a abrir o teclado).
+  void _tentarDeNovo() {
+    if (!mounted) return;
+    _senha.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focoSenha.requestFocus();
+    });
   }
 
   /// Verificação em duas etapas: pede o código de 6 dígitos do app autenticador.
@@ -123,7 +140,9 @@ class _TelaLoginState extends State<TelaLogin> {
       final prova = await TotpMultiFactorGenerator.getAssertionForSignIn(hint.uid, codigo.trim());
       await e.resolver.resolveSignIn(prova);
     } on FirebaseAuthException catch (x) {
-      setState(() => _erro = x.code == 'invalid-verification-code' ? 'Código errado ou vencido.' : _mensagem(x));
+      if (mounted) setState(() => _erro = x.code == 'invalid-verification-code' ? 'Código errado ou vencido.' : _mensagem(x));
+    } catch (_) {
+      if (mounted) setState(() => _erro = 'Não foi possível conferir o código. Tente de novo.');
     }
   }
 
@@ -239,6 +258,7 @@ class _TelaLoginState extends State<TelaLogin> {
                       const SizedBox(height: 14),
                       TextField(
                         controller: _senha,
+                        focusNode: _focoSenha,
                         obscureText: !_verSenha,
                         autofillHints: [_criando ? AutofillHints.newPassword : AutofillHints.password],
                         onSubmitted: (_) => _enviar(),

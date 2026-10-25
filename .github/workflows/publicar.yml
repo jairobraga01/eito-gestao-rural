@@ -50,6 +50,15 @@ jobs:
       - name: Compilar
         run: flutter build web --release --no-web-resources-cdn
 
+      - name: Lista de arquivos para o app abrir sem sinal
+        run: |
+          cd build/web
+          lista=$(find . -type f ! -name 'sw.js' ! -name '*.map' ! -name '*.html' ! -name '*.symbols' ! -name '.last_build_id' ! -name 'flutter_service_worker.js' \
+            ! -name 'robots.txt' ! -name 'sitemap.xml' ! -name 'version.json' ! -path '*/skwasm*' ! -path './canvaskit/webparagraph/*' ! -path './canvaskit/wimp*' \
+            | sed 's|^\./||' | sort | sed "s/.*/'&'/" | paste -sd, -)
+          sed -i "s|/\* ARQUIVOS_DO_BUILD \*/|$lista|" sw.js
+          grep -q "canvaskit.wasm" sw.js || { echo "::error::sw.js sem a lista do CanvasKit"; exit 1; }
+
       - name: Guardar o site compilado
         uses: actions/upload-artifact@v4
         with:

@@ -62,8 +62,10 @@ class _EquipePageState extends State<EquipePage> {
     } catch (e) {
       if (mounted) avisar(context, 'Não foi possível concluir (precisa de internet): $e');
     } finally {
-      if (mounted) setState(() => _ocupado = false);
-      _recarregar();
+      if (mounted) {
+        setState(() => _ocupado = false);
+        _recarregar();
+      }
     }
   }
 

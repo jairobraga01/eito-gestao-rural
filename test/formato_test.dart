@@ -9,6 +9,15 @@ void main() {
     expect(lerNumero('sem número'), isNull);
   });
 
+  test('ponto de milhar no padrão brasileiro', () {
+    expect(lerNumero('1.500'), 1500);
+    expect(lerNumero('150.000'), 150000);
+    expect(lerNumero('1.250.000'), 1250000);
+    expect(lerNumero('1.250,5'), 1250.5);
+    expect(lerNumero('452.5'), 452.5);
+    expect(lerNumero('0.75'), 0.75);
+  });
+
   test('separa peso de brinco eletrônico', () {
     expect(parecePeso('452,5'), isTrue);
     expect(parecePeso('982000123456789'), isFalse); // RFID de 15 dígitos

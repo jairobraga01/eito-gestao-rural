@@ -125,7 +125,7 @@ class _CarregarDadosState extends State<CarregarDados> {
         if (u.emailVerified) await u.getIdToken(true);
       } catch (_) {}
     }
-    final acesso = await Equipe.procurarAcesso(u.uid, u.email);
+    final acesso = await Equipe.procurarAcesso(u.uid, u.email, aceitar: _aceitarConvite);
     if (acesso == null && peao) {
       throw 'Este login não está ligado a nenhuma fazenda. Fale com o dono.';
     }
@@ -138,6 +138,26 @@ class _CarregarDadosState extends State<CarregarDados> {
     if (Db.ehVeterinario) Nav.secao.value = secReproducao;
     if (Db.ehZootecnista) Nav.secao.value = secDieta;
     if (Db.ehContador) Nav.secao.value = secRelatorioFinanceiro;
+  }
+
+  /// Pergunta antes de entrar na equipe de outra pessoa.
+  Future<bool> _aceitarConvite(String donoNome, String papel) async {
+    if (!mounted) return false;
+    final quem = donoNome.isEmpty ? 'Um produtor' : donoNome;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        title: const Text('Convite para a equipe'),
+        content: Text('$quem convidou você para trabalhar na fazenda como ${papeis[papel] ?? papel}.\n\n'
+            'Ao aceitar, o app abre os dados dessa fazenda. Só aceite se conhece quem convidou.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('RECUSAR')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('ACEITAR')),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   @override

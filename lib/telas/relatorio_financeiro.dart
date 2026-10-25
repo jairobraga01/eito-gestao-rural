@@ -52,7 +52,13 @@ class _RelatorioFinanceiroPageState extends State<RelatorioFinanceiroPage> {
         ok: 'Importar')) {
       return;
     }
-    final r = await importarGuarai(b);
+    final ResultadoGuarai r;
+    try {
+      r = await importarGuarai(b);
+    } on RegistroDuplicado catch (e) {
+      if (context.mounted) avisar(context, e.mensagem);
+      return;
+    }
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,

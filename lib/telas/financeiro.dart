@@ -148,7 +148,11 @@ class _ContaFormPageState extends State<ContaFormPage> {
   late bool pago = c?['pago'] == true;
   late String? pagoEm = c?['pago_em'] as String?;
   late int tipoDoc = (c?['tipo_doc'] as int?) ?? 1;
-  late int contaBanco = (c?['conta_banco'] as int?) ?? 0;
+  // Banco apagado nos dados do LCDPR volta para dinheiro (senão o LCDPR sai com conta inexistente).
+  late int contaBanco = () {
+    final b = (c?['conta_banco'] as int?) ?? 0;
+    return contasBancarias().any((x) => x['codigo'] == b) ? b : 0;
+  }();
 
   @override
   void dispose() {

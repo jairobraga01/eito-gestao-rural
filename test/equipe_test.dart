@@ -76,6 +76,23 @@ void main() {
     expect(await Equipe.procurarAcesso('ze', 'ze@gmail.com'), isNull);
   });
 
+  test('convite só vale depois que a pessoa aceita', () async {
+    await Equipe.convidar(dono: 'b', donoNome: 'Fulano', email: 'vitima@x.com', nome: 'V', papel: 'gerente');
+    String? perguntou;
+    final recusou = await Equipe.procurarAcesso('v', 'vitima@x.com', aceitar: (quem, papel) async {
+      perguntou = '$quem/$papel';
+      return false;
+    });
+    expect(recusou, isNull);
+    expect(perguntou, 'Fulano/gerente');
+    expect((await banco.doc('usuarios/b/equipe/v').get()).exists, isFalse);
+    expect((await banco.doc('convites/vitima@x.com').get()).exists, isFalse);
+
+    await Equipe.convidar(dono: 'b', donoNome: 'Fulano', email: 'vitima@x.com', nome: 'V', papel: 'gerente');
+    final aceitou = await Equipe.procurarAcesso('v', 'vitima@x.com', aceitar: (_, __) async => true);
+    expect(aceitou?.dono, 'b');
+  });
+
   test('sem convite a pessoa usa os próprios dados', () async {
     expect(await Equipe.procurarAcesso('outro', 'outro@gmail.com'), isNull);
   });

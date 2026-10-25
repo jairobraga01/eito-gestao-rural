@@ -24,6 +24,8 @@ import 'indicacoes.dart';
 import 'criador.dart';
 import 'eito360_api_page.dart';
 import 'entradas.dart' show iconeEntrada, iconeSaida;
+import 'lancamento_voz.dart';
+import 'lancar_whatsapp.dart';
 import 'lotes.dart';
 import 'modo_curral.dart';
 import 'modo_inseminacao.dart';
@@ -601,6 +603,13 @@ class Pagina extends StatelessWidget {
           ...?acoes,
           const AlertaCotacaoRespondida(),
           const SininhoAvisos(),
+          // Voz em qualquer tela: fala o lançamento e o app grava no lugar certo.
+          if (podeLancar)
+            IconButton(
+              tooltip: 'Lançar por voz',
+              icon: const Icon(Icons.mic, color: Cores.laranja),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LancamentoVozPage())),
+            ),
           if (podeLancar)
             IconButton(
               tooltip: 'Modo Curral',
@@ -664,6 +673,8 @@ class AcoesFab extends StatelessWidget {
 
   static final _itens = <(String, IconData, Widget Function())>[
     ('Modo Curral', Icons.contactless_outlined, () => const ModoCurral()),
+    ('Lançar por voz', Icons.mic, () => const LancamentoVozPage()),
+    ('Lançar do WhatsApp', Icons.chat_outlined, () => const LancarWhatsAppPage()),
     ('Propriedade', Icons.home_work_outlined, () => const PropriedadeFormPage()),
     ('Lote', Icons.workspaces_outline, () => const LoteFormPage()),
     ('Animal', Icons.pets, () => const AnimalFormPage()),

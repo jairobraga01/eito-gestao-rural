@@ -47,6 +47,9 @@ void main() {
     expect(vencimentoAposPagamento(null, hoje, 'mensal'), DateTime(2026, 11, 20));
     expect(vencimentoAposPagamento(DateTime(2026, 11, 5), hoje, 'mensal'), DateTime(2026, 12, 5));
     expect(vencimentoAposPagamento(DateTime(2026, 1, 1), hoje, 'anual'), DateTime(2027, 10, 20));
+    // Fim de mês não pula para o mês seguinte.
+    expect(vencimentoAposPagamento(DateTime(2027, 1, 31), hoje, 'mensal'), DateTime(2027, 2, 28));
+    expect(vencimentoAposPagamento(DateTime(2028, 2, 29), hoje, 'anual'), DateTime(2029, 2, 28));
     expect(valorSugerido('Média', 'mensal'), 29.90);
     expect(valorSugerido('Simples', 'anual', desconto: 20), 79.92);
   });

@@ -85,6 +85,8 @@ void main() {
       final ps = gerarParcelas(1000, 3, '2026-01-31', intervaloMeses: 1);
       expect(ps.map((p) => p['vencimento']), ['2026-01-31', '2026-02-28', '2026-03-31']);
       expect(ps.map((p) => p['valor']), [333.33, 333.33, 333.34]);
+      expect(gerarParcelas(1009.80, 10, '2026-01-01').map((p) => p['valor']).toSet(), {100.98});
+      expect(gerarParcelas(1024.36, 2, '2026-01-01').map((p) => p['valor']), [512.18, 512.18]);
     });
 
     test('saldo, parcelas a vencer, pagamento e ônus', () async {

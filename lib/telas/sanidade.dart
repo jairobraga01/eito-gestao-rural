@@ -276,6 +276,10 @@ class _SanidadeFormPageState extends State<SanidadeFormPage> {
       avisar(context, 'Nenhum animal selecionado.');
       return;
     }
+    if (proxima != null && proxima!.compareTo(data) <= 0) {
+      avisar(context, 'A próxima aplicação precisa ser depois da data do manejo.');
+      return;
+    }
     setState(() => salvando = true);
     final nota = [
       if (porLote) 'Aplicado em $porcentagem% ${modo == 1 ? 'do lote' : 'do pasto/piquete'}',

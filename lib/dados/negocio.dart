@@ -200,6 +200,21 @@ Future<void> lancarParcelas({
 }
 
 /// Apaga as parcelas ainda em aberto de uma venda ou compra excluída.
+/// Contas já pagas (livro caixa) que vieram de [origem].
+List<Reg> contasPagasDe(String origem) => [
+      for (final c in Db.registros('contas'))
+        if ('${c['origem'] ?? ''}' == origem && c['pago'] == true && _int(c['id']) != null) c,
+    ];
+
+/// Apaga as contas já pagas de [origem] (quando a venda ou compra foi lançada por engano).
+Future<int> apagarContasPagas(String origem) async {
+  final l = contasPagasDe(origem);
+  for (final c in l) {
+    await Db.excluir('contas', _int(c['id'])!);
+  }
+  return l.length;
+}
+
 Future<int> apagarParcelasAbertas(String origem) async {
   var n = 0;
   for (final c in Db.registros('contas')) {

@@ -14,11 +14,16 @@ String numeroBr(double n, {int casas = 1}) {
 String pesoKg(double p) => '${numeroBr(p)} kg';
 
 /// Lê um número digitado ou vindo da balança.
-/// Aceita "450", "450,5", "1.250,5", "452.5 kg" e "ST,GS,+0452.5kg".
+/// Aceita "450", "450,5", "1.250,5", "1.500", "452.5 kg" e "ST,GS,+0452.5kg".
 double? lerNumero(String texto) {
   var t = texto.trim().replaceAll(' ', '');
   if (t.isEmpty) return null;
-  if (t.contains(',')) t = t.replaceAll('.', '').replaceAll(',', '.');
+  if (t.contains(',')) {
+    t = t.replaceAll('.', '').replaceAll(',', '.');
+  } else if (RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(t)) {
+    // "1.500" e "150.000" são milhar no padrão brasileiro.
+    t = t.replaceAll('.', '');
+  }
   final direto = double.tryParse(t);
   if (direto != null) return direto;
   // Texto com letras (balança): pega o primeiro número.

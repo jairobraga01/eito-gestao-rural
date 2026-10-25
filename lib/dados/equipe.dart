@@ -6,10 +6,12 @@
 // - usuarios/{dono}/equipe/{uid}: quem faz parte e o papel. É isso que as regras
 //   do Firestore conferem para liberar a leitura e a gravação dos dados do dono.
 // Papéis: gerente (tudo, menos a equipe) e peão (serviço de campo, sem financeiro).
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'db.dart';
 
@@ -91,8 +93,11 @@ class Equipe {
   /// Acesso atual (null quando a pessoa usa os próprios dados).
   static Acesso? atual;
 
-  /// Procura um convite para quem entrou. Na primeira vez, entra na equipe.
-  static Future<Acesso?> procurarAcesso(String uid, String? email) async {
+  /// Procura um convite para quem entrou. Na primeira vez, entra na equipe,
+  /// mas só depois que a pessoa aceita (quando [aceitar] é informado):
+  /// assim ninguém é posto na fazenda de outro sem saber.
+  static Future<Acesso?> procurarAcesso(String uid, String? email,
+      {Future<bool> Function(String donoNome, String papel)? aceitar}) async {
     atual = null;
     if (email == null || email.isEmpty) return null;
     final Map<String, dynamic>? c;
@@ -100,16 +105,36 @@ class Equipe {
       c = (await _convite(email).get()).data();
     } on FirebaseException catch (e) {
       // Sem convite (ou e-mail ainda não confirmado) as regras negam a leitura.
-      if (e.code == 'permission-denied') return null;
+      if (e.code == 'permission-denied') {
+        await _lembrar(uid, null);
+        return null;
+      }
       if (ehLoginDePeao(email)) rethrow;
+      // Sem sinal: usa o último acesso conhecido, para não abrir a conta errada.
+      final guardado = await _ultimo(uid);
+      if (guardado == false) rethrow; // nunca abriu neste aparelho: tentar de novo
       debugPrint('Eito: não deu para ver o convite: $e');
-      return null;
+      return atual = guardado is Acesso ? guardado : null;
     }
     final dono = c?['dono'] as String?;
-    if (c == null || dono == null || dono == uid) return null;
+    if (c == null || dono == null || dono == uid) {
+      await _lembrar(uid, null);
+      return null;
+    }
     final ref = _equipe(dono).doc(uid);
     var m = (await ref.get()).data();
     if (m == null) {
+      if (aceitar != null && c['uid'] == null) {
+        final ok = await aceitar('${c['dono_nome'] ?? ''}', '${c['papel'] ?? ''}');
+        if (!ok) {
+          // Recusou: apaga o convite para não perguntar de novo.
+          try {
+            await _convite(email).delete();
+          } catch (_) {}
+          await _lembrar(uid, null);
+          return null;
+        }
+      }
       m = {
         'uid': uid,
         'email': email.toLowerCase(),
@@ -120,12 +145,35 @@ class Equipe {
       };
       await ref.set(m);
     }
-    return atual = Acesso(
+    final a = Acesso(
       dono: dono,
       papel: '${m['papel']}',
       nome: '${m['nome'] ?? email}',
       donoNome: '${c['dono_nome'] ?? ''}',
     );
+    await _lembrar(uid, a);
+    return atual = a;
+  }
+
+  static Future<void> _lembrar(String uid, Acesso? a) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('acesso_$uid',
+          a == null ? '' : jsonEncode({'dono': a.dono, 'papel': a.papel, 'nome': a.nome, 'dono_nome': a.donoNome}));
+    } catch (_) {}
+  }
+
+  /// Último acesso guardado: um [Acesso], null (usa os próprios dados) ou false (nada guardado).
+  static Future<Object?> _ultimo(String uid) async {
+    try {
+      final t = (await SharedPreferences.getInstance()).getString('acesso_$uid');
+      if (t == null) return false;
+      if (t.isEmpty) return null;
+      final j = jsonDecode(t) as Map<String, dynamic>;
+      return Acesso(dono: '${j['dono']}', papel: '${j['papel']}', nome: '${j['nome']}', donoNome: '${j['dono_nome'] ?? ''}');
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Convida pelo e-mail. A pessoa cria a conta com esse e-mail, confirma e entra.

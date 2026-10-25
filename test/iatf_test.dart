@@ -118,6 +118,22 @@ void main() {
       expect(n['rodada'], 2);
       expect(n['nome'], 'D0-D8-D10 · ressinc. 2');
       expect(n['dg_dias'], 30);
+      await pumpEventQueue();
+      // Já ressincronizada: não entra num segundo protocolo.
+      expect(vaziasParaRessinc(Db.registro('protocolos', p)!), isEmpty);
+    });
+
+    test('vazia que emprenhou no repasse não volta para a ressincronização', () async {
+      final a = await vaca('40');
+      final p = await protocolo([a]);
+      final id = await Db.registrarInseminacao(femeaId: a, data: '2026-03-11', tipo: 'IATF');
+      await Db.lancarDiagnostico(id, 'Vazia', '2026-04-10');
+      await pumpEventQueue();
+      expect(vaziasParaRessinc(Db.registro('protocolos', p)!), [a]);
+      final m = await Db.registrarInseminacao(femeaId: a, data: '2026-04-15', tipo: 'Monta natural');
+      await Db.lancarDiagnostico(m, 'Prenhe', '2026-05-20');
+      await pumpEventQueue();
+      expect(vaziasParaRessinc(Db.registro('protocolos', p)!), isEmpty);
     });
 
     test('descarte tira a vaca do lote e da fila', () async {

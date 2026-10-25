@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../dados/contatos.dart' show fornecedoresDe;
 import '../dados/db.dart';
 import '../dados/estoque.dart';
 import '../dados/proteinado.dart' show CalculoFormula, formulas, insumos;
 import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
+import 'batidas.dart' show enviarBatidaWhats, marcarInsumosDeFora;
 
 String _q(double v, [int casas = 1]) => numeroBr(v, casas: v % 1 == 0 ? 0 : casas);
 
@@ -100,6 +102,10 @@ class _DietaCard extends StatelessWidget {
     final c = CalculoFormula(f);
     var data = hojeIso();
     final qtd = TextEditingController(text: c.kgBatida > 0 ? _q(c.kgBatida) : '');
+    final fora = <int>{};
+    final fornecedores = fornecedoresDe('Insumos');
+    int? fornecedorId;
+    Reg? fornecedor() => fornecedores.where((x) => x['id'] == fornecedorId).firstOrNull;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -122,11 +128,24 @@ class _DietaCard extends StatelessWidget {
                 Text('Custo por quilo: ${c.precoKg == null ? '-' : moeda(c.precoKg)}'),
                 if (kgs > 0) ...[
                   const SizedBox(height: 8),
-                  const Text('Sai do estoque:', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const Text('Ingredientes:', style: TextStyle(fontWeight: FontWeight.w700)),
                   for (final l in c.linhas)
                     Text('${l.nome}: ${_q(l.kg * batidas)} kg'
-                        '${l.insumo != null && saldo(l.insumo!['id'] as int) < l.kg * batidas ? ' (estoque insuficiente)' : ''}'),
+                        '${l.insumo != null && fora.contains(l.insumo!['id']) ? ' (de fora do estoque)' : l.insumo != null && saldo(l.insumo!['id'] as int) < l.kg * batidas ? ' (estoque insuficiente)' : ''}'),
                 ],
+                const SizedBox(height: 8),
+                const Text('De fora do estoque (entra no custo, não sai do estoque):', style: TextStyle(fontWeight: FontWeight.w700)),
+                ...marcarInsumosDeFora(c, fora, set),
+                if (fornecedores.isNotEmpty)
+                  escolhaId('Fornecedor (opcional)', fornecedorId, fornecedores, (v) => set(() => fornecedorId = v), vazio: 'Nenhum'),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.chat_outlined),
+                  label: const Text('Enviar pelo WhatsApp'),
+                  onPressed: batidas <= 0
+                      ? null
+                      : () => enviarBatidaWhats(f, batidas: batidas, data: data, fornecedor: fornecedor(), fora: fora),
+                ),
               ]),
             ),
             actions: [
@@ -140,7 +159,7 @@ class _DietaCard extends StatelessWidget {
     final kgs = lerNumero(qtd.text)?.toDouble() ?? 0;
     qtd.dispose();
     if (ok != true || kgs <= 0) return;
-    final preco = await baterRacao(f, data: data, kgBatidos: kgs);
+    final preco = await baterRacao(f, data: data, kgBatidos: kgs, foraDoEstoque: fora, fornecedor: txt(fornecedor()?['nome']));
     if (!context.mounted) return;
     avisar(context, preco == null ? 'A fórmula não tem ingredientes.' : '${_q(kgs)} kg de ração no estoque, a ${moeda(preco)} o quilo.');
   }

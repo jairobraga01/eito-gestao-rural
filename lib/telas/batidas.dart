@@ -10,12 +10,55 @@ import '../tema.dart';
 import '../util/util.dart';
 import 'base.dart';
 
+/// Abre o WhatsApp com a batida para o fornecedor (no número do cadastro, se houver).
+Future<void> enviarBatidaWhats(Reg formula, {required double batidas, required String data, Reg? fornecedor, Set<int> fora = const {}}) async {
+  final texto = textoBatidaWhats(formula,
+      batidas: batidas,
+      data: data,
+      fornecedor: txt(fornecedor?['nome']),
+      fazenda: txt(Db.registro('propriedades', Db.pid)?['nome']),
+      foraDoEstoque: fora);
+  final n = telefoneWhats(txt(fornecedor?['telefone']));
+  final t = Uri.encodeComponent(texto);
+  await launchUrl(Uri.parse(n == null ? 'https://wa.me/?text=$t' : 'https://wa.me/$n?text=$t'), mode: LaunchMode.externalApplication);
+}
+
+/// Caixas "Todos os insumos de fora do estoque" e uma por insumo da fórmula.
+List<Widget> marcarInsumosDeFora(CalculoFormula c, Set<int> fora, void Function(void Function()) set) {
+  final ids = [for (final l in c.linhas) if (l.insumo?['id'] is int) l.insumo!['id'] as int];
+  if (ids.isEmpty) return const [];
+  final todos = ids.every(fora.contains);
+  return [
+    CheckboxListTile(
+      contentPadding: EdgeInsets.zero,
+      controlAffinity: ListTileControlAffinity.leading,
+      tristate: true,
+      value: todos ? true : (ids.any(fora.contains) ? null : false),
+      title: const Text('Todos os insumos de fora do estoque', style: TextStyle(fontWeight: FontWeight.w700)),
+      onChanged: (_) => set(() => todos ? fora.removeAll(ids) : fora.addAll(ids)),
+    ),
+    for (final l in c.linhas)
+      if (l.insumo?['id'] is int)
+        CheckboxListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.only(left: 24),
+          controlAffinity: ListTileControlAffinity.leading,
+          value: fora.contains(l.insumo!['id']),
+          title: Text(l.nome),
+          onChanged: (v) => set(() => v! ? fora.add(l.insumo!['id'] as int) : fora.remove(l.insumo!['id'])),
+        ),
+  ];
+}
+
 String _pct(double? v) => v == null ? '' : '${v >= 0 ? '+' : ''}${numeroBr(v, casas: 1)}%';
 
 /// Gera a batida de uma fórmula: mostra o custo com os preços de hoje, tira os
 /// ingredientes do estoque, lança o custo e guarda a batida no histórico.
 class GerarBatidaPage extends StatefulWidget {
-  const GerarBatidaPage({super.key});
+  const GerarBatidaPage({super.key, this.formulaFixa});
+
+  /// Fórmula já escolhida (vindo da tela da fórmula); null = a pessoa escolhe.
+  final Reg? formulaFixa;
 
   @override
   State<GerarBatidaPage> createState() => _GerarBatidaPageState();
@@ -50,7 +93,7 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
     super.dispose();
   }
 
-  Reg? get formula => formulasLista.where((f) => f['id'] == formulaId).firstOrNull;
+  Reg? get formula => widget.formulaFixa ?? formulasLista.where((f) => f['id'] == formulaId).firstOrNull;
   double get batidas => lerNumero(qtd.text) ?? 0;
 
   Future<void> _gerar() async {
@@ -77,15 +120,7 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
     final f = formula;
     if (f == null) return avisar(context, 'Escolha a fórmula.');
     if (batidas <= 0) return avisar(context, 'Informe quantas batidas.');
-    final texto = textoBatidaWhats(f,
-        batidas: batidas,
-        data: data,
-        fornecedor: txt(fornecedor?['nome']),
-        fazenda: txt(Db.registro('propriedades', Db.pid)?['nome']),
-        foraDoEstoque: _foraDaFormula(f));
-    final n = telefoneWhats(txt(fornecedor?['telefone']));
-    final t = Uri.encodeComponent(texto);
-    await launchUrl(Uri.parse(n == null ? 'https://wa.me/?text=$t' : 'https://wa.me/$n?text=$t'), mode: LaunchMode.externalApplication);
+    await enviarBatidaWhats(f, batidas: batidas, data: data, fornecedor: fornecedor, fora: _foraDaFormula(f));
   }
 
   @override
@@ -93,15 +128,22 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
     final f = formula;
     final c = f == null ? null : CalculoFormula(f);
     final ids = c == null ? <int>[] : _idsDa(c);
-    final todos = ids.isNotEmpty && ids.every(fora.contains);
     return Scaffold(
       appBar: AppBar(title: const Text('Gerar batida')),
       bottomNavigationBar: BotaoSalvar(onPressed: salvando ? null : _gerar, texto: 'Gerar batida'),
       body: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), children: [
-        if (formulasLista.isEmpty)
+        if (widget.formulaFixa != null)
+          Text('Fórmula: ${txt(widget.formulaFixa!['nome'])}', style: Theme.of(context).textTheme.titleMedium)
+        else if (formulasLista.isEmpty)
           const Text('Nenhuma fórmula. Cadastre em Fórmulas: Proteínados/Rações.')
         else
           escolhaId('Fórmula *', formulaId, formulasLista, (v) => setState(() => formulaId = v), vazio: 'Escolha'),
+        if (f == null && formulasLista.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text('Escolha a fórmula para marcar os insumos de fora do estoque e enviar ao fornecedor.',
+                style: TextStyle(color: Colors.black54)),
+          ),
         gap,
         Row(children: [
           Expanded(child: campoTexto(qtd, 'Batidas', numero: true)),
@@ -114,24 +156,7 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
           const Secao('Insumos de fora do estoque'),
           const Text('Marque o que veio de fora (comprado para esta batida ou entregue pelo fornecedor). '
               'Entra no custo, mas não sai do estoque.', style: TextStyle(color: Colors.black54)),
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            tristate: true,
-            value: todos ? true : (ids.any(fora.contains) ? null : false),
-            title: const Text('Todos os insumos de fora do estoque', style: TextStyle(fontWeight: FontWeight.w700)),
-            onChanged: (_) => setState(() => todos ? fora.removeAll(ids) : fora.addAll(ids)),
-          ),
-          for (final l in c.linhas)
-            if (l.insumo?['id'] is int)
-              CheckboxListTile(
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 24),
-                controlAffinity: ListTileControlAffinity.leading,
-                value: fora.contains(l.insumo!['id']),
-                title: Text(l.nome),
-                onChanged: (v) => setState(() => v! ? fora.add(l.insumo!['id'] as int) : fora.remove(l.insumo!['id'])),
-              ),
+          ...marcarInsumosDeFora(c, fora, setState),
         ],
         if (c != null) ...[
           const Secao('Fornecedor'),

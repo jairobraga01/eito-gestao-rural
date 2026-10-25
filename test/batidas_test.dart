@@ -83,4 +83,35 @@ void main() {
     expect(batidasFeitas(formulaId: f).length, 1);
     expect(saldo(milho), 1000 - 200 - 100); // a do trato continua baixando 100
   });
+
+  test('insumo de fora do estoque entra no custo e não baixa o estoque; texto do WhatsApp', () async {
+    final milho = await Db.inserir('insumos', {'propriedade_id': Db.pid, 'nome': 'Milho', 'preco_saco': 100, 'kg_saco': 50});
+    final soja = await Db.inserir('insumos', {'propriedade_id': Db.pid, 'nome': 'Soja', 'preco_saco': 120, 'kg_saco': 60});
+    final f = await Db.inserir('formulas', {
+      'propriedade_id': Db.pid,
+      'nome': 'Teste',
+      'tipo': 'Baixo consumo',
+      'itens': [
+        {'insumo_id': milho, 'kg': 100},
+        {'insumo_id': soja, 'kg': 50},
+      ],
+    });
+    await pumpEventQueue();
+    final formula = Db.registro('formulas', f)!;
+    await registrarBatida(formula, data: '2026-10-25', batidas: 2, foraDoEstoque: {soja}, fornecedor: 'Agro Boi');
+    await pumpEventQueue();
+    expect(saldo(milho), -200);
+    expect(saldo(soja), 0);
+    final b = batidasFeitas().first;
+    expect(b['fornecedor'], 'Agro Boi');
+    expect((b['itens'] as List).map((i) => (i as Map)['fora_estoque'] == true), [false, true]);
+    expect(b['custo_total'], closeTo(2 * (100 * 2 + 50 * 2), 1e-6));
+
+    final t = textoBatidaWhats(formula, batidas: 2, data: '2026-10-25', fornecedor: 'Agro Boi', foraDoEstoque: {soja});
+    expect(t, contains('Olá, Agro Boi!'));
+    expect(t, contains('25/10/2026'));
+    expect(t, contains('• Milho: 200 kg\n• Soja: 100 kg (fornecer)'));
+    expect(t, contains('300 kg no total'));
+    expect(t.contains('R\$'), isFalse);
+  });
 }

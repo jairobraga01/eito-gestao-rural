@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../dados/contatos.dart' show fornecedoresDe;
+import '../dados/cotacao_compra.dart' show telefoneWhats;
 import '../dados/db.dart';
 import '../dados/estoque.dart';
 import '../dados/proteinado.dart';
@@ -27,6 +30,11 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
   final qtd = TextEditingController(text: '1');
   bool salvando = false;
 
+  /// Insumos que vêm de fora do estoque: entram no custo, mas não baixam o estoque.
+  final fora = <int>{};
+  int? fornecedorId;
+  final fornecedores = fornecedoresDe('Insumos');
+
   @override
   void initState() {
     super.initState();
@@ -50,16 +58,42 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
     if (f == null) return avisar(context, 'Escolha a fórmula.');
     if (batidas <= 0) return avisar(context, 'Informe quantas batidas.');
     setState(() => salvando = true);
-    await registrarBatida(f, data: data, batidas: batidas, loteId: loteId);
+    await registrarBatida(f, data: data, batidas: batidas, loteId: loteId, foraDoEstoque: _foraDaFormula(f), fornecedor: txt(fornecedor?['nome']));
     if (!mounted) return;
-    avisar(context, 'Batida gerada: custo lançado, estoque baixado e histórico guardado.');
+    avisar(context, fora.isEmpty
+        ? 'Batida gerada: custo lançado, estoque baixado e histórico guardado.'
+        : 'Batida gerada: custo lançado e histórico guardado. Os insumos de fora não saíram do estoque.');
     Navigator.pop(context, true);
+  }
+
+  Reg? get fornecedor => fornecedores.where((c) => c['id'] == fornecedorId).firstOrNull;
+
+  List<int> _idsDa(CalculoFormula c) => [for (final l in c.linhas) if (l.insumo?['id'] is int) l.insumo!['id'] as int];
+
+  /// Só os marcados que estão nesta fórmula (a pessoa pode ter trocado de fórmula).
+  Set<int> _foraDaFormula(Reg f) => fora.intersection(_idsDa(CalculoFormula(f)).toSet());
+
+  Future<void> _enviarWhats() async {
+    final f = formula;
+    if (f == null) return avisar(context, 'Escolha a fórmula.');
+    if (batidas <= 0) return avisar(context, 'Informe quantas batidas.');
+    final texto = textoBatidaWhats(f,
+        batidas: batidas,
+        data: data,
+        fornecedor: txt(fornecedor?['nome']),
+        fazenda: txt(Db.registro('propriedades', Db.pid)?['nome']),
+        foraDoEstoque: _foraDaFormula(f));
+    final n = telefoneWhats(txt(fornecedor?['telefone']));
+    final t = Uri.encodeComponent(texto);
+    await launchUrl(Uri.parse(n == null ? 'https://wa.me/?text=$t' : 'https://wa.me/$n?text=$t'), mode: LaunchMode.externalApplication);
   }
 
   @override
   Widget build(BuildContext context) {
     final f = formula;
     final c = f == null ? null : CalculoFormula(f);
+    final ids = c == null ? <int>[] : _idsDa(c);
+    final todos = ids.isNotEmpty && ids.every(fora.contains);
     return Scaffold(
       appBar: AppBar(title: const Text('Gerar batida')),
       bottomNavigationBar: BotaoSalvar(onPressed: salvando ? null : _gerar, texto: 'Gerar batida'),
@@ -76,6 +110,42 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
         ]),
         gap,
         escolhaId('Lote que leva o custo (opcional)', loteId, lotes, (v) => setState(() => loteId = v), vazio: 'Geral'),
+        if (c != null && ids.isNotEmpty) ...[
+          const Secao('Insumos de fora do estoque'),
+          const Text('Marque o que veio de fora (comprado para esta batida ou entregue pelo fornecedor). '
+              'Entra no custo, mas não sai do estoque.', style: TextStyle(color: Colors.black54)),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            tristate: true,
+            value: todos ? true : (ids.any(fora.contains) ? null : false),
+            title: const Text('Todos os insumos de fora do estoque', style: TextStyle(fontWeight: FontWeight.w700)),
+            onChanged: (_) => setState(() => todos ? fora.removeAll(ids) : fora.addAll(ids)),
+          ),
+          for (final l in c.linhas)
+            if (l.insumo?['id'] is int)
+              CheckboxListTile(
+                dense: true,
+                contentPadding: const EdgeInsets.only(left: 24),
+                controlAffinity: ListTileControlAffinity.leading,
+                value: fora.contains(l.insumo!['id']),
+                title: Text(l.nome),
+                onChanged: (v) => setState(() => v! ? fora.add(l.insumo!['id'] as int) : fora.remove(l.insumo!['id'])),
+              ),
+        ],
+        if (c != null) ...[
+          const Secao('Fornecedor'),
+          if (fornecedores.isEmpty)
+            const Text('Nenhum fornecedor cadastrado. Cadastre em Cadastro de Fornecedores.')
+          else
+            escolhaId('Fornecedor (opcional)', fornecedorId, fornecedores, (v) => setState(() => fornecedorId = v), vazio: 'Nenhum'),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.chat_outlined),
+            label: const Text('Enviar a batida pelo WhatsApp'),
+            onPressed: _enviarWhats,
+          ),
+        ],
         if (c != null) ...[
           const Secao('Conta com os preços de hoje'),
           for (final l in c.linhas)
@@ -83,13 +153,15 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
               final precisa = l.kg * batidas;
               final id = l.insumo?['id'] as int?;
               final tem = id == null ? null : saldo(id);
-              final falta = tem != null && movimentos(id!).isNotEmpty && tem < precisa;
+              final deFora = id != null && fora.contains(id);
+              final falta = !deFora && tem != null && movimentos(id!).isNotEmpty && tem < precisa;
               return ListTile(
                 dense: true,
                 title: Text(l.nome),
                 subtitle: Text([
                   '${numeroBr(precisa, casas: 1)} kg',
                   l.custo == null ? 'sem preço' : '${moeda(l.custo! / l.kg)}/kg',
+                  if (deFora) 'de fora do estoque',
                   if (falta) 'estoque ${numeroBr(tem, casas: 1)} kg: falta',
                 ].join(' · ')),
                 trailing: Text(l.custo == null ? '—' : moeda(l.custo! * batidas)),
@@ -138,11 +210,13 @@ class _BatidasPageState extends State<BatidasPage> {
         content: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('${numeroBr((b['batidas'] as num).toDouble(), casas: 1)} batida(s) · ${numeroBr((b['kg'] as num).toDouble(), casas: 1)} kg'),
+            if (txt(b['fornecedor']).isNotEmpty) Text('Fornecedor: ${txt(b['fornecedor'])}'),
             Text('Custo ${moeda(b['custo_total'] as num?)}${b['custo_kg'] == null ? '' : ' · ${moeda(b['custo_kg'] as num)}/kg'}'),
             const SizedBox(height: 8),
             for (final i in itens)
               Text('${txt(i['nome'])}: ${numeroBr((i['kg'] as num).toDouble(), casas: 1)} kg'
-                  '${i['preco_kg'] == null ? '' : ' a ${moeda(i['preco_kg'] as num)}/kg = ${moeda(i['custo'] as num?)}'}'),
+                  '${i['preco_kg'] == null ? '' : ' a ${moeda(i['preco_kg'] as num)}/kg = ${moeda(i['custo'] as num?)}'}'
+                  '${i['fora_estoque'] == true ? ' (de fora do estoque)' : ''}'),
             if ((b['sacaria'] as num? ?? 0) > 0 || (b['mao_obra'] as num? ?? 0) > 0)
               Text('Sacaria ${moeda(b['sacaria'] as num?)} · mão de obra ${moeda(b['mao_obra'] as num?)}'),
           ]),

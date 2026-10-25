@@ -102,7 +102,10 @@ class CalculoFormula {
 
 /// Lança o custo de [batidas] batidas da fórmula em Custos (Ração e sal) e
 /// tira do estoque os insumos usados. Apagar o custo devolve o estoque.
-Future<int> registrarBatida(Reg formula, {required String data, double batidas = 1, int? loteId, String? descricao}) async {
+/// [foraDoEstoque]: insumos que vieram de fora (comprados para esta batida ou
+/// entregues pelo fornecedor). Entram no custo, mas não baixam o estoque.
+Future<int> registrarBatida(Reg formula,
+    {required String data, double batidas = 1, int? loteId, String? descricao, Set<int> foraDoEstoque = const {}, String? fornecedor}) async {
   final c = CalculoFormula(formula);
   final id = await Db.inserir('custos', {
     'propriedade_id': Db.pid,
@@ -114,7 +117,7 @@ Future<int> registrarBatida(Reg formula, {required String data, double batidas =
     'data': data,
   });
   for (final l in c.linhas) {
-    if (l.insumo == null) continue;
+    if (l.insumo == null || foraDoEstoque.contains(_int(l.insumo!['id']))) continue;
     await Db.inserir('estoque', {
       'propriedade_id': Db.pid,
       'insumo_id': l.insumo!['id'],
@@ -138,12 +141,38 @@ Future<int> registrarBatida(Reg formula, {required String data, double batidas =
       'custo_kg': c.precoKg == null ? null : double.parse(c.precoKg!.toStringAsFixed(4)),
       'lote_id': loteId,
       'custo_id': id,
-      'itens': _itensDaBatida(c, batidas),
+      'itens': [
+        for (final (k, i) in _itensDaBatida(c, batidas).indexed)
+          {...i, if (foraDoEstoque.contains(_int(c.linhas[k].insumo?['id']))) 'fora_estoque': true},
+      ],
+      if (fornecedor != null && fornecedor.isNotEmpty) 'fornecedor': fornecedor,
       'sacaria': double.parse((c.sacaria * batidas).toStringAsFixed(2)),
       'mao_obra': double.parse((c.maoDeObra * batidas).toStringAsFixed(2)),
     });
   }
   return id;
+}
+
+/// Mensagem do WhatsApp com a batida (ingredientes e quilos, sem preços),
+/// para o fornecedor ou a fábrica preparar.
+String textoBatidaWhats(Reg formula, {required double batidas, required String data, String? fornecedor, String? fazenda, Set<int> foraDoEstoque = const {}}) {
+  final c = CalculoFormula(formula);
+  String d(String iso) => iso.length == 10 ? '${iso.substring(8)}/${iso.substring(5, 7)}/${iso.substring(0, 4)}' : iso;
+  final linhas = [
+    for (final l in c.linhas)
+      '• ${l.nome}: ${_qtd(l.kg * batidas)} kg'
+          '${foraDoEstoque.isNotEmpty && foraDoEstoque.contains(_int(l.insumo?['id'])) ? ' (fornecer)' : ''}',
+  ];
+  return [
+    'Olá${fornecedor == null || fornecedor.isEmpty ? '' : ', $fornecedor'}!',
+    '${fazenda == null || fazenda.isEmpty ? 'Segue' : '$fazenda envia'} a batida de ${formula['nome']} para ${d(data)}:',
+    '${_qtd(batidas)} batida${batidas == 1 ? '' : 's'} · ${_qtd(c.kgBatida * batidas)} kg no total',
+    '',
+    ...linhas,
+    if (foraDoEstoque.isNotEmpty) ...['', 'Os itens marcados "(fornecer)" são para vocês fornecerem.'],
+    '',
+    'Obrigado!',
+  ].join('\n');
 }
 
 /// Ingredientes da batida com o preço do quilo na data.

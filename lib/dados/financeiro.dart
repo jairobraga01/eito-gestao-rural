@@ -85,6 +85,41 @@ List<Reg> _doRebanho(int ano, {bool todas = false}) {
       'vencimento': _dia(s['data']),
       'pago_em': _dia(s['data']),
     });
+    // A receita entra pelo valor bruto: o que foi descontado (Funrural, frete...)
+    // volta como receita e sai como despesa. O caixa não muda.
+    final descontos = [
+      for (final (k, nome, cat) in const [
+        ('funrural', 'Funrural', 'Impostos e taxas'),
+        ('fundepec', 'Fundepec', 'Impostos e taxas'),
+        ('nota', 'Nota fiscal', 'Impostos e taxas'),
+        ('frete', 'Frete', 'Outra despesa'),
+        ('outros', 'Outros descontos', 'Outra despesa'),
+      ])
+        if (_n(s[k]) > 0) (k, nome, cat, _n(s[k])),
+    ];
+    final soma = descontos.fold<double>(0, (t, d) => t + d.$4);
+    if (_n(s['bruto']) > 0 && soma > 0) {
+      criar('saida:${s['id']}:descontos', {
+        'tipo': 'Receita',
+        'categoria': 'Venda de gado',
+        'descricao': 'Descontos da venda de gado (bruto ${_n(s['bruto']).toStringAsFixed(2)})',
+        'participante': s['destino'],
+        'valor': double.parse(soma.toStringAsFixed(2)),
+        'vencimento': _dia(s['data']),
+        'pago_em': _dia(s['data']),
+      });
+      for (final (k, nome, cat, v) in descontos) {
+        criar('saida:${s['id']}:$k', {
+          'tipo': 'Despesa',
+          'categoria': cat,
+          'descricao': '$nome da venda de gado',
+          'participante': s['destino'],
+          'valor': double.parse(v.toStringAsFixed(2)),
+          'vencimento': _dia(s['data']),
+          'pago_em': _dia(s['data']),
+        });
+      }
+    }
   }
   for (final e in Db.registros('entradas')) {
     if (fora(e) || e['tipo'] != 'Compra' || _n(e['valor_total']) <= 0 || !doAno(e['data'])) continue;
@@ -515,6 +550,11 @@ ArquivoLcdpr gerarLcdpr(int ano) {
     ]);
   }
   if (lanc.isEmpty) avisos.add('Nenhuma conta paga no ano.');
+  final faltam = _doRebanho(ano, todas: true).length;
+  if (faltam > 0) {
+    avisos.add('$faltam lançamento(s) do rebanho (vendas, compras, custos) ainda não estão nas contas: '
+        'use "Trazer do rebanho" antes de gerar o LCDPR.');
+  }
   if (semDoc > 0) avisos.add('$semDoc lançamento(s) sem CPF/CNPJ do participante: saíram com o CPF do produtor.');
 
   var acumulado = 0.0;

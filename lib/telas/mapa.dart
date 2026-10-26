@@ -910,7 +910,7 @@ class _ContagemPageState extends State<ContagemPage> {
 
   Future<void> salvar() async {
     final n = lerNumero(contado.text)?.round();
-    if (piqueteId == null || n == null) {
+    if (piqueteId == null || n == null || n < 0) {
       avisar(context, 'Escolha o piquete e informe quantos animais contou.');
       return;
     }

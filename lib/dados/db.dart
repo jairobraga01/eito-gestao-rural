@@ -26,6 +26,29 @@ const diasGestacao = 290;
 /// Tabelas que o contador grava (o financeiro).
 const tabelasContador = {'contas', 'dividas', 'custos', 'contatos', 'cotacoes', 'config'};
 
+/// O que cada papel da equipe grava. Espelha campoGrava em firestore.rules:
+/// mudou lá, muda aqui.
+const tabelasPorPapel = <String, Set<String>>{
+  'peao': {'animais', 'pesagens', 'sanidade', 'reproducoes', 'escores', 'ordenhas', 'pastagens', 'ocorrencias',
+    'contagens', 'chuvas', 'insumos', 'estoque', 'semens', 'fotos', 'tarefas', 'config', 'protocolos'},
+  'veterinario': {'animais', 'reproducoes', 'protocolos', 'estacoes', 'semens', 'sanidade', 'escores', 'pesagens',
+    'ocorrencias', 'fotos', 'tarefas', 'config', 'estoque', 'pastagens'},
+  'zootecnista': {'pesagens', 'escores', 'insumos', 'precos_insumo', 'batidas', 'estoque', 'formulas', 'dietas',
+    'fotos', 'tarefas', 'config', 'pastagens', 'ocorrencias', 'animais', 'reproducoes', 'sanidade', 'custos'},
+  'contador': tabelasContador,
+};
+
+/// Nome amigável das tabelas, para avisar o que o papel não pode lançar.
+const _nomeTabela = {
+  'saidas': 'vendas e saídas',
+  'entradas': 'compras',
+  'propriedades': 'propriedades',
+  'lotes': 'lotes',
+  'piquetes': 'piquetes',
+  'custos': 'custos',
+  'contas': 'contas',
+};
+
 /// Situação do animal conforme o tipo de saída.
 const statusPorSaida = {
   'Venda': 'Vendido',
@@ -127,9 +150,15 @@ Reg _normalizar(Map<String, dynamic> m) {
 /// Junta gravações: atualiza a cópia em memória na hora e manda para o
 /// Firestore em lotes (o Firestore aceita até 500 operações por lote).
 class _Mudancas {
-  /// O contador só grava o financeiro (como nas regras do Firestore); o resto
-  /// seria recusado na nuvem e ficaria preso no aparelho.
-  static bool _barrado(String tabela) => Db.ehContador && !tabelasContador.contains(tabela);
+  /// Cada papel só grava o que as regras do Firestore deixam; o resto seria
+  /// recusado na nuvem e sumiria depois de "salvo". Barra e avisa na hora.
+  bool _barrado(String tabela) {
+    if (Db.podeGravar(tabela)) return false;
+    _recusadas.add(tabela);
+    return true;
+  }
+
+  final _recusadas = <String>{};
 
   final _ops = <(String, String, Reg?, bool)>[]; // tabela, id do doc, valores (null = apagar), mesclar
 
@@ -183,6 +212,11 @@ class _Mudancas {
       b.commit().catchError((Object e) => debugPrint('Eito: falha ao gravar: $e'));
     }
     _ops.clear();
+    if (_recusadas.isNotEmpty) {
+      final nomes = {for (final t in _recusadas) _nomeTabela[t] ?? t}.join(', ');
+      Db.recusado.value = 'Seu papel na equipe não pode lançar $nomes. Peça ao dono ou ao gerente.';
+      _recusadas.clear();
+    }
     Db._avisar();
   }
 }
@@ -242,6 +276,16 @@ class Db {
 
   /// Plano da fazenda (nome vindo de contas/{dono}); vazio = tudo liberado.
   static final planoDaFazenda = ValueNotifier<String?>(null);
+
+  /// Se o papel de quem usa pode gravar na [tabela] (como nas regras do Firestore).
+  static bool podeGravar(String tabela) {
+    final p = papel.value;
+    if (p == 'dono' || p == 'gerente') return true;
+    return tabelasPorPapel[p]?.contains(tabela) ?? false;
+  }
+
+  /// Último lançamento barrado pelo papel (a tela mostra o aviso).
+  static final recusado = ValueNotifier<String?>(null);
 
   /// Peão, veterinário e zootecnista: não veem o financeiro nem os cadastros da fazenda.
   static bool get ehCampo => ehPeao || ehVeterinario || ehZootecnista;
@@ -338,6 +382,7 @@ class Db {
       final pronto = Completer<void>();
       _subs.add(_col(t).snapshots(includeMetadataChanges: true).listen(
         (s) {
+          if (t == 'propriedades' && !s.metadata.isFromCache) _propsDaNuvem = true;
           _receber(t, s);
           // Num aparelho novo, a primeira resposta vem do cache vazio. Para as
           // propriedades, espera a nuvem antes de concluir que não há nenhuma.
@@ -367,6 +412,7 @@ class Db {
     pendentes.value = 0;
     prop.value = null;
     _uid = null;
+    _propsDaNuvem = false;
     papel.value = 'dono';
     planoDaFazenda.value = null;
     autor = null;
@@ -407,13 +453,24 @@ class Db {
       return;
     }
     final outras = _todos('propriedades')..sort((a, b) => _comparaNome(a['nome'], b['nome']));
-    if (outras.isNotEmpty) prop.value = Map.of(outras.first);
+    if (outras.isNotEmpty) {
+      prop.value = Map.of(outras.first);
+    } else {
+      _carregarPropriedade(); // sem nenhuma: o dono ganha uma nova; a equipe fica sem
+    }
   }
+
+  /// A nuvem já respondeu sobre as propriedades (não é só o cache do aparelho).
+  static bool _propsDaNuvem = false;
 
   static Future<void> _carregarPropriedade() async {
     var props = _todos('propriedades');
     if (props.isEmpty) {
+      prop.value = null;
       if (!ehDono) return; // a equipe não cria propriedade no lugar do dono
+      // Sinal fraco: sem a resposta da nuvem, "nenhuma propriedade" pode ser só
+      // demora. Não cria uma propriedade vazia; a tela oferece tentar de novo.
+      if (!_propsDaNuvem) return;
       await inserir('propriedades', {'nome': 'Minha propriedade'});
       props = _todos('propriedades');
     }
@@ -474,6 +531,18 @@ class Db {
     if (atual == null) return;
     if (tabela == 'animais') _checarAnimal({...atual, ...valores, 'id': id});
     (_Mudancas()..mesclar(tabela, id, valores)).enviar();
+  }
+
+  /// Passa para [novo] tudo o que [antigo] lançou (login de peão refeito).
+  /// Assim o login novo continua podendo apagar o que lançou.
+  static void transferirAutoria(String antigo, String novo, String nome) {
+    final m = _Mudancas();
+    for (final t in tabelas) {
+      for (final r in _todos(t).where((r) => r['criado_por'] == antigo).toList()) {
+        m.mesclar(t, r['id']!, {'criado_por': novo, 'criado_nome': nome});
+      }
+    }
+    m.enviar();
   }
 
   /// Exclui e aplica as mesmas regras do banco antigo (apaga os registros
@@ -566,8 +635,7 @@ class Db {
           m.mesclar('ocorrencias', o['id']!, {'ponto_id': null});
         }
       case 'ocorrencias':
-        m.apagar('fotos', id);
-        _fotos.remove(id);
+        _apagarFoto(id);
       case 'saidas':
         for (final a in _todos('animais').where((x) => _int(x['saida_id']) == id)) {
           m.mesclar('animais', a['id']!, {'saida_id': null});
@@ -599,8 +667,7 @@ class Db {
         for (final f in _todos('animais').where((x) => _int(x['mae_id']) == id)) {
           m.mesclar('animais', f['id']!, {'mae_id': null});
         }
-        m.apagar('fotos', id);
-        _fotos.remove(id);
+        _apagarFoto(id);
     }
     m.apagar(t, id);
   }
@@ -888,13 +955,10 @@ class Db {
       };
 
   /// Coloca os animais no piquete e registra a entrada no histórico de pastagem.
+  /// Coloca os animais no piquete: registra a saída do piquete de onde vieram
+  /// e ignora quem já está nele (igual a mudar de pasto).
   static Future<void> moverParaPiquete(List<Reg> animais, int piqueteId, String data) async {
-    final m = _Mudancas();
-    for (final a in animais) {
-      m.mesclar('animais', a['id']!, {'piquete_id': piqueteId});
-    }
-    m.gravar('pastagens', _movimento(piqueteId, data, 'Entrada de animais', animais));
-    m.enviar();
+    await moverAnimais(animais, {'piquete_id': piqueteId}, data);
   }
 
   static Future<void> retirarDoPiquete(List<Reg> animais, int piqueteId, String data) async {
@@ -961,6 +1025,13 @@ class Db {
       final cat = '${a['categoria'] ?? ''}';
       if (deCategoria == '' && cat.isNotEmpty) continue;
       if (deCategoria != null && deCategoria != '' && cat != deCategoria) continue;
+      // Categoria de fêmea não vai para macho (nem o contrário), num lote misto.
+      final sexoDaCategoria = const {'Bezerra', 'Novilha', 'Vaca'}.contains(paraCategoria)
+          ? 'F'
+          : const {'Bezerro', 'Garrote', 'Boi', 'Touro'}.contains(paraCategoria)
+              ? 'M'
+              : null;
+      if (sexoDaCategoria != null && a['sexo'] != null && a['sexo'] != sexoDaCategoria) continue;
       m.mesclar('animais', a['id']!, {'categoria': paraCategoria, if (destino != null) 'lote_id': destino});
       n++;
     }
@@ -1105,7 +1176,7 @@ class Db {
       if (aberto['diagnostico'] == 'Prenhe') {
         throw RegistroDuplicado('Esta fêmea já está prenhe (parto previsto ${aberto['parto_previsto'] ?? '-'}).');
       }
-      m.mesclar('reproducoes', aberto['id']!, {'diagnostico': 'Vazia', 'data_diagnostico': data, 'parto_previsto': null});
+      m.mesclar('reproducoes', aberto['id']!, {'diagnostico': 'Vazia', 'data_diagnostico': data, 'parto_previsto': null, 'vazia_por': 'reinseminacao'});
     }
     final semen = _reg('semens', semenId);
     final lote = protocoloDaFemea(femeaId, data);
@@ -1256,12 +1327,27 @@ class Db {
     }
   }
 
+  /// Apaga a foto fora do lote da exclusão: a foto pode não existir (ou ser de
+  /// outra pessoa) e a recusa da nuvem desfaria a exclusão inteira.
+  static void _apagarFoto(int id) {
+    final tinha = _fotos.containsKey(id) ? _fotos[id] != null : true;
+    _fotos.remove(id);
+    if (!tinha) return;
+    _col('fotos').doc('$id').delete().catchError((Object e) => debugPrint('Eito: foto não apagada: $e'));
+  }
+
   static Future<void> salvarFoto(int animalId, String? base64) async {
     _fotos[animalId] = base64;
     final ref = _col('fotos').doc('$animalId');
+    final a = autor;
     final f = base64 == null
         ? ref.delete()
-        : ref.set({'animal_id': animalId, 'imagem': base64, 'data': DateTime.now().toIso8601String()});
+        : ref.set({
+            'animal_id': animalId,
+            'imagem': base64,
+            'data': DateTime.now().toIso8601String(),
+            if (a != null) 'criado_por': a.uid,
+          });
     f.catchError((Object e) => debugPrint('Eito: falha ao gravar foto: $e'));
     _avisar();
   }
@@ -1467,9 +1553,15 @@ class Db {
   }
 
   /// Exclui a saída e devolve os animais ao rebanho ativo.
+  /// Lança [RegistroDuplicado] se algum animal voltaria a ficar ativo com o
+  /// brinco de outro animal ativo (por exemplo, o brinco foi reaproveitado).
   static Future<void> excluirSaida(int id) async {
+    final animais = _todos('animais').where((x) => _int(x['saida_id']) == id).toList();
+    for (final a in animais) {
+      _checarAnimal({...a, 'status': 'Ativo'});
+    }
     final m = _Mudancas();
-    for (final a in _todos('animais').where((x) => _int(x['saida_id']) == id)) {
+    for (final a in animais) {
       m.mesclar('animais', a['id']!, {'status': 'Ativo', 'saida_id': null});
     }
     m.apagar('saidas', id);
@@ -1575,7 +1667,8 @@ class Db {
       if (comFotos)
         'fotos': [
           for (final e in _fotos.entries)
-            if (e.value != null && _reg('animais', e.key) != null) {'animal_id': e.key, 'imagem': e.value},
+            if (e.value != null && (_reg('animais', e.key) != null || _reg('ocorrencias', e.key) != null))
+              {'animal_id': e.key, 'imagem': e.value},
         ],
     });
   }

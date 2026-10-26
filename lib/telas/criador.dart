@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../dados/cotacao_compra.dart' show telefoneWhats;
+import '../dados/equipe.dart' show ehLoginDePeao;
 import '../dados/financeiro.dart' show csv;
 import '../dados/indicacoes.dart';
 import '../dados/painel_criador.dart';
@@ -632,6 +633,10 @@ class _FichaClienteState extends State<_FichaCliente> {
   }
 
   Future<void> _excluir(Map<String, dynamic> c) async {
+    // Sem o cadastro, o próximo acesso criaria um teste novo e a suspensão se perderia.
+    if (c['status'] == 'suspensa') {
+      return avisar(context, 'Conta suspensa: mantenha o cadastro para a suspensão continuar valendo.');
+    }
     final ok = await confirmar(
         context,
         'Excluir o cadastro?',
@@ -910,6 +915,8 @@ class _FichaClienteState extends State<_FichaCliente> {
                     subtitle: Text('${c['nome'] ?? ''}'.isEmpty ? 'Sem nome' : '${c['nome']}'),
                     onTap: () => _corrigirNome('${c['nome'] ?? ''}'),
                   ),
+                  // Login de peão tem e-mail inventado: a senha nova sai pela Equipe do dono.
+                  if (!ehLoginDePeao('${c['email'] ?? ''}'))
                   ListTile(
                     leading: const Icon(Icons.lock_reset),
                     title: const Text('Enviar e-mail para redefinir a senha'),
@@ -1021,7 +1028,7 @@ class _GuiaUsuarios extends StatelessWidget {
       appBar: AppBar(title: const Text('Guia de usuários')),
       body: ListView(padding: const EdgeInsets.only(bottom: 32), children: [
         const Secao('Ativar (liberar o uso)'),
-        passo('1', 'A conta nasce sozinha quando a pessoa se cadastra no app, já em teste de 14 dias.'),
+        passo('1', 'A conta nasce sozinha quando a pessoa se cadastra no app, já em teste de 30 dias.'),
         passo('2', 'Em Clientes, abra a ficha. Para dar mais tempo, use "Estender o teste".'),
         passo('3', 'Para liberar de vez, use "Conceder plano" e escolha Simples, Média, Plus ou Cortesia, com ou sem data de fim.'),
         passo('4', 'Se a conta estava suspensa, toque em "Reativar a conta". Vale na hora, no próximo acesso.'),

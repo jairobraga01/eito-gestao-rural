@@ -149,7 +149,12 @@ class SaidasPage extends StatelessWidget {
     if (await confirmar(context, 'Excluir saída?',
         'O registro será apagado e os animais voltarão a ficar ativos no rebanho.',
         ok: 'Excluir')) {
-      await Db.excluirSaida(s['id'] as int);
+      try {
+        await Db.excluirSaida(s['id'] as int);
+      } on RegistroDuplicado catch (e) {
+        if (context.mounted) avisar(context, '${e.mensagem} Troque o brinco antes de excluir esta saída.');
+        return;
+      }
       await apagarParcelasAbertas('saida:${s['id']}');
       final pagas = contasPagasDe('saida:${s['id']}');
       if (pagas.isNotEmpty &&

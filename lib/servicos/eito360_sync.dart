@@ -117,8 +117,9 @@ class Eito360Sync {
       if (op['entity_type'] == 'animal' && op['operation'] == 'create') {
         final farmId = payload['farm_id']?.toString() ?? '';
         final mappedFarm = await prefs.getIdMapping('farm', farmId);
-        if (mappedFarm != null) payload['farm_id'] = mappedFarm;
-        else if (!RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$').hasMatch(farmId)) {
+        if (mappedFarm != null) {
+          payload['farm_id'] = mappedFarm;
+        } else if (!RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$').hasMatch(farmId)) {
           skippedDependencies.add(op['id'].toString());
           continue;
         }
@@ -157,7 +158,7 @@ class Eito360Sync {
   /// A integração do cache com os repositórios das telas legadas ainda é separada.
   Future<Map<String, dynamic>> baixarAlteracoes({int limit = 200}) async {
     final prefs = await Eito360LocalStore.open();
-    final device = await _ensureDevice(prefs);
+    await _ensureDevice(prefs);
     final cursor = await prefs.getInt(_cursorKey) ?? 0;
     final response = await _client.get(_uri('/api/sync/pull', {
       'cursor': '$cursor', 'limit': '${limit.clamp(1, 500)}', 'device_key': (await prefs.getString(_deviceKeyKey)) ?? '',

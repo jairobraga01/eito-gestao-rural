@@ -11,7 +11,11 @@ String _t(Object? v) => v == null ? '' : '$v';
 String _dia(Object? v) => _t(v).length >= 10 ? _t(v).substring(0, 10) : _t(v);
 String _dois(int n) => n.toString().padLeft(2, '0');
 String _iso(DateTime d) => '${d.year}-${_dois(d.month)}-${_dois(d.day)}';
-String _somaDias(String iso, int dias) => _iso(DateTime.parse(iso).add(Duration(days: dias)));
+/// Soma dias pelo calendário (sem fuso: o horário de verão não tira um dia).
+String _somaDias(String iso, int dias) {
+  final d = DateTime.parse(iso);
+  return _iso(DateTime.utc(d.year, d.month, d.day + dias));
+}
 
 /// Idade em meses na data [em], ou null sem nascimento.
 int? _meses(Reg a, String em) {
@@ -202,8 +206,11 @@ IndicadoresCria indicadoresCria(int ano) {
     if (a['sexo'] == 'F' && (saida == null || saida.compareTo(inicio) >= 0)) {
       final n = _dia(a['nascimento']);
       final nascida = n.isEmpty || n.compareTo(inicio) < 0;
+      // Comprada depois de 1º de janeiro não era matriz do rebanho naquele ano.
+      final entrou = _dia(Db.registro('entradas', a['entrada_id'])?['data']);
+      final estava = entrou.isEmpty || entrou.compareTo(inicio) <= 0;
       final meses = _meses(a, inicio);
-      if (nascida && ((meses != null && meses >= 24) || (meses == null && a['categoria'] == 'Vaca'))) r.matrizes++;
+      if (nascida && estava && ((meses != null && meses >= 24) || (meses == null && a['categoria'] == 'Vaca'))) r.matrizes++;
     }
     if (a['mae_id'] != null && dentro(a['nascimento'])) {
       r.nascimentos++;
@@ -300,12 +307,13 @@ FluxoCaixa fluxoCaixa(String hoje, {int quantos = 6}) {
       pesagens.putIfAbsent(_int(p['animal_id']), () => []).add(p);
     }
     for (final a in _animaisDaProp()) {
-      if (a['status'] != 'Ativo') continue;
+      // Só o gado de engorda vira venda: vacas, novilhas e touros ficam.
+      if (a['status'] != 'Ativo' || a['sexo'] != 'M' || a['categoria'] == 'Touro') continue;
       final pr = projetarAnimal(a, pesagens[_int(a['id'])] ?? const [], alvo);
       if (pr?.dias == null) continue;
       final m = mesDe(_somaDias(hoje, pr!.dias!));
       if (m == null) continue;
-      m.vendas += valorArroba(alvo, rend, arroba);
+      m.vendas += valorArroba(pr.dias == 0 && pr.peso > alvo ? pr.peso : alvo, rend, arroba);
       m.cabecas++;
     }
   }

@@ -50,6 +50,18 @@ double? precoKgInsumo(Reg? i) {
   return _n(i['preco_saco']) / kg;
 }
 
+/// Preço do quilo do insumo na [data] (AAAA-MM-DD): o último preço lançado até
+/// essa data. Sem histórico, ou sem [data], usa o preço atual do cadastro; se
+/// todos os preços são de depois da data, usa o mais antigo.
+double? precoKgInsumoNaData(Reg? i, String? data) {
+  final id = _int(i?['id']);
+  if (i == null || id == null || data == null || data.isEmpty) return precoKgInsumo(i);
+  final hist = historicoPrecos(id);
+  if (hist.isEmpty) return precoKgInsumo(i);
+  final p = hist.where((p) => _t(p['data']).compareTo(data) <= 0).firstOrNull ?? hist.last;
+  return precoKgInsumo(p) ?? precoKgInsumo(i);
+}
+
 class LinhaFormula {
   LinhaFormula(this.insumo, this.nome, this.kg, this.custo);
   final Reg? insumo;
@@ -61,14 +73,15 @@ class LinhaFormula {
 }
 
 /// Conta de uma fórmula, igual à planilha: batida, preço do quilo e consumo.
+/// Com [data], os insumos entram pelo preço vigente nessa data.
 class CalculoFormula {
-  CalculoFormula(this.formula) {
+  CalculoFormula(this.formula, {String? data}) {
     for (final it in (formula['itens'] as List?) ?? const []) {
       final m = Map<String, Object?>.from(it as Map);
       final ins = Db.registro('insumos', m['insumo_id']);
       final kg = _n(m['kg']);
       if (kg <= 0) continue;
-      final pk = precoKgInsumo(ins);
+      final pk = precoKgInsumoNaData(ins, data);
       linhas.add(LinhaFormula(ins, _t(ins?['nome']).isEmpty ? 'Insumo apagado' : _t(ins!['nome']), kg, pk == null ? null : kg * pk));
     }
   }
@@ -106,7 +119,7 @@ class CalculoFormula {
 /// entregues pelo fornecedor). Entram no custo, mas não baixam o estoque.
 Future<int> registrarBatida(Reg formula,
     {required String data, double batidas = 1, int? loteId, String? descricao, Set<int> foraDoEstoque = const {}, String? fornecedor}) async {
-  final c = CalculoFormula(formula);
+  final c = CalculoFormula(formula, data: data);
   final id = await Db.inserir('custos', {
     'propriedade_id': Db.pid,
     'lote_id': loteId,

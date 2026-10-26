@@ -193,7 +193,12 @@ class Dieta {
       final d = saldo(id) / (kgDia * l.kg / c.kgBatida);
       if (menor == null || d < menor) menor = d;
     }
-    return menor;
+    // A ração já batida é a primeira a sair no trato: soma os dias dela.
+    final pronta = racaoPronta(formula!['id']);
+    final idPronta = _int(pronta?['id']);
+    if (idPronta == null || movimentos(idPronta).isEmpty) return menor;
+    final diasPronta = saldo(idPronta).clamp(0, double.infinity) / kgDia;
+    return (menor ?? 0).clamp(0, double.infinity) + diasPronta;
   }
 
   /// Batidas da fórmula por mês.
@@ -225,7 +230,7 @@ Reg? racaoPronta(Object? formulaId) {
 /// null se a fórmula não tem ingredientes.
 /// [foraDoEstoque]: ingredientes que vieram de fora; entram no custo, mas não baixam o estoque.
 Future<double?> baterRacao(Reg formula, {required String data, required double kgBatidos, Set<int> foraDoEstoque = const {}, String? fornecedor}) async {
-  final c = CalculoFormula(formula);
+  final c = CalculoFormula(formula, data: data);
   if (c.kgBatida <= 0 || kgBatidos <= 0) return null;
   final batidas = kgBatidos / c.kgBatida;
   final grupo = 'racao_${DateTime.now().microsecondsSinceEpoch}';
@@ -333,7 +338,7 @@ Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) async {
     'lote_id': d.loteDoCusto,
     'categoria': 'Ração e sal',
     'descricao': texto,
-    'valor': double.parse((kg * (precoKgInsumo(ins) ?? 0)).toStringAsFixed(2)),
+    'valor': double.parse((kg * (precoKgInsumoNaData(ins, data) ?? 0)).toStringAsFixed(2)),
     'data': data,
   });
   await Db.inserir('estoque', {

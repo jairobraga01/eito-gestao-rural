@@ -126,7 +126,7 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
   @override
   Widget build(BuildContext context) {
     final f = formula;
-    final c = f == null ? null : CalculoFormula(f);
+    final c = f == null ? null : CalculoFormula(f, data: data);
     final ids = c == null ? <int>[] : _idsDa(c);
     return Scaffold(
       appBar: AppBar(title: const Text('Gerar batida')),
@@ -172,7 +172,7 @@ class _GerarBatidaPageState extends State<GerarBatidaPage> {
           ),
         ],
         if (c != null) ...[
-          const Secao('Conta com os preços de hoje'),
+          Secao(data == hojeIso() ? 'Conta com os preços de hoje' : 'Conta com os preços de ${br(data)}'),
           for (final l in c.linhas)
             Builder(builder: (_) {
               final precisa = l.kg * batidas;

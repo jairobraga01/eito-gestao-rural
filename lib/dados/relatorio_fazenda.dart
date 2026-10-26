@@ -47,7 +47,9 @@ String htmlRelatorioFazenda({
   String linhas(Map<String, int> m) => m.entries.map((e) => '<tr><td>${_esc(e.key)}</td><td class="n">${e.value}</td></tr>').join();
   final porCategoria = _contar(ativos, (a) => '${a['categoria'] ?? ''}'.trim().isEmpty ? 'Sem categoria' : '${a['categoria']}'.trim());
   final femeas = ativos.where((a) => a['sexo'] == 'F').length;
-  final areaTotal = piquetes.map((p) => p['area']).whereType<num>().fold<num>(0, (a, b) => a + b);
+  // Área digitada ou, sem ela, a do contorno desenhado no mapa (igual à lotação).
+  num? areaDe(Reg p) => p['area'] is num ? p['area'] as num : lotacao[p['id']]?.area;
+  final areaTotal = piquetes.map(areaDe).whereType<num>().fold<num>(0, (a, b) => a + b);
   final docs = [
     if ('${f['car'] ?? ''}'.isNotEmpty) 'CAR ${_esc(f['car'])}',
     if ('${f['matricula'] ?? ''}'.isNotEmpty) 'Matrícula ${_esc(f['matricula'])}',
@@ -67,7 +69,7 @@ String htmlRelatorioFazenda({
   final pq = StringBuffer();
   for (final p in piquetes) {
     final l = lotacao[p['id']];
-    pq.write('<tr><td>${_esc(p['nome'])}</td><td class="n">${p['area'] is num ? '${_n1(p['area'] as num)} ha' : ''}</td>'
+    pq.write('<tr><td>${_esc(p['nome'])}</td><td class="n">${areaDe(p) == null ? '' : '${_n1(areaDe(p)!)} ha'}</td>'
         '<td>${_esc(p['forrageira'])}</td><td class="n">${p['qtd'] ?? 0}</td>'
         '<td class="n">${l?.uaHa == null ? '' : '${_n1(l!.uaHa!)} UA/ha'}</td></tr>');
   }

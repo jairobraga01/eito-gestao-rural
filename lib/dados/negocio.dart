@@ -203,7 +203,11 @@ Future<void> lancarParcelas({
 /// Contas já pagas (livro caixa) que vieram de [origem].
 List<Reg> contasPagasDe(String origem) => [
       for (final c in Db.registros('contas'))
-        if ('${c['origem'] ?? ''}' == origem && c['pago'] == true && _int(c['id']) != null) c,
+        // Inclui os descontos da venda (origem "saida:id:funrural" etc.).
+        if (('${c['origem'] ?? ''}' == origem || '${c['origem'] ?? ''}'.startsWith('$origem:')) &&
+            c['pago'] == true &&
+            _int(c['id']) != null)
+          c,
     ];
 
 /// Apaga as contas já pagas de [origem] (quando a venda ou compra foi lançada por engano).

@@ -147,7 +147,7 @@ class _BackupPageState extends State<BackupPage> {
             label: const Text('Copiar backup'),
           ),
           TextButton(
-            onPressed: () => _mostrarTexto(Db.exportarJson()),
+            onPressed: ocupado || lendoFotos ? null : () => _mostrarTexto(Db.exportarJson()),
             child: const Text('Ver o texto do backup'),
           ),
           gap,

@@ -23,6 +23,40 @@ const tiposPastagem = [
   'Outro',
 ];
 
+/// Recuperação ou Correção de Pastagens: os dois grupos e os serviços de cada um.
+const tiposPorGrupoPastagem = <String, List<String>>{
+  'Recuperação': [
+    'Reforma / plantio',
+    'Ressemeadura (sobressemeadura)',
+    'Vedação (descanso)',
+    'Roçada',
+    'Herbicida (invasoras)',
+    'Controle de cupim / formiga',
+    'Integração lavoura-pecuária',
+    'Outro',
+  ],
+  'Correção': [
+    'Análise de solo',
+    'Calagem (calcário)',
+    'Gessagem',
+    'Fosfatagem',
+    'Adubação de manutenção (NPK)',
+    'Adubação nitrogenada',
+    'Micronutrientes',
+    'Outro',
+  ],
+};
+
+/// Manejos antigos (sem grupo) que pertencem a cada grupo.
+const _tiposAntigosDoGrupo = <String, Set<String>>{
+  'Recuperação': {'Reforma / plantio', 'Roçada', 'Herbicida', 'Vedação (descanso)'},
+  'Correção': {'Adubação', 'Calagem'},
+};
+
+/// O manejo é do grupo (Recuperação ou Correção)?
+bool doGrupoPastagem(Reg m, String grupo) =>
+    m['grupo'] == grupo || (m['grupo'] == null && (_tiposAntigosDoGrupo[grupo]?.contains(m['tipo']) ?? false));
+
 // ======================= Piquetes =======================
 
 class PiquetesPage extends StatelessWidget {
@@ -147,6 +181,10 @@ class _PiqueteFormPageState extends State<PiqueteFormPage> {
       'dias_descanso': lerNumero(descanso.text)?.round(),
       'obs': nulo(obs.text),
     };
+    if ([v['area'], v['capacidade'], v['dias_ocupacao'], v['dias_descanso']].any((x) => x is num && x < 0)) {
+      avisar(context, 'Área, capacidade e dias não podem ser negativos.');
+      return;
+    }
     if (p == null) {
       await Db.inserir('piquetes', {...v, 'propriedade_id': Db.pid});
     } else {
@@ -372,6 +410,7 @@ class PastagemTile extends StatelessWidget {
       br(m['data']),
       if (txt(m['quantidade']).isNotEmpty) txt(m['quantidade']),
       if (altura != null) 'altura ${num1(altura)} cm',
+      if (m['area_ha'] is num) '${num1(m['area_ha'] as num)} ha',
       if (txt(m['descricao']).isNotEmpty) txt(m['descricao']),
     ].join(' · ');
     return ListTile(
@@ -384,9 +423,12 @@ class PastagemTile extends StatelessWidget {
 }
 
 class PastagemFormPage extends StatefulWidget {
-  const PastagemFormPage({super.key, this.registro, this.piquete});
+  const PastagemFormPage({super.key, this.registro, this.piquete, this.grupo});
   final Reg? registro;
   final Reg? piquete;
+
+  /// 'Recuperação' ou 'Correção': mostra só os serviços do grupo.
+  final String? grupo;
 
   @override
   State<PastagemFormPage> createState() => _PastagemFormPageState();
@@ -397,7 +439,13 @@ class _PastagemFormPageState extends State<PastagemFormPage> {
   List<Reg> piquetes = [];
   late int? piqueteId = (r?['piquete_id'] as int?) ?? (widget.piquete?['id'] as int?);
   late String data = (r?['data'] as String?) ?? hojeIso();
-  late String? tipo = (r?['tipo'] as String?) ?? 'Adubação';
+  late final String? grupo = (r?['grupo'] as String?) ?? widget.grupo;
+  late final List<String> tipos = [
+    ...?(grupo == null ? tiposPastagem : tiposPorGrupoPastagem[grupo]),
+    if (r?['tipo'] is String && !(tiposPorGrupoPastagem[grupo] ?? tiposPastagem).contains(r!['tipo'])) r!['tipo'] as String,
+  ];
+  late String? tipo = (r?['tipo'] as String?) ?? (grupo == null ? 'Adubação' : tipos.first);
+  late final area = TextEditingController(text: r?['area_ha'] is num ? num1(r!['area_ha'] as num) : '');
   late final descricao = TextEditingController(text: txt(r?['descricao']));
   late final quantidade = TextEditingController(text: txt(r?['quantidade']));
   late final altura = TextEditingController(text: r?['altura'] is num ? num1(r!['altura'] as num) : '');
@@ -413,7 +461,7 @@ class _PastagemFormPageState extends State<PastagemFormPage> {
 
   @override
   void dispose() {
-    for (final c in [descricao, quantidade, altura, obs]) {
+    for (final c in [descricao, quantidade, altura, obs, area]) {
       c.dispose();
     }
     super.dispose();
@@ -431,8 +479,14 @@ class _PastagemFormPageState extends State<PastagemFormPage> {
       'descricao': nulo(descricao.text),
       'quantidade': nulo(quantidade.text),
       'altura': lerNumero(altura.text),
+      'area_ha': lerNumero(area.text),
       'obs': nulo(obs.text),
+      if (grupo != null) 'grupo': grupo,
     };
+    if ((v['area_ha'] as num? ?? 0) < 0 || (v['altura'] as num? ?? 0) < 0) {
+      avisar(context, 'Área e altura não podem ser negativas.');
+      return;
+    }
     if (r == null) {
       await Db.inserir('pastagens', v);
     } else {
@@ -446,7 +500,11 @@ class _PastagemFormPageState extends State<PastagemFormPage> {
     final medicao = tipo == 'Medição de altura';
     return Scaffold(
       appBar: AppBar(
-        title: Text(r == null ? 'MANEJO DE PASTAGEM' : 'EDITAR MANEJO'),
+        title: Text(grupo != null
+            ? '${(r == null ? grupo! : 'Editar').toUpperCase()} DE PASTAGEM'
+            : r == null
+                ? 'MANEJO DE PASTAGEM'
+                : 'EDITAR MANEJO'),
         actions: [
           if (r != null)
             IconButton(
@@ -473,20 +531,73 @@ class _PastagemFormPageState extends State<PastagemFormPage> {
             ),
           escolhaId('Piquete/Pasto *', piqueteId, piquetes, (v) => setState(() => piqueteId = v), vazio: 'Escolha'),
           gap,
-          escolha('Tipo de manejo', tipo, tiposPastagem, (v) => setState(() => tipo = v)),
+          escolha(grupo == null ? 'Tipo de manejo' : 'Serviço', tipo, tipos, (v) => setState(() => tipo = v)),
           gap,
           DateField(label: 'Data', value: data, obrigatorio: true, onChanged: (v) => setState(() => data = v!)),
           gap,
           campoTexto(descricao, medicao ? 'Ponto de medição' : 'Produto / descrição'),
           gap,
           if (!medicao) ...[
-            campoTexto(quantidade, 'Quantidade (ex.: 200 kg/ha)'),
+            campoTexto(quantidade, grupo == 'Correção' ? 'Dose (ex.: 2 t/ha de calcário)' : 'Quantidade (ex.: 200 kg/ha)'),
+            gap,
+          ],
+          if (grupo != null) ...[
+            campoTexto(area, 'Área tratada', numero: true, sufixo: 'ha'),
             gap,
           ],
           campoTexto(altura, 'Altura do capim', numero: true, sufixo: 'cm'),
           gap,
           campoTexto(obs, 'Anotações', linhas: 3),
         ],
+      ),
+    );
+  }
+}
+
+// ======================= Recuperação ou Correção de Pastagens =======================
+
+/// Recuperação ou Correção de Pastagens: lista e lança os serviços de um grupo.
+class RecuperacaoPastagemPage extends StatelessWidget {
+  const RecuperacaoPastagemPage({super.key, required this.grupo});
+
+  /// 'Recuperação' ou 'Correção'.
+  final String grupo;
+
+  static const _explica = {
+    'Recuperação': 'Pasto degradado ou com falhas: reforma, ressemeadura, vedação, controle de invasoras e pragas.',
+    'Correção': 'Correção e adubação do solo: análise de solo, calcário, gesso, fósforo, NPK e nitrogênio.',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Pagina(
+      titulo: '$grupo de Pastagens',
+      fab: FloatingActionButton(
+        heroTag: null,
+        tooltip: 'Lançar $grupo',
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PastagemFormPage(grupo: grupo))),
+        child: const Icon(Icons.add),
+      ),
+      corpo: AoMudar<List<Reg>>(
+        carregar: () async => [for (final m in await Db.pastagens()) if (doGrupoPastagem(m, grupo)) m],
+        builder: (context, lista) {
+          final area = lista.fold<double>(0, (s, m) => s + (m['area_ha'] is num ? (m['area_ha'] as num).toDouble() : 0));
+          return ListView(padding: const EdgeInsets.only(bottom: 88), children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(_explica[grupo] ?? '', style: const TextStyle(color: Colors.black54)),
+            ),
+            if (lista.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Nenhum serviço de ${grupo.toLowerCase()} lançado. Toque em + para lançar.'),
+              )
+            else ...[
+              Secao('${lista.length} serviço(s)${area > 0 ? ' · ${num1(area)} ha tratados' : ''}'),
+              for (final m in lista) PastagemTile(m),
+            ],
+          ]);
+        },
       ),
     );
   }

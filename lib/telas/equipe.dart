@@ -142,6 +142,92 @@ class _EquipePageState extends State<EquipePage> {
     });
   }
 
+  /// Cria o login (usuário e senha) sem deslogar o dono, numa segunda instância
+  /// do Firebase. Devolve o usuário e o uid.
+  Future<(String, String)> _novoLogin(String nome, String senha) async {
+    final app = Firebase.apps.any((a) => a.name == 'cadastro')
+        ? Firebase.app('cadastro')
+        : await Firebase.initializeApp(name: 'cadastro', options: DefaultFirebaseOptions.currentPlatform);
+    final auth = FirebaseAuth.instanceFor(app: app);
+    String? usuario;
+    UserCredential? cred;
+    for (var i = 0; i < 5 && cred == null; i++) {
+      usuario = usuarioPeao(nome);
+      try {
+        cred = await auth.createUserWithEmailAndPassword(email: emailDoLogin(usuario), password: senha);
+      } on FirebaseAuthException catch (e) {
+        if (e.code != 'email-already-in-use') rethrow;
+      }
+    }
+    if (cred?.user == null) throw 'não deu para criar o usuário, tente de novo';
+    await cred!.user!.updateDisplayName(nome);
+    await auth.signOut();
+    return (usuario!, cred.user!.uid);
+  }
+
+  /// Senha nova para login de peão: o Firebase não deixa o dono trocar a senha
+  /// de outra pessoa pelo app, então cria um login novo (mesmo nome e papel),
+  /// passa para ele o que o login antigo lançou e desliga o antigo da fazenda.
+  Future<void> _novaSenhaPeao(Membro m) async {
+    final ctrl = TextEditingController();
+    final senha = await showDialog<String>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Nova senha para ${m.nome}'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('O Eito cria um usuário novo com esta senha. O usuário antigo para de funcionar, '
+              'e tudo o que ele lançou passa para o novo.'),
+          gap,
+          TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Senha nova (mínimo 6 caracteres)'),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(c, ctrl.text.trim()), child: const Text('Criar')),
+        ],
+      ),
+    );
+    if (senha == null || senha.isEmpty) return;
+    if (senha.length < 6) {
+      if (mounted) avisar(context, 'A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+    String? usuario;
+    await _executar(() async {
+      final (u, uid) = await _novoLogin(m.nome, senha);
+      await Equipe.remover(_dono, m);
+      await Equipe.convidar(
+        dono: _dono,
+        donoNome: _donoNome,
+        email: emailDoLogin(u),
+        nome: m.nome,
+        papel: m.papel,
+        uid: uid,
+        usuario: u,
+      );
+      if (m.uid != null) Db.transferirAutoria(m.uid!, uid, m.nome);
+      usuario = u;
+    });
+    if (usuario == null || !mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Senha nova criada'),
+        content: SelectableText('Passe para ${m.nome}:\n\nUsuário novo: $usuario\nSenha: a que você digitou'),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: 'Eito: usuário $usuario')),
+            child: const Text('Copiar usuário'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(c), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
   /// Cria a conta do peão sem deslogar o dono (usa uma segunda instância do Firebase).
   Future<void> _criarPeao() async {
     final r = await _formulario(peao: true);
@@ -157,30 +243,14 @@ class _EquipePageState extends State<EquipePage> {
       return;
     }
     await _executar(() async {
-      final app = Firebase.apps.any((a) => a.name == 'cadastro')
-          ? Firebase.app('cadastro')
-          : await Firebase.initializeApp(name: 'cadastro', options: DefaultFirebaseOptions.currentPlatform);
-      final auth = FirebaseAuth.instanceFor(app: app);
-      String? usuario;
-      UserCredential? cred;
-      for (var i = 0; i < 5 && cred == null; i++) {
-        usuario = usuarioPeao(nome);
-        try {
-          cred = await auth.createUserWithEmailAndPassword(email: emailDoLogin(usuario), password: senha);
-        } on FirebaseAuthException catch (e) {
-          if (e.code != 'email-already-in-use') rethrow;
-        }
-      }
-      if (cred?.user == null) throw 'não deu para criar o usuário, tente de novo';
-      await cred!.user!.updateDisplayName(nome);
-      await auth.signOut();
+      final (usuario, uid) = await _novoLogin(nome, senha);
       await Equipe.convidar(
         dono: _dono,
         donoNome: _donoNome,
-        email: emailDoLogin(usuario!),
+        email: emailDoLogin(usuario),
         nome: nome,
         papel: papel,
-        uid: cred.user!.uid,
+        uid: uid,
         usuario: usuario,
       );
       if (!mounted) return;
@@ -217,6 +287,13 @@ class _EquipePageState extends State<EquipePage> {
               onTap: () => Navigator.pop(c, p.key),
             ),
           const Divider(),
+          if (m.usuario != null && m.uid != null)
+            ListTile(
+              leading: const Icon(Icons.lock_reset, color: Cores.oliva),
+              title: const Text('Senha nova (esqueceu a senha)'),
+              subtitle: Text('Usuário atual: ${m.usuario}'),
+              onTap: () => Navigator.pop(c, 'senha'),
+            ),
           ListTile(
             leading: const Icon(Icons.person_remove_outlined, color: Cores.alerta),
             title: const Text('Tirar da equipe', style: TextStyle(color: Cores.alerta)),
@@ -226,7 +303,9 @@ class _EquipePageState extends State<EquipePage> {
       ),
     );
     if (op == null || op == m.papel || !mounted) return;
-    if (op == 'remover') {
+    if (op == 'senha') {
+      await _novaSenhaPeao(m);
+    } else if (op == 'remover') {
       final ok = await confirmar(context, 'Tirar ${m.nome} da equipe?',
           'A pessoa perde o acesso aos dados desta fazenda na hora. O que ela lançou continua.',
           ok: 'Tirar');

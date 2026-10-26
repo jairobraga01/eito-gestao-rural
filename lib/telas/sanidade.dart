@@ -521,8 +521,8 @@ class _PesagemFormPageState extends State<PesagemFormPage> {
       avisar(context, 'Escolha o animal.');
       return;
     }
-    if (p == null || p <= 0) {
-      avisar(context, 'Informe um peso válido.');
+    if (p == null || p <= 0 || p > 2000) {
+      avisar(context, 'Informe um peso válido (até 2.000 kg).');
       return;
     }
     final v = {'animal_id': animal!['id'], 'data': data, 'peso': p, 'evento': evento, 'obs': nulo(obs.text)};

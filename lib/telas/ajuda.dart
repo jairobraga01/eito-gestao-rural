@@ -24,7 +24,7 @@ const _faq = <(String, String)>[
   ('Como vejo quanto vale a fazenda?',
       'Financeiro › Patrimônio. Informe o valor por cabeça de cada categoria, o valor do hectare e os bens. As dívidas em aberto já entram no cálculo.'),
   ('Esqueci a senha.',
-      'Na tela de entrada, digite o e-mail e toque em "Esqueci a senha". O link chega no e-mail (confira o spam). Login de peão: o dono cria uma senha nova em Equipe.'),
+      'Na tela de entrada, digite o e-mail e toque em "Esqueci a senha". O link chega no e-mail (confira o spam). Login de peão: o dono abre Equipe e permissões, toca na pessoa e escolhe "Senha nova".'),
   ('Como faço backup?',
       'Relatórios e dados › Backup. O arquivo guarda todo o rebanho e os lançamentos. Os dados também ficam na nuvem, ligados ao seu e-mail.'),
 ];
@@ -39,14 +39,14 @@ class AjudaPage extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       initialIndex: abaInicial,
-      child: Pagina(
+      child: const Pagina(
         titulo: 'Ajuda e suporte',
         corpo: Column(children: [
-          const Material(
+          Material(
             color: Cores.palha,
             child: TabBar(tabs: [Tab(text: 'Dúvidas frequentes'), Tab(text: 'Meus chamados')]),
           ),
-          const Expanded(child: TabBarView(children: [_Duvidas(), _MeusChamados()])),
+          Expanded(child: TabBarView(children: [_Duvidas(), _MeusChamados()])),
         ]),
       ),
     );

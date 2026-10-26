@@ -316,7 +316,8 @@ String resumoSemanal(String hoje) {
     if (d.isEmpty || d.compareTo(de) < 0 || d.compareTo(hoje) > 0) continue;
     if (Db.registro('animais', r['femea_id'])?['propriedade_id'] != Db.pid) continue;
     if (r['diagnostico'] == 'Prenhe') diagP++;
-    if (r['diagnostico'] == 'Vazia') diagV++;
+    // Fechado sozinho pela nova IA (voltou ao cio): não houve exame.
+    if (r['diagnostico'] == 'Vazia' && r['vazia_por'] != 'reinseminacao') diagV++;
   }
   final proxima = ResumoPeriodo.calcular(Db.dataEtapa(hoje, 1), Db.dataEtapa(hoje, 7));
   final fila = filaDoDia(hoje).length;

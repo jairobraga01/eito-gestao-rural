@@ -78,7 +78,7 @@ class _LancamentoVozPageState extends State<LancamentoVozPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Lançar por voz')),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        DateField(label: 'Data do serviço', value: data, obrigatorio: true, onChanged: (v) => setState(() => data = v!)),
+        DateField(label: 'Data do serviço', value: data, obrigatorio: true, permitirFuturo: false, onChanged: (v) => setState(() => data = v!)),
         const SizedBox(height: 16),
         Center(
           child: SizedBox(

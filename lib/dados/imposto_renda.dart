@@ -105,7 +105,11 @@ double _saldoEm(Reg d, String data) {
 /// Data de chegada do animal ao rebanho e como chegou.
 (String, String) _chegada(Reg a, Map<int, Reg> entradas) {
   final e = entradas[_int(a['entrada_id'])];
-  if (e != null) return (_dia(e['data']), e['tipo'] == 'Compra' ? 'Compra' : 'Outra');
+  if (e != null) {
+    // Rebanho que já estava na fazenda quando começou a usar o app: estoque inicial.
+    if (e['tipo'] == 'Rebanho existente') return ('', 'Existente');
+    return (_dia(e['data']), e['tipo'] == 'Compra' ? 'Compra' : 'Outra');
+  }
   if (a['origem'] == 'Nascimento') return (_dia(a['nascimento']), 'Nascimento');
   if (a['origem'] == 'Compra') return (_dia(a['data_entrada'] ?? a['criado_em']), 'Compra');
   // Cadastrado sem entrada: nascido na fazenda se a data de nascimento for a do cadastro ou depois.

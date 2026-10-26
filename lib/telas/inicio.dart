@@ -88,7 +88,7 @@ class _InicioPageState extends State<InicioPage> {
         builder: (c) => AlertDialog(
           icon: const Icon(Icons.celebration_outlined, color: Cores.oliva, size: 40),
           title: const Text('Sua conta está pronta'),
-          content: const Text('Você tem 14 dias com tudo liberado para testar.\n\n'
+          content: const Text('Você tem 30 dias com tudo liberado para testar.\n\n'
               'Comece cadastrando a fazenda e os pastos no mapa; depois monte os lotes do rebanho. '
               'Se precisar, fale com a gente pela Ajuda dentro do app.'),
           actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Começar'))],
@@ -96,6 +96,9 @@ class _InicioPageState extends State<InicioPage> {
       );
 
   void _abrir(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
+  /// Vai para a seção só se o papel a vê; senão o toque não faz nada.
+  VoidCallback? _ir(int secao) => podeVer(secao) ? () => Nav.ir(secao) : null;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +147,9 @@ class _InicioPageState extends State<InicioPage> {
               leading: const Icon(Icons.swap_horiz, color: Colors.brown),
               title: Text('Mudar de pasto: ${txt(r.piquete['nome'])}'),
               subtitle: Text('Ocupado há ${r.dias} dias (limite ${r.limite}). Toque para mudar o lote.'),
-              onTap: () => _abrir(MudarPastoPage(origem: r.piquete['id'] as int, destino: p.descansado)),
+              onTap: Db.podeGravar('pastagens')
+                  ? () => _abrir(MudarPastoPage(origem: r.piquete['id'] as int, destino: p.descansado))
+                  : null,
             ),
           for (final r in p.partos)
             ListTile(
@@ -152,15 +157,17 @@ class _InicioPageState extends State<InicioPage> {
                   color: txt(r['parto_previsto']).compareTo(hoje) < 0 ? Colors.red : Colors.blue),
               title: Text('Parto previsto: ${rotulo(r)}'),
               subtitle: Text(br(r['parto_previsto'])),
-              onTap: () => _abrir(NascimentoFormPage(
-                  mae: {'id': r['femea_id'], 'brinco': r['brinco'], 'nome': r['nome']}, reproducao: r)),
+              onTap: Db.podeGravar('animais') && Db.podeGravar('reproducoes')
+                  ? () => _abrir(NascimentoFormPage(
+                      mae: {'id': r['femea_id'], 'brinco': r['brinco'], 'nome': r['nome']}, reproducao: r))
+                  : null,
             ),
           for (final r in p.diagnosticos)
             ListTile(
               leading: const Icon(Icons.hourglass_empty, color: Colors.orange),
               title: Text('Fazer diagnóstico: ${rotulo(r)}'),
               subtitle: Text('${txt(r['tipo'])} em ${br(r['data'])}'),
-              onTap: () => _abrir(ReproducaoFormPage(registro: r)),
+              onTap: Db.podeGravar('reproducoes') ? () => _abrir(ReproducaoFormPage(registro: r)) : null,
             ),
           for (final s in p.aplicacoes)
             ListTile(
@@ -169,14 +176,14 @@ class _InicioPageState extends State<InicioPage> {
               title: Text('${s['produto']} – ${s['qtd']} animal(is)'),
               subtitle: Text(
                   '${txt(s['proxima']).compareTo(hoje) < 0 ? 'Atrasada desde' : 'Prevista para'} ${br(s['proxima'])}'),
-              onTap: () => _abrir(const SanidadeFormPage()),
+              onTap: Db.podeGravar('sanidade') ? () => _abrir(const SanidadeFormPage()) : null,
             ),
           for (final c in p.carencia)
             ListTile(
               leading: const Icon(Icons.block, color: Colors.deepOrange),
               title: Text('Em carência: ${rotulo(c)}'),
               subtitle: Text('${txt(c['produto'])} · liberado para venda em ${br(c['libera'])}'),
-              onTap: () => _abrir(FichaAnimalPage(c['id'] as int)),
+              onTap: podeLancar ? () => _abrir(FichaAnimalPage(c['id'] as int)) : null,
             ),
         ];
         final largo = MediaQuery.sizeOf(context).width >= 700;
@@ -197,7 +204,7 @@ class _InicioPageState extends State<InicioPage> {
             ...alertas,
             const SizedBox(height: 12),
             if (podeLancar) const _BotaoModoCurral(),
-            if (podeLancar && planoAtual().completo) const _BotaoModoInseminacao(),
+            if (Db.podeGravar('reproducoes') && planoAtual().completo) const _BotaoModoInseminacao(),
             if (podeLancar)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -206,10 +213,12 @@ class _InicioPageState extends State<InicioPage> {
                     child: _Modo('Pesagem em série', Icons.monitor_weight_outlined, const Color(0xFF1565C0),
                         () => _abrir(const ManejoEmSerie(modo: ModoSerie.pesagem)))),
                 const SizedBox(width: 8),
-                Expanded(
-                    child: _Modo('Vacinação em série', Icons.vaccines_outlined, const Color(0xFF00796B),
-                        () => _abrir(const ManejoEmSerie(modo: ModoSerie.sanidade)))),
-                const SizedBox(width: 8),
+                if (Db.podeGravar('sanidade')) ...[
+                  Expanded(
+                      child: _Modo('Vacinação em série', Icons.vaccines_outlined, const Color(0xFF00796B),
+                          () => _abrir(const ManejoEmSerie(modo: ModoSerie.sanidade)))),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                     child: _Modo('Lançar por voz', Icons.mic_none, const Color(0xFF6A1B9A),
                         () => _abrir(const LancamentoVozPage()))),
@@ -234,12 +243,12 @@ class _InicioPageState extends State<InicioPage> {
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  _Indicador('${p.lotes}', 'Lotes', Icons.workspaces_outline, () => Nav.ir(secLotes)),
-                  _Indicador('${p.ativos}', 'Animais', Icons.pets, () => Nav.ir(secRebanho)),
-                  _Indicador('${p.femeas} / ${p.machos}', 'Fêmeas / machos', Icons.wc, () => Nav.ir(secRebanho)),
-                  _Indicador('${p.prenhes}', 'Prenhes', Icons.favorite, () => Nav.ir(secReproducao)),
-                  _Indicador('${p.carencia.length}', 'Em carência', Icons.block, () => Nav.ir(secRelatorios)),
-                  _Indicador('${p.avisosEstoque}', 'Avisos de estoque', Icons.inventory_2_outlined, () => Nav.ir(secEstoque)),
+                  _Indicador('${p.lotes}', 'Lotes', Icons.workspaces_outline, _ir(secLotes)),
+                  _Indicador('${p.ativos}', 'Animais', Icons.pets, _ir(secRebanho)),
+                  _Indicador('${p.femeas} / ${p.machos}', 'Fêmeas / machos', Icons.wc, _ir(secRebanho)),
+                  _Indicador('${p.prenhes}', 'Prenhes', Icons.favorite, _ir(secReproducao)),
+                  _Indicador('${p.carencia.length}', 'Em carência', Icons.block, _ir(secRelatorios)),
+                  _Indicador('${p.avisosEstoque}', 'Avisos de estoque', Icons.inventory_2_outlined, _ir(secEstoque)),
                 ],
               ),
             ),
@@ -265,8 +274,8 @@ class _InicioPageState extends State<InicioPage> {
                     ('Nascimentos', Icons.child_friendly_outlined, const Color(0xFF6A1B9A), secNascimentos,
                         () => Nav.ir(secNascimentos)),
                     ('Piquete/Pasto', Icons.fence, const Color(0xFF558B2F), secPiquetes, () => Nav.ir(secPiquetes)),
-                    ('Mudar de pasto', Icons.swap_horiz, const Color(0xFF6D4C41), secPiquetes,
-                        () => _abrir(const MudarPastoPage())),
+                    ('Mudar de pasto', Icons.swap_horiz, const Color(0xFF6D4C41),
+                        Db.podeGravar('pastagens') ? secPiquetes : -1, () => _abrir(const MudarPastoPage())),
                     ('Pastagem', Icons.grass, const Color(0xFF33691E), secPastagem, () => Nav.ir(secPastagem)),
                     ('Compras', Icons.arrow_circle_down_outlined, const Color(0xFF00695C), secEntradas,
                         () => Nav.ir(secEntradas)),
@@ -293,7 +302,7 @@ class _Indicador extends StatelessWidget {
   const _Indicador(this.valor, this.rotulo, this.icone, this.onTap);
   final String valor, rotulo;
   final IconData icone;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -649,9 +658,14 @@ class _AvisoPlano extends StatelessWidget {
           final p = planoAtual();
           final n = animaisAtivos();
           final situacao = p.situacao(n);
-          if (situacao == 'ok' || Db.ehCampo) return const SizedBox.shrink();
+          final conta = Plataforma.conta.value;
+          final venceu = Db.ehDono && conta?['plano'] == 'Teste' && testeVencido(conta!, DateTime.now());
+          if ((situacao == 'ok' && !venceu) || Db.ehCampo) return const SizedBox.shrink();
           final dias = diasParaTravar(hojeIso());
-          final texto = situacao == 'perto'
+          final texto = situacao == 'ok'
+              ? 'Seu teste de $diasDeTeste dias acabou. A fazenda segue no plano Simples (até '
+                  '${PlanoEito.simples.maxAnimais} animais). Para liberar tudo, escolha um plano com o suporte.'
+              : situacao == 'perto'
               ? 'Plano ${p.nome}: $n de ${p.maxAnimais} animais. Falta pouco para o limite.'
               : 'Plano ${p.nome}: $n animais, acima do limite de ${p.maxAnimais}. '
                   '${dias != null && dias > 0 ? 'Você ainda pode cadastrar por $dias dia(s); depois, só com um plano maior.' : 'Novos cadastros estão travados até mudar de plano.'}';

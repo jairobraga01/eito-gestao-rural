@@ -159,6 +159,7 @@ class DateField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.obrigatorio = false,
+    this.permitirFuturo = true,
   });
 
   final String label;
@@ -166,16 +167,21 @@ class DateField extends StatelessWidget {
   final ValueChanged<String?> onChanged;
   final bool obrigatorio;
 
+  /// false: o calendário vai só até hoje (nascimento, mudança de pasto...).
+  final bool permitirFuturo;
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () async {
         final agora = DateTime.now();
+        final ultimo = permitirFuturo ? DateTime(agora.year + 3, 12, 31) : DateTime(agora.year, agora.month, agora.day);
+        final inicial = parseIso(value) ?? agora;
         final d = await showDatePicker(
           context: context,
-          initialDate: parseIso(value) ?? agora,
+          initialDate: inicial.isAfter(ultimo) ? ultimo : inicial,
           firstDate: DateTime(1990),
-          lastDate: DateTime(agora.year + 3, 12, 31),
+          lastDate: ultimo,
         );
         if (d != null) onChanged(isoDe(d));
       },

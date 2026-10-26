@@ -334,5 +334,13 @@ Future<int> gravarImportacao(ConferenciaImportacao c, {required int propriedadeI
       l.erros.add(e.toString());
     }
   }
+  // Segunda passada: a cria que veio antes da mãe na planilha liga agora.
+  for (final l in boas) {
+    final mae = l.maeBrinco?.toLowerCase();
+    final cria = ids[l.brinco.toLowerCase()];
+    if (mae == null || cria == null || Db.registro('animais', cria)?['mae_id'] != null) continue;
+    final id = maes[mae];
+    if (id != null) await Db.atualizar('animais', cria, {'mae_id': id, 'mae_brinco': null});
+  }
   return n;
 }

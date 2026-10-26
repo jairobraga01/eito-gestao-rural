@@ -17,11 +17,11 @@ Future<void> pedirNps(BuildContext context) async {
   SharedPreferences? p;
   try {
     p = await SharedPreferences.getInstance();
-    if (p.getBool('nps_respondido') == true) return;
-    final adiado = DateTime.tryParse(p.getString('nps_adiado') ?? '');
+    if (p.getBool('nps_respondido_${u.uid}') == true) return;
+    final adiado = DateTime.tryParse(p.getString('nps_adiado_${u.uid}') ?? '');
     if (adiado != null && DateTime.now().difference(adiado).inDays < 30) return;
     if ((await PainelCriador.nps.doc(u.uid).get()).exists) {
-      await p.setBool('nps_respondido', true);
+      await p.setBool('nps_respondido_${u.uid}', true);
       return;
     }
   } catch (_) {
@@ -68,10 +68,10 @@ Future<void> pedirNps(BuildContext context) async {
         'plano': '${Plataforma.conta.value?['plano'] ?? 'Teste'}',
         'em': DateTime.now().toIso8601String(),
       });
-      await p.setBool('nps_respondido', true);
+      await p.setBool('nps_respondido_${u.uid}', true);
       if (context.mounted) avisar(context, 'Obrigado pela nota!');
     } else {
-      await p.setString('nps_adiado', DateTime.now().toIso8601String());
+      await p.setString('nps_adiado_${u.uid}', DateTime.now().toIso8601String());
     }
   } catch (_) {}
 }

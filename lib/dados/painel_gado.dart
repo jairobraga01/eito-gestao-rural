@@ -170,7 +170,7 @@ class PainelGado {
       int? dias;
       double? ganho;
       if (ant != null) {
-        dias = DateTime.parse(k.$1).difference(DateTime.parse(ant.$1)).inDays;
+        dias = _utc(k.$1).difference(_utc(ant.$1)).inDays;
         ganho = medio - ant.$2;
       }
       anterior[k.$2] = (k.$1, medio);
@@ -218,4 +218,10 @@ String exercicioAtual(String hoje) {
   final m0 = mesInicioExercicio();
   final y = int.parse(hoje.substring(0, 4)), m = int.parse(hoje.substring(5, 7));
   return '${m >= m0 ? y : y - 1}-${m0.toString().padLeft(2, '0')}';
+}
+
+/// Data sem fuso, para a diferença em dias não errar no horário de verão.
+DateTime _utc(String iso) {
+  final d = DateTime.parse(iso);
+  return DateTime.utc(d.year, d.month, d.day);
 }

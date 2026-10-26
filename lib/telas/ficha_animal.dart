@@ -107,6 +107,7 @@ class _FichaCurralState extends State<FichaCurral> {
   Future<void> _pesar(Reg a) async {
     final peso = await pedirPeso(context, titulo: 'Peso do brinco ${a['brinco']}');
     if (peso == null || peso <= 0) return;
+    if (peso > 2000) return _aviso('Peso ${pesoKg(peso)} fora do normal. Confira e pese de novo.', cor: Cores.alerta);
     final g = await Db.registrarPesagem(id, peso);
     if (!mounted) return;
     _aviso(g == null ? 'Peso ${pesoKg(peso)} salvo.' : 'Peso ${pesoKg(peso)} salvo. Ganho de ${gmd(g)}.');
@@ -207,6 +208,7 @@ class _FichaCurralState extends State<FichaCurral> {
             ),
           ],
           botao(Icons.swap_horiz, 'MOVER', () => _ir(MoverAnimaisPage(animais: [a])), cor: Cores.olivaEscuro),
+          if (Db.podeGravar('saidas'))
           botao(Icons.sell_outlined, 'VENDA / SAÍDA', () => _ir(SaidaFormPage(animais: [a])), cor: Cores.alerta),
         ];
         return Scaffold(
@@ -373,6 +375,7 @@ class _DialogoLerRfidState extends State<_DialogoLerRfid> {
   void initState() {
     super.initState();
     _cancelar = LeitorTeclado.instancia.assinar((codigo) {
+      if (parecePeso(codigo)) return; // peso vindo da balança não é brinco
       if (mounted) Navigator.pop(context, codigo);
     });
   }

@@ -85,6 +85,9 @@ List<Lancamento> lancamentos({String? uid, int limite = 300}) {
         if (prop != pid) continue;
       } else if (animal != null) {
         if (!daProp.contains(animal)) continue;
+      } else if (r['piquete_id'] != null) {
+        // Pastagens só guardam o piquete: a fazenda vem dele.
+        if (Db.registro('piquetes', r['piquete_id'])?['propriedade_id'] != pid) continue;
       }
       final alterou = r['alterado_em'] != null;
       final quando = '${r[alterou ? 'alterado_em' : 'criado_em'] ?? ''}';

@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'db.dart';
 import 'negocio.dart';
+import 'planos.dart' show bloqueioDeAnimais;
 
 int? _int(Object? v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}');
 double _n(Object? v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
@@ -80,6 +81,16 @@ Future<ResultadoGuarai> importarGuarai(Map<String, Object?> b) async {
   for (final e in Db.registros('entradas')) {
     if (_int(e['propriedade_id']) == pid && e['guarai_id'] != null) entradaDe[_t(e['guarai_id'])] = _int(e['id'])!;
   }
+  // Limite de animais do plano, como no cadastro e na planilha.
+  final novos = compras
+          .where((c) => !jaEntradas.contains('compra:${c['id']}'))
+          .fold<int>(0, (t, c) => t + _lista(c['lotes']).fold<int>(0, (s, l) => s + (_int(l['qtd']) ?? 0))) +
+      (jaEntradas.contains('saldo') ? 0 : (_int(cfg['saldoAnterior']) ?? 0));
+  if (novos > 0) {
+    final hoje = DateTime.now().toIso8601String().substring(0, 10);
+    final trava = bloqueioDeAnimais(hoje, novos: novos);
+    if (trava != null) throw RegistroDuplicado(trava);
+  }
   // Números de compra já usados nesta propriedade: uma compra nova com data
   // antiga não pode repetir a numeração dos animais de outra.
   final numerosUsados = <int>{
@@ -153,7 +164,10 @@ Future<ResultadoGuarai> importarGuarai(Map<String, Object?> b) async {
   final usados = <int>{};
   List<int> ativos(String? compraId, int qtd, {bool baixar = true}) {
     final ent = compraId == null ? null : entradaDe['compra:$compraId'];
-    final ordem = {for (final (i, e) in entradaDe.values.indexed) e: i};
+    // Os mais antigos primeiro: o saldo anterior e depois as compras pela data.
+    String quando(MapEntry<String, int> e) => e.key == 'saldo' ? '' : _t(Db.registro('entradas', e.value)?['data']);
+    final porData = entradaDe.entries.toList()..sort((x, y) => quando(x).compareTo(quando(y)));
+    final ordem = {for (final (i, e) in porData.indexed) e.value: i};
     final l = [
       for (final a in Db.registros('animais'))
         if (_int(a['propriedade_id']) == pid &&
@@ -170,6 +184,30 @@ Future<ResultadoGuarai> importarGuarai(Map<String, Object?> b) async {
     return ids;
   }
 
+  // Pesagens antes das vendas: na data da pesagem o lote ainda estava todo na fazenda.
+  final jaPesagens = ja('pesagens');
+  for (final p in _lista(b['pesagens'])) {
+    final gid = 'pesagem:${p['id']}';
+    if (jaPesagens.contains(gid)) {
+      r.jaExistiam++;
+      continue;
+    }
+    final q = _int(p['qtd']) ?? 0;
+    if (q <= 0 || _n(p['pesoTotal']) <= 0) continue;
+    final medio = _n(p['pesoTotal']) / q;
+    final ids = ativos(_t(p['compraId']).isEmpty ? null : _t(p['compraId']), q, baixar: false);
+    for (final id in ids) {
+      await Db.inserir('pesagens', {
+        'propriedade_id': pid,
+        'animal_id': id,
+        'data': _t(p['data']),
+        'peso': medio,
+        'evento': 'Pesagem do lote (Gado Guaraí)',
+        'guarai_id': gid,
+      });
+    }
+    if (ids.isNotEmpty) r.pesagens++;
+  }
   final jaSaidas = ja('saidas');
   final vendas = _lista(b['vendas'])..sort((x, y) => _t(x['data']).compareTo(_t(y['data'])));
   for (final v in vendas) {
@@ -246,27 +284,5 @@ Future<ResultadoGuarai> importarGuarai(Map<String, Object?> b) async {
     r.despesas++;
   }
 
-  final jaPesagens = ja('pesagens');
-  for (final p in _lista(b['pesagens'])) {
-    final gid = 'pesagem:${p['id']}';
-    if (jaPesagens.contains(gid)) {
-      r.jaExistiam++;
-      continue;
-    }
-    final q = _int(p['qtd']) ?? 0;
-    if (q <= 0 || _n(p['pesoTotal']) <= 0) continue;
-    final medio = _n(p['pesoTotal']) / q;
-    for (final id in ativos(_t(p['compraId']).isEmpty ? null : _t(p['compraId']), q, baixar: false)) {
-      await Db.inserir('pesagens', {
-        'propriedade_id': pid,
-        'animal_id': id,
-        'data': _t(p['data']),
-        'peso': medio,
-        'evento': 'Pesagem do lote (Gado Guaraí)',
-        'guarai_id': gid,
-      });
-    }
-    r.pesagens++;
-  }
   return r;
 }

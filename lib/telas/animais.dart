@@ -275,7 +275,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
     final c = widget.codigoLido;
     if (c != null) {
       // Brinco eletrônico (RFID) tem 15 dígitos; o brinco visual é curto.
-      (c.length >= 8 ? rfid : brinco).text = c;
+      (RegExp(r'^\d{15}$').hasMatch(c) ? rfid : brinco).text = c;
     }
     // Encostou o bastão com esta tela aberta: preenche o brinco eletrônico.
     _cancelarLeitor = LeitorTeclado.instancia.assinar((leitura) {
@@ -321,7 +321,19 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
   }
 
   Future<void> salvar() async {
-    final trava = editando ? null : bloqueioDeAnimais(hojeIso());
+    final antes = (widget.animal?['status'] as String?) ?? 'Ativo';
+    if (editando && status != antes) {
+      // A saída (venda, morte) tem valor e data: mudar só a situação deixa a venda sem o animal.
+      if (antes == 'Ativo') {
+        avisar(context, 'Para tirar do rebanho, use Venda/Saída na ficha do animal.');
+        return;
+      }
+      if (widget.animal?['saida_id'] != null) {
+        avisar(context, 'Para voltar ao rebanho, exclua a saída em Vendas ou Mortes/Outras Causas.');
+        return;
+      }
+    }
+    final trava = editando && !(status == 'Ativo' && antes != 'Ativo') ? null : bloqueioDeAnimais(hojeIso());
     if (trava != null) {
       avisar(context, trava);
       return;
@@ -332,6 +344,15 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
     }
     if (mae != null && mae!['id'] == widget.animal?['id']) {
       avisar(context, 'O animal não pode ser mãe dele mesmo.');
+      return;
+    }
+    final pesoDigitado = lerNumero(peso.text);
+    if (pesoDigitado != null && (pesoDigitado <= 0 || pesoDigitado > 2000)) {
+      avisar(context, 'Peso fora do normal (de 1 a 2.000 kg).');
+      return;
+    }
+    if (nascimento != null && nascimento!.compareTo(hojeIso()) > 0) {
+      avisar(context, 'A data de nascimento está no futuro.');
       return;
     }
     setState(() => salvando = true);
@@ -362,7 +383,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
         v['criado_em'] = DateTime.now().toIso8601String();
         final id = await Db.inserir('animais', v);
         final p = lerNumero(peso.text);
-        if (p != null && p > 0) {
+        if (p != null && p > 0 && p <= 2000) {
           await Db.inserir('pesagens', {
             'animal_id': id,
             'data': hojeIso(),
@@ -425,6 +446,7 @@ class _AnimalFormPageState extends State<AnimalFormPage> {
           DateField(
             label: 'Data de nascimento',
             value: nascimento,
+            permitirFuturo: false,
             onChanged: (v) => setState(() {
               nascimento = v;
               _recalcularCategoria();
@@ -740,7 +762,7 @@ class FichaAnimalPage extends StatelessWidget {
                   onPressed: () => Navigator.push(
                       context, MaterialPageRoute(builder: (_) => FichaCurral(animalId: id))),
                 ),
-              if (a['status'] == 'Ativo')
+              if (a['status'] == 'Ativo' && Db.podeGravar('saidas'))
                 IconButton(
                   tooltip: 'Registrar venda ou saída',
                   icon: const Icon(Icons.sell_outlined),

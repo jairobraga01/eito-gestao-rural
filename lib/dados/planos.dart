@@ -4,6 +4,8 @@
 // contas/{uid}). Quem está na equipe segue o plano do dono. Conta em Teste ou
 // Cortesia usa tudo, sem limite; os nomes antigos (Essencial, Profissional e
 // Completa) valem como Simples, Média e Plus.
+import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+
 import 'db.dart';
 
 class PlanoEito {
@@ -33,11 +35,14 @@ class PlanoEito {
   /// Planos à venda, do menor para o maior.
   static const todos = [simples, media, plus];
 
-  static PlanoEito de(Object? nome) => switch ('$nome') {
+  /// Teste, Cortesia e conta ainda não lida (null): livre. Nome desconhecido
+  /// (erro de digitação no painel) vale como Simples, para não liberar tudo.
+  static PlanoEito de(Object? nome) => switch (nome) {
         'Simples' || 'Essencial' => simples,
         'Média' || 'Profissional' => media,
         'Plus' || 'Completa' => plus,
-        _ => livre,
+        null || 'Teste' || 'Cortesia' || 'Livre' || '' => livre,
+        _ => simples,
       };
 
   /// Papéis que a equipe pode ter neste plano (o dono sempre tem acesso).
@@ -59,6 +64,33 @@ class PlanoEito {
 
 /// Plano da fazenda em uso (do dono). Começa livre até a conta ser lida.
 PlanoEito planoAtual() => PlanoEito.de(Db.planoDaFazenda.value);
+
+/// Dias do teste grátis.
+const diasDeTeste = 30;
+
+/// Plano que vale para a conta: o Teste vencido (30 dias depois do cadastro
+/// ou a data do painel, a mais tarde) passa a valer como Simples.
+String? planoEfetivo(Map<String, dynamic>? conta, DateTime agora) {
+  final plano = conta?['plano'] as String?;
+  if (plano != 'Teste') return plano;
+  if (testeVencido(conta!, agora)) return PlanoEito.simples.nome;
+  return plano;
+}
+
+/// O teste grátis da conta já acabou?
+bool testeVencido(Map<String, dynamic> conta, DateTime agora) {
+  DateTime? data(Object? v) => switch (v) {
+        DateTime d => d,
+        String s => DateTime.tryParse(s),
+        Timestamp t => t.toDate(),
+        _ => null,
+      };
+  final ate = data(conta['teste_ate']);
+  final criado = data(conta['criado_em']);
+  final fim = [?ate, if (criado != null) criado.add(const Duration(days: diasDeTeste))]
+      .fold<DateTime?>(null, (m, d) => m == null || d.isAfter(m) ? d : m);
+  return fim != null && agora.isAfter(fim);
+}
 
 /// Dias de tolerância depois de passar do limite de animais.
 const diasDeTolerancia = 15;

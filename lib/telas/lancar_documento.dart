@@ -160,7 +160,7 @@ class _LancarDocumentoPageState extends State<LancarDocumentoPage> {
           ),
         ],
         if (texto != null && !Db.ehCampo) ...[
-          Secao('Despesa no financeiro'),
+          const Secao('Despesa no financeiro'),
           if (n != null && n.itens.isNotEmpty)
             const Text('Ração, sal e remédios que entram no estoque já viram custo quando forem usados. '
                 'Lance como despesa só o que não vai para o estoque (diesel, peças, serviços).',

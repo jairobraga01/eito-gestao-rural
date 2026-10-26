@@ -94,6 +94,8 @@ const itensMenu = <(String, IconData)>[
   ('Compradores', Icons.storefront_outlined),
   ('Cadastro de Medicamentos', Icons.medication_outlined),
   ('Cadastro de Insumos', Icons.inventory_2_outlined),
+  ('Recuperação de Pastagens', Icons.eco_outlined),
+  ('Correção de Pastagens', Icons.landscape_outlined),
 ];
 
 // Índices usados pelos atalhos.
@@ -105,7 +107,7 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35, secMedicamentos = 36,
     secCotacaoMedicamentos = 37, secCotacaoInsumos = 38, secFornecedoresMedicamentos = 39,
     secFornecedoresInsumos = 40, secFornecedores = 41, secCompradores = 42, secCadastroMedicamentos = 43,
-    secCadastroInsumos = 44;
+    secCadastroInsumos = 44, secRecuperacaoPastagem = 45, secCorrecaoPastagem = 46;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -113,6 +115,7 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Entrada: Compras e Nascimentos', iconeEntrada, [secEntradas, secNascimentos]),
   ('Saídas: Vendas e Mortes/Outras Causas', iconeSaida, [secVendas, secMortes, secOutrasSaidas]),
   ('Pasto e fazenda', Icons.grass, [secPropriedades, secPiquetes, secPastagem, secMapa]),
+  ('Recuperação ou Correção de Pastagens', Icons.eco_outlined, [secRecuperacaoPastagem, secCorrecaoPastagem]),
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
   ('Medicamentos', Icons.medication_outlined, [secMedicamentos, secCotacaoMedicamentos]),
   ('Nutrição/Insumos', Icons.agriculture_outlined, [secProteinado, secEstoque, secCotacaoInsumos, secDieta]),
@@ -129,7 +132,7 @@ const gruposMenu = <(String, IconData, List<int>)>[
 /// Seções que o peão vê: o serviço de campo, sem financeiro nem cadastros da fazenda.
 const secoesPeao = {
   secPainel, secRebanho, secReproducao, secSanidade, secLeite, secPiquetes, secPastagem, secMapa, secChuva, secTarefas,
-  secClima, secAjuda, secGuia, secPesagem, secNascimentos,
+  secClima, secAjuda, secGuia, secPesagem, secNascimentos, secRecuperacaoPastagem, secCorrecaoPastagem,
 };
 
 /// Seções que o veterinário vê: rebanho, reprodução e sanidade.
@@ -140,7 +143,7 @@ const secoesVeterinario = {
 /// Seções do zootecnista: rebanho, pesagem, nutrição e estoque.
 const secoesZootecnista = {
   secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secCadastroInsumos, secDieta, secPiquetes, secPastagem, secTarefas,
-  secClima, secAjuda, secGuia,
+  secClima, secAjuda, secGuia, secRecuperacaoPastagem, secCorrecaoPastagem,
 };
 
 /// Seções do contador: lança o financeiro; vê compras, vendas, relatórios e exportações.
@@ -192,10 +195,15 @@ Future<void> sairDaConta(BuildContext context) async {
     ok: 'Sair',
   );
   if (!ok) return;
+  await encerrarSessao();
+}
+
+/// Limpeza comum a sair da conta, sair da equipe e excluir a conta.
+Future<void> encerrarSessao({bool sair = true}) async {
   Plataforma.pararAvisos();
   CotacoesCompra.parar();
   await Db.encerrar();
-  await FirebaseAuth.instance.signOut();
+  if (sair) await FirebaseAuth.instance.signOut();
   Indicacoes.esquecerAdmin();
 }
 
@@ -299,6 +307,7 @@ class MenuLateral extends StatelessWidget {
                 ),
               ),
             ),
+            if (podeVer(secTarefas))
             item(itensMenu[secTarefas].$2, itensMenu[secTarefas].$1, () {
               fechar();
               Nav.ir(secTarefas);
@@ -552,7 +561,7 @@ Future<void> escolherPropriedade(BuildContext context) async {
               subtitle: Text('${p['qtd']} animal(is)${txt(p['uf']).isEmpty ? '' : ' · ${p['uf']}'}'),
               onTap: () => Navigator.pop(c, p['id']),
             ),
-          if (!Db.ehCampo) ...[
+          if (Db.podeGravar('propriedades')) ...[
           const Divider(),
           ListTile(
             leading: const Icon(Icons.add),
@@ -672,18 +681,19 @@ class BotaoMenu extends StatelessWidget {
 class AcoesFab extends StatelessWidget {
   const AcoesFab({super.key});
 
-  static final _itens = <(String, IconData, Widget Function())>[
-    ('Modo Curral', Icons.contactless_outlined, () => const ModoCurral()),
-    ('Lançar por voz', Icons.mic, () => const LancamentoVozPage()),
-    ('Lançar do WhatsApp', Icons.chat_outlined, () => const LancarWhatsAppPage()),
-    ('Lançar por foto ou PDF', Icons.document_scanner_outlined, () => const LancarDocumentoPage()),
-    ('Propriedade', Icons.home_work_outlined, () => const PropriedadeFormPage()),
-    ('Lote', Icons.workspaces_outline, () => const LoteFormPage()),
-    ('Animal', Icons.pets, () => const AnimalFormPage()),
-    ('Nascimento', Icons.child_friendly_outlined, () => const NascimentoFormPage()),
-    ('Reprodução', Icons.favorite_border, () => const ReproducaoFormPage()),
-    ('Sanidade', Icons.vaccines_outlined, () => const SanidadeFormPage()),
-    ('Pesagem', Icons.monitor_weight_outlined, () => const PesagemFormPage()),
+  /// (rótulo, ícone, tela, tabelas que o lançamento grava)
+  static final _itens = <(String, IconData, Widget Function(), List<String>)>[
+    ('Modo Curral', Icons.contactless_outlined, () => const ModoCurral(), ['pesagens']),
+    ('Lançar por voz', Icons.mic, () => const LancamentoVozPage(), ['pesagens']),
+    ('Lançar do WhatsApp', Icons.chat_outlined, () => const LancarWhatsAppPage(), ['pesagens']),
+    ('Lançar por foto ou PDF', Icons.document_scanner_outlined, () => const LancarDocumentoPage(), ['estoque']),
+    ('Propriedade', Icons.home_work_outlined, () => const PropriedadeFormPage(), ['propriedades']),
+    ('Lote', Icons.workspaces_outline, () => const LoteFormPage(), ['lotes']),
+    ('Animal', Icons.pets, () => const AnimalFormPage(), ['animais']),
+    ('Nascimento', Icons.child_friendly_outlined, () => const NascimentoFormPage(), ['animais', 'reproducoes']),
+    ('Reprodução', Icons.favorite_border, () => const ReproducaoFormPage(), ['reproducoes']),
+    ('Sanidade', Icons.vaccines_outlined, () => const SanidadeFormPage(), ['sanidade']),
+    ('Pesagem', Icons.monitor_weight_outlined, () => const PesagemFormPage(), ['pesagens']),
   ];
 
   void _abrir(BuildContext context) {
@@ -704,9 +714,7 @@ class AcoesFab extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    for (final (i, it) in _itens
-                        .where((it) => !Db.ehCampo || (it.$1 != 'Propriedade' && it.$1 != 'Lote'))
-                        .indexed)
+                    for (final (i, it) in _itens.where((it) => it.$4.every(Db.podeGravar)).indexed)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12, right: 4),
                         child: InkWell(

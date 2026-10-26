@@ -177,7 +177,7 @@ class _CarregarDadosState extends State<CarregarDados> {
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   const LogoEito(tamanho: 88),
                   const SizedBox(height: 16),
-                  Text('Não foi possível abrir os dados.\n${s.error ?? ''}',
+                  Text(s.hasError ? 'Não foi possível abrir os dados.\n${s.error}' : 'Não foi possível abrir os dados.\nConfira o sinal e tente de novo.',
                       textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 18)),
                   const SizedBox(height: 16),
                   FilledButton(
@@ -218,12 +218,24 @@ class _InicioState extends State<Inicio> {
     super.initState();
     Nav.usuario = widget.usuario;
     _cancelarLeitor = LeitorTeclado.instancia.assinar(_aoLer);
+    Db.recusado.addListener(_avisarRecusa);
   }
 
   @override
   void dispose() {
     _cancelarLeitor?.call();
+    Db.recusado.removeListener(_avisarRecusa);
     super.dispose();
+  }
+
+  /// O papel não pode gravar o que tentou: avisa em vez de "salvar" e sumir depois.
+  void _avisarRecusa() {
+    final msg = Db.recusado.value;
+    if (msg == null || !mounted) return;
+    Db.recusado.value = null;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg), backgroundColor: Cores.alerta, duration: const Duration(seconds: 6)));
   }
 
   Future<void> _aoLer(String codigo) async {
@@ -241,6 +253,8 @@ class _InicioState extends State<Inicio> {
         secLeite => const ProducaoLeitePage(),
         secPiquetes => const PiquetesPage(),
         secPastagem => const PastagemPage(),
+        secRecuperacaoPastagem => const RecuperacaoPastagemPage(grupo: 'Recuperação'),
+        secCorrecaoPastagem => const RecuperacaoPastagemPage(grupo: 'Correção'),
         secMapa => const MapaPage(),
         secEntradas => const EntradasPage(),
         secVendas => const SaidasPage(),

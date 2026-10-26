@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../dados/patrimonio.dart';
 import '../tema.dart';
-import '../util/formato.dart' show lerNumero, numeroBr;
 import '../util/util.dart';
 import 'base.dart';
 

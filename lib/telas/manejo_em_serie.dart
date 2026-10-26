@@ -129,6 +129,11 @@ class _ManejoEmSerieState extends State<ManejoEmSerie> {
         _avisar('Confirme o peso do brinco ${noTronco['brinco']} antes de ler outro.', cor: Cores.alerta);
         return;
       }
+      if (_feitos.contains(id) &&
+          !await confirmar(context, 'Brinco ${a['brinco']} já foi pesado agora', 'Pesar de novo?', ok: 'Pesar de novo')) {
+        return;
+      }
+      if (!mounted) return;
       _peso.value = '';
       setState(() {
         _atual = a;
@@ -153,6 +158,10 @@ class _ManejoEmSerieState extends State<ManejoEmSerie> {
     final a = _atual;
     final peso = lerNumero(_peso.value);
     if (a == null || peso == null || peso <= 0) return;
+    if (peso > 2000) {
+      _avisar('Peso ${pesoKg(peso)} fora do normal. Confira e digite de novo.', cor: Cores.alerta);
+      return;
+    }
     final g = await Db.registrarPesagem(a['id'] as int, peso, evento: _evento);
     _feitos.add(a['id'] as int);
     _peso.value = '';

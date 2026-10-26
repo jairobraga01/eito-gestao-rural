@@ -147,6 +147,8 @@ void _ajustarEmbalagem(ItemNota i) {
     i.unidade = i.categoria == 'Vacina' ? 'dose' : (i.categoria == 'Medicamento e vermífugo' ? 'ml' : 'un');
     i.embalagem = 1;
     if (i.categoria == 'Sal mineral' || i.categoria == 'Ração e ingredientes') i.unidade = 'kg';
+    // Saco sem o peso no nome: não dá para saber quantos kg; a pessoa informa na tela.
+    if (un == 'SC' && i.unidade == 'kg') i.embalagem = 0;
   }
 }
 
@@ -234,29 +236,36 @@ NotaCompra lerNotaTexto(String texto) {
 /// Confere se quantidade × preço bate com o total da linha (tolerando arredondamento).
 bool _coerente(double q, double v, double? t) => t != null && ((q * v) - t).abs() <= 0.06 + t * 0.01;
 
-/// Insumo já cadastrado com nome igual ou parecido.
-Reg? insumoParecido(String descricao) {
+/// Insumo já cadastrado com nome igual ou parecido (e, se informada, na mesma
+/// [unidade] de controle). Parecido = um nome começa pelo outro, palavra inteira,
+/// e só um insumo serve; "FARELO DE MILHO" não soma no "MILHO".
+Reg? insumoParecido(String descricao, {String? unidade}) {
   String norm(String s) => _semAcento(s).toUpperCase().replaceAll(RegExp(r'[^A-Z0-9 ]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
   final alvo = norm(descricao);
   if (alvo.isEmpty) return null;
-  Reg? parcial;
+  final parciais = <Reg>[];
   for (final i in insumos()) {
+    if (unidade != null && unidadeInsumo(i) != unidade) continue;
     final n = norm('${i['nome'] ?? ''}');
     if (n.isEmpty) continue;
     if (n == alvo) return i;
-    if (parcial == null && (alvo.contains(n) || n.contains(alvo))) parcial = i;
+    if (alvo.startsWith('$n ') || n.startsWith('$alvo ')) parciais.add(i);
   }
-  return parcial;
+  return parciais.length == 1 ? parciais.single : null;
 }
 
 /// Lança a nota: cria o insumo que ainda não existe, dá entrada no estoque e registra o preço.
 /// Devolve quantos itens foram lançados.
 Future<int> lancarNota(NotaCompra nota, {required String data}) async {
   var n = 0;
+  final semTamanho = [for (final i in nota.itens) if (i.usar && i.qtd > 0 && i.embalagem <= 0) i.descricao];
+  if (semTamanho.isNotEmpty) {
+    throw 'informe quanto tem cada embalagem (toque em Corrigir): ${semTamanho.join(', ')}';
+  }
   for (final i in nota.itens.where((x) => x.usar && x.qtd > 0)) {
     final nome = i.descricao.trim();
     if (nome.isEmpty) continue;
-    final existente = insumoParecido(nome);
+    final existente = insumoParecido(nome, unidade: i.unidade);
     final int id;
     if (existente != null) {
       id = existente['id'] as int;

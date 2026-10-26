@@ -46,13 +46,21 @@ class _ImportarAnimaisPageState extends State<ImportarAnimaisPage> {
     );
     if (!ok) return;
     setState(() => _gravando = true);
+    final antes = c.boas.length;
     final n = await gravarImportacao(c, propriedadeId: Db.pid);
     if (!mounted) return;
+    // Linhas recusadas na gravação (brinco cadastrado em outro aparelho nesse meio
+    // tempo): a lista fica na tela, só com elas, para a pessoa ver quais faltaram.
+    final recusadas = antes - n;
     setState(() {
       _gravando = false;
-      _c = null;
+      if (recusadas <= 0) {
+        _c = null;
+      } else {
+        c.linhas.removeWhere((l) => l.ok);
+      }
     });
-    avisar(context, '$n animal(is) importado(s).');
+    avisar(context, recusadas <= 0 ? '$n animal(is) importado(s).' : '$n importado(s); $recusadas ficaram de fora (veja a lista).');
   }
 
   @override

@@ -10,6 +10,7 @@ import '../dados/db.dart';
 import '../dados/equipe.dart';
 import '../tema.dart';
 import '../util/util.dart';
+import 'base.dart' show encerrarSessao;
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -34,6 +35,25 @@ class _TelaContaState extends State<TelaConta> {
     try {
       await u!.reauthenticateWithCredential(EmailAuthProvider.credential(email: u.email!, password: senha));
       return true;
+    } on FirebaseAuthMultiFactorException catch (e) {
+      // Conta com verificação em duas etapas: pede o código do app autenticador.
+      final hint = e.resolver.hints.whereType<TotpMultiFactorInfo>().firstOrNull;
+      if (hint == null) {
+        if (mounted) avisar(context, 'Esta conta usa um segundo passo que o Eito ainda não aceita.');
+        return false;
+      }
+      final cod = await _pedirTexto('Verificação em duas etapas', 'Código de 6 dígitos do app autenticador',
+          numero: true);
+      if (cod == null || cod.trim().isEmpty) return false;
+      try {
+        await e.resolver.resolveSignIn(await TotpMultiFactorGenerator.getAssertionForSignIn(hint.uid, cod.trim()));
+        return true;
+      } on FirebaseAuthException catch (x) {
+        if (mounted) {
+          avisar(context, x.code == 'invalid-verification-code' ? 'Código errado ou vencido.' : mensagemConta(x));
+        }
+        return false;
+      }
     } on FirebaseAuthException catch (e) {
       if (mounted) avisar(context, mensagemConta(e));
       return false;
@@ -102,6 +122,7 @@ class _TelaContaState extends State<TelaConta> {
               ok: 'Desligar')) {
             return;
           }
+          if (!await _reautenticar()) return;
           await u.multiFactor.unenroll(factorUid: _fatores.first.uid);
           await _carregarFatores();
           if (mounted) avisar(context, 'Verificação em duas etapas desligada.');
@@ -174,7 +195,7 @@ class _TelaContaState extends State<TelaConta> {
         final u = _usuario!;
         if (Equipe.atual != null) await Equipe.sair(u.uid, u.email ?? '');
         await apagarDadosDoUsuario(u.uid);
-        await Db.encerrar();
+        await encerrarSessao(sair: false);
         await u.delete();
         // O login volta sozinho: main.dart escuta authStateChanges().
         if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
@@ -191,12 +212,11 @@ class _TelaContaState extends State<TelaConta> {
         if (!ok) return;
         final u = _usuario!;
         await Equipe.sair(u.uid, u.email ?? '');
-        await Db.encerrar();
-        await FirebaseAuth.instance.signOut();
+        await encerrarSessao();
         if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
       });
 
-  Future<String?> _pedirTexto(String titulo, String rotulo, {bool senha = false, bool email = false}) {
+  Future<String?> _pedirTexto(String titulo, String rotulo, {bool senha = false, bool email = false, bool numero = false}) {
     final ctrl = TextEditingController();
     return showDialog<String>(
       context: context,
@@ -206,7 +226,11 @@ class _TelaContaState extends State<TelaConta> {
           controller: ctrl,
           autofocus: true,
           obscureText: senha,
-          keyboardType: email ? TextInputType.emailAddress : TextInputType.text,
+          keyboardType: email
+              ? TextInputType.emailAddress
+              : numero
+                  ? TextInputType.number
+                  : TextInputType.text,
           decoration: InputDecoration(labelText: rotulo),
           onSubmitted: (v) => Navigator.pop(c, v),
         ),
@@ -284,13 +308,13 @@ class _TelaContaState extends State<TelaConta> {
   }
 }
 
-/// Apaga todos os documentos de usuarios/{uid}/{tabela} e o próprio usuarios/{uid}.
+/// Apaga todos os documentos de usuarios/{uid}/{tabela} (inclusive as fotos),
+/// os pedidos de cotação da conta e o próprio usuarios/{uid}.
 Future<void> apagarDadosDoUsuario(String uid) async {
   final banco = FirebaseFirestore.instance;
   final raiz = banco.collection('usuarios').doc(uid);
   await Equipe.apagarTudo(uid);
-  for (final t in Db.tabelas) {
-    final docs = (await raiz.collection(t).get(const GetOptions(source: Source.server))).docs;
+  Future<void> apagar(List<QueryDocumentSnapshot> docs) async {
     // Um lote do Firestore aceita no máximo 500 operações.
     for (var i = 0; i < docs.length; i += 400) {
       final lote = banco.batch();
@@ -299,6 +323,19 @@ Future<void> apagarDadosDoUsuario(String uid) async {
       }
       await lote.commit();
     }
+  }
+
+  for (final t in [...Db.tabelas, 'fotos']) {
+    await apagar((await raiz.collection(t).get(const GetOptions(source: Source.server))).docs);
+  }
+  try {
+    await apagar((await banco
+            .collection('pedidos_cotacao')
+            .where('dono', isEqualTo: uid)
+            .get(const GetOptions(source: Source.server)))
+        .docs);
+  } catch (_) {
+    // Membro da equipe não tem pedidos próprios; a regra pode negar a consulta.
   }
   await raiz.delete();
 }

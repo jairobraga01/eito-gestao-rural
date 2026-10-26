@@ -76,10 +76,22 @@ class _TelaLoginState extends State<TelaLogin> {
             return;
           }
         }
+        // O telefone vai para a conta nova logo que ela nasce; se o cadastro
+        // falhar (e-mail já usado), não pode ir parar na conta que já existe.
         Plataforma.telefoneNovo = fone;
-        final cred = await auth.createUserWithEmailAndPassword(email: email, password: senha);
-        await cred.user?.sendEmailVerification();
+        final UserCredential cred;
+        try {
+          cred = await auth.createUserWithEmailAndPassword(email: email, password: senha);
+        } catch (_) {
+          Plataforma.telefoneNovo = null;
+          rethrow;
+        }
         if (indicacao != null) await _guardarIndicacao(cred.user, indicacao);
+        try {
+          await cred.user?.sendEmailVerification();
+        } catch (e) {
+          debugPrint('Eito: e-mail de verificação não saiu: $e');
+        }
       } else {
         // Peão entra só com o usuário (sem @).
         await auth.signInWithEmailAndPassword(email: emailDoLogin(email), password: senha);
@@ -164,7 +176,7 @@ class _TelaLoginState extends State<TelaLogin> {
       return;
     }
     if (!email.contains('@')) {
-      setState(() => _erro = 'Login de peão: peça ao dono da fazenda uma senha nova.');
+      setState(() => _erro = 'Login de peão: peça ao dono da fazenda uma senha nova (Equipe › toque no seu nome › Senha nova).');
       return;
     }
     try {

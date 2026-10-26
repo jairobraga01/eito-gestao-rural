@@ -57,9 +57,13 @@ String situacaoConta(Map<String, dynamic> c) {
   final plano = '${c['plano'] ?? 'Teste'}';
   if (plano == 'Teste') {
     final ate = dataDe(c['teste_ate']);
-    if (ate == null) return 'Teste';
-    final d = '${ate.day.toString().padLeft(2, '0')}/${ate.month.toString().padLeft(2, '0')}';
-    return ate.isBefore(DateTime.now()) ? 'Teste vencido em $d' : 'Teste até $d';
+    final criado = dataDe(c['criado_em']);
+    // Vence 30 dias depois do cadastro ou na data do painel, a mais tarde.
+    final fim = [?ate, if (criado != null) criado.add(const Duration(days: diasDeTeste))]
+        .fold<DateTime?>(null, (m, d) => m == null || d.isAfter(m) ? d : m);
+    if (fim == null) return 'Teste';
+    final d = '${fim.day.toString().padLeft(2, '0')}/${fim.month.toString().padLeft(2, '0')}';
+    return fim.isBefore(DateTime.now()) ? 'Teste vencido em $d (vale como Simples)' : 'Teste até $d';
   }
   final fim = dataDe(c['plano_ate']);
   if (fim == null) return plano;
@@ -123,7 +127,7 @@ class Plataforma {
           'uid': u.uid,
           'criado_em': FieldValue.serverTimestamp(),
           'plano': 'Teste',
-          'teste_ate': Timestamp.fromDate(DateTime.now().add(const Duration(days: 14))),
+          'teste_ate': Timestamp.fromDate(DateTime.now().add(const Duration(days: diasDeTeste))),
           'status': 'ativa',
           'boas_vindas_whats': 'pendente',
         });
@@ -141,12 +145,12 @@ class Plataforma {
     if (c?['status'] == 'suspensa') {
       throw 'Esta conta está suspensa. Fale com o suporte do Eito.';
     }
-    Db.planoDaFazenda.value = c?['plano'] as String?;
+    Db.planoDaFazenda.value = planoEfetivo(c, DateTime.now());
     if (dono != null && dono != u.uid) {
       try {
         final d = (await contas.doc(dono).get()).data();
         if (d?['status'] == 'suspensa') throw 'A conta da fazenda está suspensa. Fale com o dono.';
-        Db.planoDaFazenda.value = d?['plano'] as String?; // a equipe segue o plano do dono
+        Db.planoDaFazenda.value = planoEfetivo(d, DateTime.now()); // a equipe segue o plano do dono
       } on FirebaseException catch (_) {
         // Sem permissão para ler a conta do dono: segue.
       }
@@ -283,7 +287,7 @@ String _primeiroNome(String nome) => nome.trim().isEmpty ? '' : ', ${nome.trim()
 
 /// Mensagem de boas-vindas (WhatsApp e texto do e-mail).
 String textoBoasVindas(String nome) => 'Olá${_primeiroNome(nome)}! Sua conta no Eito Gestão está pronta. 🐂\n\n'
-    'Você tem 14 dias com tudo liberado para testar.\n\n'
+    'Você tem 30 dias com tudo liberado para testar.\n\n'
     'Comece cadastrando a fazenda e os pastos; depois monte os lotes e lance o rebanho. '
     'Funciona no curral mesmo sem sinal.\n\n'
     'Se precisar, fale com a gente pela Ajuda dentro do app ou pelo e-mail ${Marca.email}.\n\n'
@@ -319,7 +323,7 @@ String htmlBoasVindas(String nome) {
 <div style="font-family:Georgia,serif;font-size:28px;font-weight:bold;color:#00602A;margin:0 0 20px">Eito Gestão</div>
 <div style="background:#fff;border:1px solid #dfe5da;border-radius:14px;padding:28px">
 <h1 style="font-size:24px;margin:0 0 16px">Sua conta está pronta</h1>
-<p style="font-size:16px;line-height:1.6">Olá$n. Você tem 14 dias com tudo liberado para testar.</p>
+<p style="font-size:16px;line-height:1.6">Olá$n. Você tem 30 dias com tudo liberado para testar.</p>
 <p style="font-size:16px;line-height:1.6">Comece cadastrando a fazenda e os pastos no mapa; depois monte os lotes do rebanho.
 Se precisar, fale com a gente pela Ajuda dentro do app.</p>
 <p style="margin:28px 0 8px"><a href="$_site" style="background:#00602A;color:#fff;text-decoration:none;font-weight:bold;font-size:17px;padding:14px 26px;border-radius:10px;display:inline-block">Abrir o Eito Gestão</a></p>

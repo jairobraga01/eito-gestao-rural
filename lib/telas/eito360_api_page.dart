@@ -136,6 +136,7 @@ class _Eito360ApiPageState extends State<Eito360ApiPage> {
       const SizedBox(height: 8),
       FilledButton.icon(onPressed: _busy ? null : _loadTenants, icon: const Icon(Icons.sync), label: const Text('Carregar minhas contas')),
       if (_tenants.isNotEmpty) ...[
+        // ignore: deprecated_member_use
         DropdownButtonFormField<String>(value: _tenantId, decoration: const InputDecoration(labelText: 'Conta rural ativa'), items: [for (final t in _tenants) DropdownMenuItem(value: t['id'].toString(), child: Text('${t['name']} · ${t['role']}'))], onChanged: _busy ? null : (v) {
           // Outra conta: as fazendas e os animais da anterior não valem mais.
           setState(() { _tenantId = v; _farms = []; _animals = []; _farmId.clear(); });
@@ -174,6 +175,7 @@ class _Eito360ApiPageState extends State<Eito360ApiPage> {
       ]),
       const Divider(height: 32),
       const Text('Animais cadastrados pela API', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      // ignore: deprecated_member_use
       if (_farms.isNotEmpty) DropdownButtonFormField<String>(value: _farms.any((f) => f['id'].toString() == _farmId.text) || _farmId.text.startsWith('local-') ? _farmId.text : null, decoration: const InputDecoration(labelText: 'Fazenda do animal'), items: [
         for (final f in _farms) DropdownMenuItem(value: f['id'].toString(), child: Text(f['name'].toString())),
         // Fazenda guardada só no aparelho: aparece com o nome digitado, para o valor mostrado ser o enviado.

@@ -160,6 +160,7 @@ class _ModoCurralState extends State<ModoCurral> {
                     cor: Cores.olivaEscuro,
                     aoTocar: () => _escolherEIr('Animais para mover', (r) => MoverAnimaisPage(animais: r)),
                   ),
+                  if (Db.podeGravar('saidas'))
                   BotaoCurral(
                     icone: Icons.sell_outlined,
                     rotulo: 'Venda\nou saída',

@@ -68,10 +68,15 @@ def resumo(contas, chamados, agora):
         return v if isinstance(v, dt.datetime) else None
 
     novos = [c for c in donos if (quando(c, 'criado_em') or agora - dt.timedelta(days=99)) > agora - dt.timedelta(days=1)]
-    testes = [c for c in donos if c.get('plano', 'Teste') == 'Teste' and c.get('status') != 'suspensa'
-              and quando(c, 'teste_ate') and quando(c, 'teste_ate') - agora <= dt.timedelta(days=3)]
-    planos = [c for c in donos if c.get('plano') in PAGOS and quando(c, 'plano_ate')
-              and quando(c, 'plano_ate') - agora <= dt.timedelta(days=7)]
+    # Só a janela de interesse (vencidos na última semana até 3 dias à frente),
+    # do que vence antes para o que vence depois: os antigos não tomam a lista.
+    testes = sorted([c for c in donos if c.get('plano', 'Teste') == 'Teste' and c.get('status') != 'suspensa'
+                     and quando(c, 'teste_ate')
+                     and -dt.timedelta(days=7) <= quando(c, 'teste_ate') - agora <= dt.timedelta(days=3)],
+                    key=lambda c: quando(c, 'teste_ate'))
+    planos = sorted([c for c in donos if c.get('plano') in PAGOS and quando(c, 'plano_ate')
+                     and quando(c, 'plano_ate') - agora <= dt.timedelta(days=7)],
+                    key=lambda c: quando(c, 'plano_ate'))
     abertos = [c for c in chamados if c.get('status') != 'fechado']
     return [
         ('Novos cadastros (24 h)', [f"{c.get('email', '')} {c.get('telefone', '')}".strip() for c in novos]),

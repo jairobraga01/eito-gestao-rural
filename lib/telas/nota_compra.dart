@@ -173,8 +173,14 @@ class _NotaCompraPageState extends State<NotaCompraPage> {
                 title: Text(i.descricao),
                 subtitle: Text([
                   '${_q(i.qtd)} ${i.unidadeNota} × ${moeda(i.valorUnit)} = ${moeda(i.total)}',
-                  '${i.categoria} · entra ${_q(i.qtdEstoque)} ${i.unidade}',
-                  if (insumoParecido(i.descricao) == null) 'Insumo novo, será cadastrado' else 'Soma no insumo já cadastrado',
+                  if (i.embalagem <= 0)
+                    'Toque em Corrigir e informe quanto tem cada ${i.unidadeNota.isEmpty ? 'embalagem' : i.unidadeNota}'
+                  else
+                    '${i.categoria} · entra ${_q(i.qtdEstoque)} ${i.unidade}',
+                  switch (insumoParecido(i.descricao, unidade: i.unidade)) {
+                    null => 'Insumo novo, será cadastrado',
+                    final x => 'Soma no insumo "${x['nome']}"',
+                  },
                 ].join('\n')),
                 isThreeLine: true,
                 secondary: IconButton(

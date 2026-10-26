@@ -41,15 +41,18 @@ service cloud.firestore {
         && get(caminhoConvite()).data.dono == u
         && conviteServe(get(caminhoConvite()).data);
     }
+    // Tabelas que cada papel grava. O app espelha estas listas em
+    // tabelasPorPapel (lib/dados/db.dart): mudou aqui, muda lá.
     // Tabelas que o peão grava no campo.
     function peaoGrava(t) {
       return t in ['animais', 'pesagens', 'sanidade', 'reproducoes', 'escores', 'ordenhas', 'pastagens',
-        'ocorrencias', 'contagens', 'chuvas', 'insumos', 'estoque', 'semens', 'fotos', 'tarefas', 'config'];
+        'ocorrencias', 'contagens', 'chuvas', 'insumos', 'estoque', 'semens', 'fotos', 'tarefas', 'config',
+        'protocolos'];
     }
     // Tabelas que o veterinário grava.
     function vetGrava(t) {
       return t in ['animais', 'reproducoes', 'protocolos', 'estacoes', 'semens', 'sanidade', 'escores', 'pesagens',
-        'ocorrencias', 'fotos', 'tarefas', 'config', 'estoque'];
+        'ocorrencias', 'fotos', 'tarefas', 'config', 'estoque', 'pastagens'];
     }
     // Financeiro: o peão e o veterinário não leem.
     function semFinanceiro(t) {
@@ -63,7 +66,7 @@ service cloud.firestore {
     // Tabelas que o zootecnista grava.
     function zootGrava(t) {
       return t in ['pesagens', 'escores', 'insumos', 'precos_insumo', 'batidas', 'estoque', 'formulas', 'dietas', 'fotos', 'tarefas', 'config',
-        'pastagens', 'ocorrencias'];
+        'pastagens', 'ocorrencias', 'animais', 'reproducoes', 'sanidade', 'custos'];
     }
     // Tabelas que o contador grava: só o financeiro.
     function contadorGrava(t) {
@@ -143,7 +146,7 @@ service cloud.firestore {
         && request.resource.data.status == 'ativa'
         && request.resource.data.plano == 'Teste'
         && request.resource.data.teste_ate is timestamp
-        && request.resource.data.teste_ate < request.time + duration.value(16, 'd');
+        && request.resource.data.teste_ate < request.time + duration.value(32, 'd');
       allow update: if admin() || (logado() && request.auth.uid == uid
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades', 'telefone', 'uf', 'uso', 'aparelhos']));

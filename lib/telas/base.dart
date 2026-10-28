@@ -610,22 +610,32 @@ class Pagina extends StatelessWidget {
         titleSpacing: largo ? null : 4,
         title: Text(titulo),
         actions: [
-          ...?acoes,
-          const AlertaCotacaoRespondida(),
-          const SininhoAvisos(),
-          // Voz em qualquer tela: fala o lançamento e o app grava no lugar certo.
-          if (podeLancar)
-            IconButton(
-              tooltip: 'Lançar por voz',
-              icon: const Icon(Icons.mic, color: Cores.laranja),
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LancamentoVozPage())),
+          // No celular, os botões da direita rolam de lado em vez de cobrir o Menu.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: largo ? double.infinity : MediaQuery.sizeOf(context).width - 140),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                ...?acoes,
+                const AlertaCotacaoRespondida(),
+                const SininhoAvisos(),
+                // Voz em qualquer tela: fala o lançamento e o app grava no lugar certo.
+                if (podeLancar)
+                  IconButton(
+                    tooltip: 'Lançar por voz',
+                    icon: const Icon(Icons.mic, color: Cores.laranja),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LancamentoVozPage())),
+                  ),
+                if (podeLancar)
+                  IconButton(
+                    tooltip: 'Modo Curral',
+                    icon: const Icon(Icons.contactless_outlined, color: Cores.laranja),
+                    onPressed: () => abrirModoCurral(context),
+                  ),
+              ]),
             ),
-          if (podeLancar)
-            IconButton(
-              tooltip: 'Modo Curral',
-              icon: const Icon(Icons.contactless_outlined, color: Cores.laranja),
-              onPressed: () => abrirModoCurral(context),
-            ),
+          ),
         ],
       ),
       floatingActionButton: fab,

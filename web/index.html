@@ -28,7 +28,9 @@
   <!-- iPhone: "Adicionar à Tela de Início" abre como app, em tela cheia -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- "default" e não "black-translucent": com a barra translúcida o Flutter, no app
+       instalado, recebe o toque deslocado para baixo (tocar no Menu abria a propriedade). -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Eito">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 

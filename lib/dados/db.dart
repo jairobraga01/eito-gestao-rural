@@ -34,7 +34,7 @@ const tabelasPorPapel = <String, Set<String>>{
   'veterinario': {'animais', 'reproducoes', 'protocolos', 'estacoes', 'semens', 'sanidade', 'escores', 'pesagens',
     'ocorrencias', 'fotos', 'tarefas', 'config', 'estoque', 'pastagens'},
   'zootecnista': {'pesagens', 'escores', 'insumos', 'precos_insumo', 'batidas', 'estoque', 'formulas', 'dietas',
-    'fotos', 'tarefas', 'config', 'pastagens', 'ocorrencias', 'animais', 'reproducoes', 'sanidade', 'custos'},
+    'confinamentos', 'cocho', 'fotos', 'tarefas', 'config', 'pastagens', 'ocorrencias', 'animais', 'reproducoes', 'sanidade', 'custos'},
   'contador': tabelasContador,
 };
 
@@ -250,6 +250,8 @@ class Db {
     'cotacoes',
     'estoque',
     'dietas',
+    'confinamentos',
+    'cocho',
     'tarefas',
     'animais',
     'reproducoes',
@@ -571,7 +573,7 @@ class Db {
         for (final e in _todos('entradas').where((x) => _int(x['propriedade_id']) == id)) {
           m.apagar('entradas', e['id']!);
         }
-        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'precos_insumo', 'batidas', 'formulas', 'dividas', 'estoque', 'dietas', 'pontos', 'contagens', 'contas', 'tarefas', 'contatos']) {
+        for (final t in ['protocolos', 'estacoes', 'custos', 'chuvas', 'insumos', 'precos_insumo', 'batidas', 'formulas', 'dividas', 'estoque', 'dietas', 'confinamentos', 'cocho', 'pontos', 'contagens', 'contas', 'tarefas', 'contatos']) {
           for (final p in _todos(t).where((x) => _int(x['propriedade_id']) == id)) {
             m.apagar(t, p['id']!);
           }
@@ -592,6 +594,18 @@ class Db {
         for (final d in _todos('dietas').where((x) => _int(x['lote_id']) == id)) {
           m.apagar('dietas', d['id']!);
         }
+        for (final c in _todos('confinamentos').where((x) => _int(x['lote_id']) == id)) {
+          m.mesclar('confinamentos', c['id']!, {'lote_id': null});
+        }
+      case 'confinamentos':
+        // O ciclo some com as leituras; os custos do trato ficam (foram gastos de verdade).
+        for (final r in _todos('cocho').where((x) => _int(x['confinamento_id']) == id)) {
+          m.apagar('cocho', r['id']!);
+        }
+      case 'cocho':
+        // Leitura apagada: o custo do trato sai e o estoque volta.
+        final custo = _int(_reg('cocho', id)?['custo_id']);
+        if (custo != null && _reg('custos', custo) != null) _apagarCascata(m, 'custos', custo);
       case 'custos':
         // Batida ou trato apagado: o que saiu do estoque volta.
         for (final e in _todos('estoque').where((x) => '${x['grupo']}' == '$id')) {

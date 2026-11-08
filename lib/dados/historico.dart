@@ -24,6 +24,8 @@ const nomesTabela = {
   'cotacoes': 'Cotação',
   'estoque': 'Estoque',
   'dietas': 'Dieta',
+  'confinamentos': 'Ciclo de confinamento',
+  'cocho': 'Leitura de cocho',
   'tarefas': 'Tarefa',
   'animais': 'Animal',
   'reproducoes': 'Reprodução',

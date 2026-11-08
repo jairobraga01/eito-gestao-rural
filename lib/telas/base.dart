@@ -96,6 +96,7 @@ const itensMenu = <(String, IconData)>[
   ('Cadastro de Insumos', Icons.inventory_2_outlined),
   ('Recuperação de Pastagens', Icons.eco_outlined),
   ('Correção de Pastagens', Icons.landscape_outlined),
+  ('Modo Confinamento', Icons.fence),
 ];
 
 // Índices usados pelos atalhos.
@@ -107,7 +108,7 @@ const secPainel = 0, secPropriedades = 1, secLotes = 2, secRebanho = 3, secRepro
     secAjuda = 29, secPesagem = 30, secNascimentos = 31, secMortes = 32, secOutrasSaidas = 33, secContatos = 34, secGuia = 35, secMedicamentos = 36,
     secCotacaoMedicamentos = 37, secCotacaoInsumos = 38, secFornecedoresMedicamentos = 39,
     secFornecedoresInsumos = 40, secFornecedores = 41, secCompradores = 42, secCadastroMedicamentos = 43,
-    secCadastroInsumos = 44, secRecuperacaoPastagem = 45, secCorrecaoPastagem = 46;
+    secCadastroInsumos = 44, secRecuperacaoPastagem = 45, secCorrecaoPastagem = 46, secConfinamento = 47;
 
 /// Menu lateral agrupado por tópico (índices de [itensMenu]).
 const gruposMenu = <(String, IconData, List<int>)>[
@@ -118,7 +119,7 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Recuperação ou Correção de Pastagens', Icons.eco_outlined, [secRecuperacaoPastagem, secCorrecaoPastagem]),
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
   ('Medicamentos', Icons.medication_outlined, [secMedicamentos, secCotacaoMedicamentos]),
-  ('Nutrição/Insumos', Icons.agriculture_outlined, [secProteinado, secEstoque, secCotacaoInsumos, secDieta]),
+  ('Nutrição/Insumos', Icons.agriculture_outlined, [secConfinamento, secProteinado, secEstoque, secCotacaoInsumos, secDieta]),
   ('Nova Cotação: Insumos/Medicamentos', Icons.request_quote_outlined, [secCotacaoInsumos, secCotacaoMedicamentos]),
   ('Cadastro de Insumos e Medicamentos', Icons.playlist_add_check, [secCadastroInsumos, secCadastroMedicamentos]),
   ('Cadastro de Fornecedores', Icons.local_shipping_outlined,
@@ -142,7 +143,7 @@ const secoesVeterinario = {
 
 /// Seções do zootecnista: rebanho, pesagem, nutrição e estoque.
 const secoesZootecnista = {
-  secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secCadastroInsumos, secDieta, secPiquetes, secPastagem, secTarefas,
+  secPainel, secRebanho, secPesagem, secProteinado, secEstoque, secCadastroInsumos, secDieta, secConfinamento, secPiquetes, secPastagem, secTarefas,
   secClima, secAjuda, secGuia, secRecuperacaoPastagem, secCorrecaoPastagem,
 };
 
@@ -159,7 +160,7 @@ const secoesDono = {secRelatorioFinanceiro};
 /// O que o plano Simples não inclui (financeiro completo, nutrição, mapa e exportações).
 const secoesSoMedia = {
   secRelatorioFinanceiro, secContas, secContatos, secDividas, secPatrimonio, secCotacao, secVender, secExportacoes,
-  secProteinado, secEstoque, secMedicamentos, secDieta, secMapa, secCotacaoMedicamentos, secCotacaoInsumos, secFornecedores,
+  secProteinado, secEstoque, secMedicamentos, secDieta, secConfinamento, secMapa, secCotacaoMedicamentos, secCotacaoInsumos, secFornecedores,
   secFornecedoresMedicamentos, secFornecedoresInsumos, secCompradores, secCadastroMedicamentos, secCadastroInsumos,
 };
 

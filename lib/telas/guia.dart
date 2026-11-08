@@ -76,6 +76,7 @@ const _assuntos = <_Assunto>[
     'Em Gerar batida, escolha a fórmula e quantas batidas: o Eito mostra o custo com os preços de hoje, baixa o estoque e guarda a batida.',
     'Em Histórico de batidas, veja cada batida e como o custo do quilo evoluiu.',
     'Em Dieta do cocho, monte a dieta de cada piquete e lance o trato do dia.',
+    'No Modo Confinamento, crie um ciclo por curral (lote, peso de entrada, dieta e meta). Toda manhã, faça a leitura de cocho (nota de 0 a 4): o app sugere o trato, lança o custo e tira do estoque. A ficha do ciclo mostra GMD, consumo, diária, custo da arroba, saída prevista e margem, com relatório em PDF.',
   ]),
   (Icons.medication_outlined, 'Estoque de Medicamentos', 'Vacinas, remédios e vermífugos.', [
     'Menu › Rebanho › Estoque de Medicamentos › novo medicamento.',

@@ -302,15 +302,28 @@ Future<double?> baterRacao(Reg formula, {required String data, required double k
 
 /// Lança o trato de [dias] dias: custo em Ração e sal e baixa no estoque.
 /// Com ração pronta em estoque, usa ela; senão tira os ingredientes da fórmula.
-Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) async {
+Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) {
   final kg = d.kgDia * dias;
+  return baixarTrato(
+    formula: d.formula,
+    insumo: d.insumo,
+    kg: kg,
+    loteId: d.loteDoCusto,
+    data: data,
+    texto: 'Trato ${d.nome} · ${d.local} · ${_fmt(kg)} kg em $dias dia(s) (${d.cabecas} cab.)',
+  );
+}
+
+/// Trato de [kg] kg da [formula] (ou do [insumo]): lança o custo em Ração e sal
+/// e dá baixa no estoque. Com ração pronta em estoque, usa ela; senão tira os
+/// ingredientes da fórmula. Devolve o id do custo (apagar o custo devolve o estoque).
+Future<int?> baixarTrato({Reg? formula, Reg? insumo, required double kg, int? loteId, required String data, required String texto}) async {
   if (kg <= 0) return null;
-  final texto = 'Trato ${d.nome} · ${d.local} · ${_fmt(kg)} kg em $dias dia(s) (${d.cabecas} cab.)';
-  final pronta = racaoPronta(d.formula?['id']);
+  final pronta = racaoPronta(formula?['id']);
   if (pronta != null && saldo(_int(pronta['id'])!) >= kg) {
     final id = await Db.inserir('custos', {
       'propriedade_id': Db.pid,
-      'lote_id': d.loteDoCusto,
+      'lote_id': loteId,
       'categoria': 'Ração e sal',
       'descricao': texto,
       'valor': double.parse((kg * (precoKgInsumo(pronta) ?? 0)).toStringAsFixed(2)),
@@ -326,16 +339,16 @@ Future<int?> lancarTrato(Dieta d, {required String data, int dias = 1}) async {
     });
     return id;
   }
-  if (d.formula != null) {
-    final c = CalculoFormula(d.formula!);
+  if (formula != null) {
+    final c = CalculoFormula(formula);
     if (c.kgBatida <= 0) return null;
-    return registrarBatida(d.formula!, data: data, batidas: kg / c.kgBatida, loteId: d.loteDoCusto, descricao: texto);
+    return registrarBatida(formula, data: data, batidas: kg / c.kgBatida, loteId: loteId, descricao: texto);
   }
-  final ins = d.insumo;
+  final ins = insumo;
   if (ins == null) return null;
   final id = await Db.inserir('custos', {
     'propriedade_id': Db.pid,
-    'lote_id': d.loteDoCusto,
+    'lote_id': loteId,
     'categoria': 'Ração e sal',
     'descricao': texto,
     'valor': double.parse((kg * (precoKgInsumoNaData(ins, data) ?? 0)).toStringAsFixed(2)),

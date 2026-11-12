@@ -118,7 +118,7 @@ const gruposMenu = <(String, IconData, List<int>)>[
   ('Recuperação ou Correção de Pastagens', Icons.eco_outlined, [secRecuperacaoPastagem, secCorrecaoPastagem]),
   ('Clima', Icons.wb_sunny_outlined, [secChuva, secClima]),
   ('Medicamentos', Icons.medication_outlined, [secMedicamentos, secCotacaoMedicamentos]),
-  ('Nutrição/Insumos', Icons.agriculture_outlined, [secConfinamento, secProteinado, secEstoque, secCotacaoInsumos, secDieta]),
+  ('Nutrição/Insumos', Icons.agriculture_outlined, [secProteinado, secEstoque, secCotacaoInsumos, secDieta]),
   ('Nova Cotação: Insumos/Medicamentos', Icons.request_quote_outlined, [secCotacaoInsumos, secCotacaoMedicamentos]),
   ('Cadastro de Insumos e Medicamentos', Icons.playlist_add_check, [secCadastroInsumos, secCadastroMedicamentos]),
   ('Cadastro de Fornecedores', Icons.local_shipping_outlined,
@@ -303,6 +303,25 @@ class MenuLateral extends StatelessWidget {
                   onTap: () {
                     fechar();
                     abrirModoInseminacao(context);
+                  },
+                ),
+              ),
+            ),
+            // Modo Confinamento: logo abaixo do Modo Inseminação.
+            if (podeVer(secConfinamento)) Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Material(
+                color: Cores.olivaClaro.withValues(alpha: atual == secConfinamento ? 0.22 : 0.12),
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  leading: Icon(itensMenu[secConfinamento].$2, color: Cores.olivaEscuro),
+                  title: const Text('Modo Confinamento',
+                      style: TextStyle(color: Cores.olivaEscuro, fontSize: 16, fontWeight: FontWeight.w800)),
+                  subtitle: const Text('Curral, cocho, trato e resultado', style: TextStyle(color: _MenuCores.suave)),
+                  onTap: () {
+                    fechar();
+                    Nav.ir(secConfinamento);
                   },
                 ),
               ),

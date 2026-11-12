@@ -22,7 +22,6 @@ import 'dispositivos.dart';
 import 'equipe.dart';
 import 'indicacoes.dart';
 import 'criador.dart';
-import 'eito360_api_page.dart';
 import 'entradas.dart' show iconeEntrada, iconeSaida;
 import 'lancamento_voz.dart';
 import 'lancar_documento.dart';
@@ -339,10 +338,6 @@ class MenuLateral extends StatelessWidget {
                 fechar();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const EquipePage()));
               }),
-            item(Icons.cloud_sync_outlined, 'Eito 360 · API nova', () {
-              fechar();
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const Eito360ApiPage()));
-            }),
             FutureBuilder<bool>(
               future: Indicacoes.souAdmin(),
               builder: (c, s) => s.data == true
@@ -803,7 +798,7 @@ class SininhoAvisos extends StatelessWidget {
       );
 }
 
-/// Comunicados do Eito 360 numa faixa no topo (pode fechar).
+/// Comunicados do Eito numa faixa no topo (pode fechar).
 class FaixaComunicados extends StatelessWidget {
   const FaixaComunicados({super.key});
 

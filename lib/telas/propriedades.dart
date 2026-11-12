@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../dados/db.dart';
 import '../util/util.dart';
 import 'base.dart';
-import 'eito360_api_page.dart';
 
 const atividadesPropriedade = ['Cria', 'Recria', 'Engorda', 'Ciclo completo', 'Leite', 'Agricultura'];
 
@@ -14,7 +13,6 @@ class PropriedadesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Pagina(
       titulo: 'Propriedades',
-      acoes: [IconButton(tooltip: 'Abrir propriedades do Eito 360 (PostgreSQL)', icon: const Icon(Icons.cloud_sync_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const Eito360ApiPage())))],
       fab: FloatingActionButton(
         heroTag: null,
         tooltip: 'Adicionar propriedade',

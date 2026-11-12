@@ -231,37 +231,44 @@ class MenuLateral extends StatelessWidget {
         builder: (context, atual, _) => ListView(
           padding: EdgeInsets.zero,
           children: [
-            Container(
-              decoration: const BoxDecoration(
-                color: _MenuCores.topo,
-                border: Border(bottom: BorderSide(color: _MenuCores.linha)),
-              ),
-              padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 20, 20, 18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(children: [
-                    LogoEito(tamanho: 48),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(Marca.nome,
-                          style: TextStyle(color: _MenuCores.titulo, fontSize: 24, fontWeight: FontWeight.w700)),
-                    ),
-                  ]),
-                  const SizedBox(height: 12),
-                  ValueListenableBuilder<Reg?>(
-                    valueListenable: Db.prop,
-                    builder: (c, p, _) => Text(txt(p?['nome']),
-                        style: const TextStyle(color: Cores.oliva, fontSize: 16, fontWeight: FontWeight.w700)),
+            // Topo em degradê verde com a borda de baixo curva (estilo tênue).
+            ClipPath(
+              clipper: const _CurvaTopo(),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_MenuCores.topo, _MenuCores.topo2],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  if (Nav.usuario?.email != null)
-                    Text(Nav.usuario!.email!, style: const TextStyle(color: _MenuCores.suave, fontSize: 13)),
-                  if (Equipe.atual != null)
-                    Text(
-                        '${papeis[Equipe.atual!.papel] ?? ''} · fazenda de '
-                        '${Equipe.atual!.donoNome.isEmpty ? 'outra conta' : Equipe.atual!.donoNome}',
-                        style: const TextStyle(color: _MenuCores.suave, fontSize: 13)),
-                ],
+                ),
+                padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 20, 20, 44),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(children: [
+                      LogoEito(tamanho: 44),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(Marca.nome,
+                            style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700)),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    ValueListenableBuilder<Reg?>(
+                      valueListenable: Db.prop,
+                      builder: (c, p, _) => Text(txt(p?['nome']),
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+                    ),
+                    if (Nav.usuario?.email != null)
+                      Text(Nav.usuario!.email!, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                    if (Equipe.atual != null)
+                      Text(
+                          '${papeis[Equipe.atual!.papel] ?? ''} · fazenda de '
+                          '${Equipe.atual!.donoNome.isEmpty ? 'outra conta' : Equipe.atual!.donoNome}',
+                          style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  ],
+                ),
               ),
             ),
             const _RotuloMenu('Principal'),
@@ -401,18 +408,36 @@ class MenuLateral extends StatelessWidget {
   }
 }
 
-/// Cores do menu lateral: tons claros do verde do tema, texto escuro.
+/// Cores do menu lateral: fundo branco, topo verde em degradê e ícones finos cinza-escuro.
 class _MenuCores {
   _MenuCores._();
-  static const fundo = Color(0xFFDDEBE1);
-  static const topo = Color(0xFFCADFCF);
+  static const fundo = Colors.white;
+  static const topo = Cores.olivaEscuro;
+  static const topo2 = Cores.oliva;
   static const titulo = Cores.olivaEscuro;
-  static const texto = Color(0xFF24382C);
-  static const icone = Color(0xFF3F7A55);
-  static const suave = Color(0xFF4D6055);
-  static const rotulo = Color(0xFF627A6B);
-  static const linha = Color(0xFFBCD3C3);
+  static const texto = Color(0xFF1F2A24);
+  static const icone = Color(0xFF2F3A34);
+  static const suave = Color(0xFF66736B);
+  static const rotulo = Color(0xFF8A968F);
+  static const linha = Color(0xFFE3E8E5);
+  static const seta = Color(0xFFB0B8B3);
   static const sair = Cores.alerta;
+}
+
+/// Borda de baixo do topo do menu: desce da direita para a esquerda, em curva.
+class _CurvaTopo extends CustomClipper<Path> {
+  const _CurvaTopo();
+
+  @override
+  Path getClip(Size s) => Path()
+    ..lineTo(s.width, 0)
+    ..lineTo(s.width, s.height - 44)
+    ..quadraticBezierTo(s.width * 0.45, s.height - 8, s.width * 0.18, s.height - 4)
+    ..quadraticBezierTo(0, s.height, 0, s.height - 30)
+    ..close();
+
+  @override
+  bool shouldReclip(_CurvaTopo oldClipper) => false;
 }
 
 /// Rótulo de seção do menu (como "SGD" no exemplo).
@@ -429,7 +454,7 @@ class _RotuloMenu extends StatelessWidget {
       );
 }
 
-/// Linha do menu: ícone grande e texto branco, bem espaçados.
+/// Linha do menu: ícone fino, texto escuro sem negrito e bem espaçado.
 class _ItemMenu extends StatelessWidget {
   const _ItemMenu({required this.icone, required this.texto, required this.onTap, this.atual = false, this.cor, this.seta});
   final IconData icone;
@@ -444,22 +469,22 @@ class _ItemMenu extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Material(
-        color: atual ? Cores.oliva.withValues(alpha: 0.18) : Colors.transparent,
+        color: atual ? Cores.oliva.withValues(alpha: 0.10) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(children: [
               Icon(icone, size: 26, color: cor ?? (atual ? Cores.oliva : _MenuCores.icone)),
-              const SizedBox(width: 22),
+              const SizedBox(width: 20),
               Expanded(
                 child: Text(texto,
                     style: TextStyle(
-                      fontSize: 16.5,
+                      fontSize: 17,
                       color: cor ?? (atual ? _MenuCores.titulo : _MenuCores.texto),
-                      fontWeight: atual ? FontWeight.w800 : FontWeight.w600,
+                      fontWeight: atual ? FontWeight.w700 : FontWeight.w400,
                     )),
               ),
               if (seta != null) seta!,
@@ -497,7 +522,7 @@ class _GrupoMenuState extends State<_GrupoMenu> {
         seta: AnimatedRotation(
           turns: aberto ? 0.25 : 0,
           duration: const Duration(milliseconds: 180),
-          child: const Icon(Icons.chevron_right, color: _MenuCores.rotulo, size: 24),
+          child: const Icon(Icons.chevron_right, color: _MenuCores.seta, size: 24),
         ),
       ),
       AnimatedSize(
@@ -526,7 +551,7 @@ class PropriedadeBar extends StatelessWidget {
     return ValueListenableBuilder<Reg?>(
       valueListenable: Db.prop,
       builder: (context, p, _) => Material(
-        color: Cores.oliva,
+        color: Cores.olivaEscuro,
         child: InkWell(
           onTap: () => escolherPropriedade(context),
           child: Padding(

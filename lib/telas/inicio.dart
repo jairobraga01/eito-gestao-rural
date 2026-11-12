@@ -107,12 +107,15 @@ class _InicioPageState extends State<InicioPage> {
       fab: const AcoesFab(),
       corpo: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          // Busca no topo verde, que continua no cabeçalho do painel.
+          Container(
+            color: Cores.olivaEscuro,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: TextField(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'BUSCAR ANIMAL',
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Buscar animal',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
               ),
               onChanged: (v) => setState(() => busca = v),
             ),
@@ -188,8 +191,19 @@ class _InicioPageState extends State<InicioPage> {
         ];
         final largo = MediaQuery.sizeOf(context).width >= 700;
         return ListView(
-          padding: const EdgeInsets.only(bottom: 88),
+          padding: EdgeInsets.zero,
           children: [
+            _Cabecalho(p, _ir),
+            // Folha clara com cantos de cima arredondados, por cima do verde.
+            ColoredBox(
+              color: Cores.olivaEscuro,
+              child: Container(
+                padding: const EdgeInsets.only(top: 14, bottom: 88),
+                decoration: const BoxDecoration(
+                  color: Cores.palha,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const _PrevisaoTopo(),
             const _AtalhoArroba(),
             const CartaoCotacoesRespondidas(),
@@ -202,13 +216,14 @@ class _InicioPageState extends State<InicioPage> {
                     'aplicações dos próximos 15 dias, pastos para trocar e animais em carência aparecem aqui.'),
               ),
             ...alertas,
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+            if (podeLancar) const _RotuloSecao('Modos de lançar'),
             if (podeLancar) const _BotaoModoCurral(),
             if (Db.podeGravar('reproducoes') && planoAtual().completo) const _BotaoModoInseminacao(),
             if (podeLancar)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Row(children: [
+              child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Expanded(
                     child: _Modo('Pesagem em série', Icons.monitor_weight_outlined, const Color(0xFF1565C0),
                         () => _abrir(const ManejoEmSerie(modo: ModoSerie.pesagem)))),
@@ -222,12 +237,12 @@ class _InicioPageState extends State<InicioPage> {
                 Expanded(
                     child: _Modo('Lançar por voz', Icons.mic_none, const Color(0xFF6A1B9A),
                         () => _abrir(const LancamentoVozPage()))),
-              ]),
+              ])),
             ),
             if (podeLancar)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Row(children: [
+              child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Expanded(
                     child: _Modo('Lançar do WhatsApp', Icons.chat_outlined, const Color(0xFF2E7D32),
                         () => _abrir(const LancarWhatsAppPage()))),
@@ -235,32 +250,18 @@ class _InicioPageState extends State<InicioPage> {
                 Expanded(
                     child: _Modo('Lançar por foto ou PDF', Icons.document_scanner_outlined, const Color(0xFF5D4037),
                         () => _abrir(const LancarDocumentoPage()))),
-              ]),
+              ])),
             ),
-            SizedBox(
-              height: 128,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                children: [
-                  _Indicador('${p.lotes}', 'Lotes', Icons.workspaces_outline, _ir(secLotes)),
-                  _Indicador('${p.ativos}', 'Animais', Icons.pets, _ir(secRebanho)),
-                  _Indicador('${p.femeas} / ${p.machos}', 'Fêmeas / machos', Icons.wc, _ir(secRebanho)),
-                  _Indicador('${p.prenhes}', 'Prenhes', Icons.favorite, _ir(secReproducao)),
-                  _Indicador('${p.carencia.length}', 'Em carência', Icons.block, _ir(secRelatorios)),
-                  _Indicador('${p.avisosEstoque}', 'Avisos de estoque', Icons.inventory_2_outlined, _ir(secEstoque)),
-                ],
-              ),
-            ),
+            const _RotuloSecao('Acesso rápido'),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: GridView.count(
                 crossAxisCount: largo ? 4 : 3,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: largo ? 2.0 : 1.05,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: largo ? 2.0 : 0.95,
                 children: [
                   for (final (texto, icone, cor, secao, ir) in <(String, IconData, Color, int, VoidCallback)>[
                     ('Animais', Icons.pets, const Color(0xFF2E7D32), secRebanho, () => Nav.ir(secRebanho)),
@@ -291,6 +292,9 @@ class _InicioPageState extends State<InicioPage> {
                 ],
               ),
             ),
+                ]),
+              ),
+            ),
           ],
         );
       },
@@ -298,54 +302,146 @@ class _InicioPageState extends State<InicioPage> {
   }
 }
 
+/// Cabeçalho verde do painel: total de cabeças e seis indicadores em vidro fosco.
+class _Cabecalho extends StatelessWidget {
+  const _Cabecalho(this.p, this.ir);
+  final _Painel p;
+  final VoidCallback? Function(int secao) ir;
+
+  @override
+  Widget build(BuildContext context) {
+    final itens = <(String, String, Color, int)>[
+      ('${p.lotes}', 'Lotes ativos', Cores.laranja, secLotes),
+      ('${p.femeas} / ${p.machos}', 'Fêmeas / machos', const Color(0xFF8FD3FF), secRebanho),
+      ('${p.prenhes}', 'Prenhes', const Color(0xFFFF9FB2), secReproducao),
+      ('${p.partos.length}', 'Partos em 30 dias', const Color(0xFF8FD3FF), secReproducao),
+      ('${p.carencia.length}', 'Em carência', const Color(0xFFFFB38A), secRelatorios),
+      ('${p.avisosEstoque}', 'Avisos de estoque', Cores.laranja, secEstoque),
+    ];
+    return Container(
+      color: Cores.olivaEscuro,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 22),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          onTap: ir(secRebanho),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+            Text('${p.ativos}',
+                style: const TextStyle(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w800, height: 1)),
+            const SizedBox(width: 10),
+            Text(p.ativos == 1 ? 'cabeça' : 'cabeças',
+                style: const TextStyle(color: Colors.white70, fontSize: 20, fontWeight: FontWeight.w500)),
+          ]),
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(builder: (context, c) {
+          final colunas = c.maxWidth >= 700 ? 6 : 3;
+          final largura = (c.maxWidth - 10 * (colunas - 1)) / colunas;
+          return Wrap(spacing: 10, runSpacing: 10, children: [
+            for (final (valor, rotulo, cor, secao) in itens)
+              SizedBox(width: largura, child: _Indicador(valor, rotulo, cor, ir(secao))),
+          ]);
+        }),
+      ]),
+    );
+  }
+}
+
+/// Indicador do cabeçalho: fundo branco translúcido e filete colorido à esquerda.
 class _Indicador extends StatelessWidget {
-  const _Indicador(this.valor, this.rotulo, this.icone, this.onTap);
+  const _Indicador(this.valor, this.rotulo, this.cor, this.onTap);
   final String valor, rotulo;
-  final IconData icone;
+  final Color cor;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Material(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(6),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(6),
-          onTap: onTap,
-          child: Container(
-            width: 132,
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icone, color: cs.primary),
-                const Spacer(),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(valor,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.bold, color: cs.onSurfaceVariant)),
-                ),
-                Text(rotulo.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: cs.outline, letterSpacing: 0.3)),
-              ],
+    return Material(
+      color: Colors.white.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(border: Border(left: BorderSide(color: cor, width: 3))),
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(valor,
+                  style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800, height: 1.1)),
             ),
-          ),
+            const SizedBox(height: 2),
+            Text(rotulo,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white70, fontSize: 12.5, fontWeight: FontWeight.w500)),
+          ]),
         ),
       ),
     );
   }
 }
 
-/// Atalho colorido da tela inicial (fundo na cor do assunto, ícone e texto brancos).
+/// Rótulo de seção do painel, em letras pequenas e espaçadas.
+class _RotuloSecao extends StatelessWidget {
+  const _RotuloSecao(this.texto);
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+        child: Text(texto.toUpperCase(),
+            style: const TextStyle(
+                color: Color(0xFF55645B), fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1.4)),
+      );
+}
+
+/// Cartão branco e suave, com sombra leve (base dos atalhos do painel).
+class _CartaoSuave extends StatelessWidget {
+  const _CartaoSuave({required this.onTap, required this.child, this.padding = const EdgeInsets.all(10)});
+  final VoidCallback? onTap;
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [BoxShadow(color: Color(0x0F0B1F14), blurRadius: 12, offset: Offset(0, 3))],
+        ),
+        child: Material(
+          color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: Color(0xFFE6ECE8)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+        ),
+      );
+}
+
+/// Quadradinho claro com o ícone na cor do assunto.
+class _IconeSuave extends StatelessWidget {
+  const _IconeSuave(this.icone, this.cor, {this.tamanho = 56});
+  final IconData icone;
+  final Color cor;
+  final double tamanho;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: tamanho,
+        height: tamanho,
+        decoration: BoxDecoration(color: cor.withValues(alpha: 0.09), borderRadius: BorderRadius.circular(16)),
+        child: Icon(icone, color: cor, size: tamanho * 0.5),
+      );
+}
+
+/// Atalho da tela inicial: cartão branco, ícone colorido num quadrado claro e texto escuro.
 class _Botao extends StatelessWidget {
   const _Botao(this.texto, this.icone, this.cor, this.onTap);
   final String texto;
@@ -355,35 +451,26 @@ class _Botao extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: cor,
-      elevation: 2,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icone, size: 36, color: Colors.white),
-              const SizedBox(height: 6),
-              Text(texto.toUpperCase(),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 0.3)),
-            ],
-          ),
-        ),
+    return _CartaoSuave(
+      onTap: onTap,
+      padding: const EdgeInsets.all(6),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _IconeSuave(icone, cor),
+          const SizedBox(height: 10),
+          Text(texto,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: Color(0xFF2A3530))),
+        ],
       ),
     );
   }
 }
 
-/// Modo de trabalho em série (botão médio, abaixo do Modo Curral e do Modo Inseminação).
+/// Modo de trabalho em série (cartão médio, abaixo do Modo Curral e do Modo Inseminação).
 class _Modo extends StatelessWidget {
   const _Modo(this.texto, this.icone, this.cor, this.onTap);
   final String texto;
@@ -393,24 +480,17 @@ class _Modo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: cor,
-      borderRadius: BorderRadius.circular(14),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
-          child: Column(children: [
-            Icon(icone, size: 32, color: Cores.laranja),
-            const SizedBox(height: 4),
-            Text(texto.toUpperCase(),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
-          ]),
-        ),
-      ),
+    return _CartaoSuave(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        _IconeSuave(icone, cor, tamanho: 44),
+        const SizedBox(height: 6),
+        Text(texto,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: const TextStyle(color: Color(0xFF2A3530), fontSize: 13, fontWeight: FontWeight.w600)),
+      ]),
     );
   }
 }
@@ -446,20 +526,16 @@ class _PrevisaoTopoState extends State<_PrevisaoTopo> {
     final f = _f;
     Widget cartao(Widget filho) => Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-          child: Material(
-            color: Cores.azul,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () => Nav.ir(secClima),
-              child: Padding(padding: const EdgeInsets.all(14), child: filho),
-            ),
+          child: _CartaoSuave(
+            onTap: () => Nav.ir(secClima),
+            padding: const EdgeInsets.all(14),
+            child: filho,
           ),
         );
-    const branco = TextStyle(color: Colors.white);
+    const branco = TextStyle(color: Cores.tinta);
     if (f == null) {
       return cartao(const Row(children: [
-        Icon(Icons.location_off_outlined, color: Cores.laranja),
+        Icon(Icons.location_off_outlined, color: Cores.azul),
         SizedBox(width: 12),
         Expanded(child: Text('Previsão do tempo: toque para marcar a localização da fazenda.', style: branco)),
       ]));
@@ -469,11 +545,11 @@ class _PrevisaoTopoState extends State<_PrevisaoTopo> {
       builder: (context, s) {
         if (s.connectionState != ConnectionState.done) {
           return cartao(const SizedBox(
-              height: 48, child: Center(child: CircularProgressIndicator(color: Colors.white))));
+              height: 48, child: Center(child: CircularProgressIndicator())));
         }
         if (s.hasError || s.data == null) {
           return cartao(const Row(children: [
-            Icon(Icons.cloud_off_outlined, color: Cores.laranja),
+            Icon(Icons.cloud_off_outlined, color: Cores.azul),
             SizedBox(width: 12),
             Expanded(child: Text('Sem previsão agora. Confira a internet.', style: branco)),
           ]));
@@ -481,14 +557,14 @@ class _PrevisaoTopoState extends State<_PrevisaoTopo> {
         final c = s.data!;
         return cartao(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Icon(iconeTempo(c.codigo), size: 40, color: Cores.laranja),
+            Icon(iconeTempo(c.codigo), size: 40, color: const Color(0xFFF2A900)),
             const SizedBox(width: 12),
             Text(c.temperatura == null ? '—' : '${c.temperatura!.round()}°C',
-                style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: Cores.azul, fontSize: 28, fontWeight: FontWeight.w800)),
             const SizedBox(width: 12),
             Expanded(
               child: Text('${descricaoTempo(c.codigo)}\nChuva em 7 dias: ${num1(c.chuva7Dias)} mm',
-                  style: const TextStyle(color: Colors.white, fontSize: 14)),
+                  style: const TextStyle(color: Color(0xFF4D5A53), fontSize: 14)),
             ),
           ]),
           const SizedBox(height: 10),
@@ -496,10 +572,10 @@ class _PrevisaoTopoState extends State<_PrevisaoTopo> {
             for (final (i, d) in c.dias.take(7).indexed)
               Expanded(
                 child: Column(children: [
-                  Text(_dia(d.data, i), style: const TextStyle(color: Colors.white70, fontSize: 12)),
-                  Icon(iconeTempo(d.codigo), size: 20, color: Colors.white),
-                  Text('${d.max?.round() ?? '—'}°', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                  Text('${num1(d.chuvaMm ?? 0)}mm', style: const TextStyle(color: Cores.laranja, fontSize: 11)),
+                  Text(_dia(d.data, i), style: const TextStyle(color: Color(0xFF7A867F), fontSize: 12)),
+                  Icon(iconeTempo(d.codigo), size: 20, color: Cores.azul),
+                  Text('${d.max?.round() ?? '—'}°', style: const TextStyle(color: Cores.tinta, fontSize: 12)),
+                  Text('${num1(d.chuvaMm ?? 0)}mm', style: const TextStyle(color: Color(0xFF1565C0), fontSize: 11)),
                 ]),
               ),
           ]),
@@ -516,45 +592,24 @@ class _AtalhoArroba extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-        child: Material(
-          elevation: 3,
-          shadowColor: const Color(0xFF1B5E20),
-          borderRadius: BorderRadius.circular(16),
-          clipBehavior: Clip.antiAlias,
-          child: Ink(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF1B5E20), Color(0xFF43A047)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
+        child: _CartaoSuave(
+          onTap: () => mostrarCotacaoArroba(context),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: const Row(children: [
+            _IconeSuave(Icons.trending_up, Cores.sucesso, tamanho: 46),
+            SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Cotação da arroba',
+                    style: TextStyle(fontSize: 17, color: Cores.tinta, fontWeight: FontWeight.w700)),
+                SizedBox(height: 2),
+                Text('Boi gordo na B3 e nos sites de cotação',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF66736B))),
+              ]),
             ),
-            child: InkWell(
-              onTap: () => mostrarCotacaoArroba(context),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                    child: const Icon(Icons.trending_up, color: Color(0xFF2E7D32), size: 28),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Cotação da arroba',
-                          style: TextStyle(fontSize: 19, color: Colors.white, fontWeight: FontWeight.w800)),
-                      SizedBox(height: 2),
-                      Text('Boi gordo na B3 e nos sites de cotação',
-                          style: TextStyle(fontSize: 13, color: Color(0xFFE8F5E9))),
-                    ]),
-                  ),
-                  const Icon(Icons.chevron_right, color: Colors.white, size: 30),
-                ]),
-              ),
-            ),
-          ),
+            Icon(Icons.chevron_right, color: Color(0xFFB0B8B3), size: 28),
+          ]),
         ),
       );
 }

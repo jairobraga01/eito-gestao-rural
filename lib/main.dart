@@ -22,6 +22,7 @@ import 'telas/chuva.dart';
 import 'telas/custos.dart';
 import 'telas/cotacao_arroba.dart';
 import 'telas/dividas.dart';
+import 'telas/confinamento.dart';
 import 'telas/dieta.dart';
 import 'telas/entradas.dart';
 import 'telas/equipe.dart';
@@ -273,6 +274,7 @@ class _InicioState extends State<Inicio> {
         secCadastroMedicamentos => const CadastroProdutosPage(medicamentos: true),
         secCadastroInsumos => const CadastroProdutosPage(),
         secDieta => const DietaPage(),
+        secConfinamento => const ConfinamentoPage(),
         secCotacao => const CotacaoArrobaPage(),
         secVender => const VenderEsperarPage(),
         secChuva => const ChuvaPage(),

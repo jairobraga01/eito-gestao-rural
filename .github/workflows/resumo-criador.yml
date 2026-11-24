@@ -4,7 +4,7 @@ name: Resumo diário do criador
 
 on:
   schedule:
-    - cron: '0 10 * * *' # 7h em Brasília
+    - cron: '5 10 * * *' # 7h05 em Brasília
   workflow_dispatch:
 
 concurrency:

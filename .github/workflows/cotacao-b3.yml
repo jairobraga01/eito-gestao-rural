@@ -4,8 +4,8 @@ name: Cotação do boi na B3
 
 on:
   schedule:
-    - cron: '30 21 * * 1-5' # 18h30 em Brasília
-    - cron: '0 12 * * 1-5' # 9h em Brasília (pega o ajuste da véspera)
+    - cron: '35 21 * * 1-5' # 18h35 em Brasília
+    - cron: '5 12 * * 1-5' # 9h05 em Brasília (pega o ajuste da véspera)
   workflow_dispatch:
   push:
     branches: ['claude/**']

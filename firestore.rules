@@ -155,7 +155,11 @@ service cloud.firestore {
         // No teste, o dono escolhe a versão do app (simples ou completa).
         || (resource.data.plano == 'Teste'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['versao'])
-          && request.resource.data.versao in ['simples', 'completa'])));
+          && request.resource.data.versao in ['simples', 'completa'])
+        // O dono muda de plano sozinho (por enquanto sem cobrança); cortesia só o criador muda.
+        || (resource.data.get('plano', 'Teste') != 'Cortesia'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plano', 'plano_mudado_em'])
+          && request.resource.data.plano in ['Simples', 'Simples PRO', 'Média', 'Plus'])));
       allow delete: if admin();
     }
 

@@ -628,27 +628,101 @@ class MeuPlanoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('Meu plano')),
-        body: ListView(padding: const EdgeInsets.only(top: 12), children: [
-          const _CartaoPlano([]),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: FilledButton.icon(
-              icon: const Icon(Icons.support_agent),
-              label: const Text('Quero mudar de plano'),
-              onPressed: () {
-                Navigator.pop(context);
-                Nav.ir(secAjuda);
-              },
-            ),
-          ),
+        body: ListView(padding: const EdgeInsets.only(top: 12), children: const [
+          _CartaoPlano([], comTabela: false),
+          _MudarPlano(),
         ]),
       );
 }
 
+/// Os quatro planos para o dono escolher (por enquanto sem cobrança).
+class _MudarPlano extends StatelessWidget {
+  const _MudarPlano();
+
+  Future<void> _escolher(BuildContext context, PlanoEito q) async {
+    final uid = Plataforma.conta.value?['uid'] as String?;
+    if (uid == null) return avisar(context, 'Conta ainda não carregada. Tente de novo em instantes.');
+    final ativos = animaisAtivos();
+    final m = q.maxAnimais;
+    final ok = await confirmar(
+      context,
+      'Mudar para o ${q.titulo}?',
+      '${q.resumoLimite[0].toUpperCase()}${q.resumoLimite.substring(1)}, ${q.versao}, equipe: ${q.resumoEquipe}. '
+          'R\$ ${q.mes}/mês ou R\$ ${q.ano}/ano (sem cobrança por enquanto).'
+          '${m != null && ativos > m ? '\n\nAtenção: a fazenda tem $ativos animais, acima do limite de $m. '
+              'Depois de $diasDeTolerancia dias, novos cadastros ficam travados.' : ''}'
+          '${Plataforma.conta.value?['plano'] == 'Teste' ? '\n\nO teste grátis termina agora e a fazenda passa para este plano.' : ''}'
+          '\n\nSeus animais e lançamentos continuam iguais.',
+      ok: 'Mudar',
+    );
+    if (!ok || !context.mounted) return;
+    try {
+      await Plataforma.mudarPlano(uid, q.nome);
+      if (context.mounted) avisar(context, 'Pronto: agora a fazenda está no ${q.titulo}.');
+    } catch (e) {
+      if (context.mounted) avisar(context, 'Não deu para mudar agora (sem internet?). Tente de novo.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<Map<String, dynamic>?>(
+      valueListenable: Plataforma.conta,
+      builder: (context, conta, _) {
+        if (!Db.ehDono || conta == null) return const SizedBox.shrink();
+        if (conta['plano'] == 'Cortesia') {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('Sua conta é cortesia, com tudo liberado. Para mudar, fale com o suporte.'),
+          );
+        }
+        final atual = planoEfetivo(conta, DateTime.now());
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Mudar de plano', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            const Text('Por enquanto a mudança é livre, sem cobrança. Toque no plano que quer usar.'),
+            const SizedBox(height: 12),
+            for (final q in PlanoEito.todos)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Material(
+                  color: q.nome == atual ? const Color(0xFFEAF2E6) : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(
+                        color: q.nome == atual ? Cores.oliva : const Color(0xFFDDE3DF), width: q.nome == atual ? 2.5 : 1),
+                  ),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    leading: Icon(q.nome == atual ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: Cores.oliva),
+                    title: Text(q.titulo, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                    subtitle: Text('${q.resumoLimite} · ${q.versao}\nR\$ ${q.mes}/mês ou R\$ ${q.ano}/ano'),
+                    isThreeLine: true,
+                    trailing: q.nome == atual
+                        ? const Text('Atual', style: TextStyle(color: Cores.oliva, fontWeight: FontWeight.w800))
+                        : null,
+                    onTap: q.nome == atual ? null : () => _escolher(context, q),
+                  ),
+                ),
+              ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
 /// Plano da fazenda: preço, animais e pessoas usados em relação ao limite.
 class _CartaoPlano extends StatelessWidget {
-  const _CartaoPlano(this.equipe);
+  const _CartaoPlano(this.equipe, {this.comTabela = true});
   final List<Membro> equipe;
+
+  /// Mostra a tabela dos planos à venda (em Meu plano, a escolha logo abaixo já mostra).
+  final bool comTabela;
 
   static String _limite(int? v) => v == null || v >= 99 ? 'sem limite' : '$v';
 
@@ -697,7 +771,7 @@ class _CartaoPlano extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 12),
-              Text('Animais: $animais de ${_limite(m)}'),
+              Text('Animais: $animais de ${m ?? 'sem limite'}'),
               if (m != null) ...[
                 const SizedBox(height: 4),
                 LinearProgressIndicator(value: (animais / m).clamp(0, 1).toDouble()),
@@ -706,6 +780,7 @@ class _CartaoPlano extends StatelessWidget {
               Text(p.maxPorPapel.isEmpty ? 'Equipe: só o dono' : 'Pessoas (além do dono)'),
               for (final e in p.maxPorPapel.entries)
                 Text('${papeis[e.key] ?? e.key}: ${usados[e.key] ?? 0} de ${_limite(e.value)}'),
+              if (comTabela) ...[
               const Divider(height: 24),
               const Text('Planos à venda'),
               for (final q in PlanoEito.todos)
@@ -717,6 +792,7 @@ class _CartaoPlano extends StatelessWidget {
               const SizedBox(height: 8),
               const Text('Ao mudar de plano, seus animais e lançamentos continuam iguais.',
                   style: TextStyle(fontStyle: FontStyle.italic)),
+              ],
             ]),
           ),
         );

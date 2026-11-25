@@ -4,6 +4,10 @@
 // contas/{uid}). Quem está na equipe segue o plano do dono. Conta em Teste ou
 // Cortesia usa tudo, sem limite; os nomes antigos (Essencial, Profissional e
 // Completa) valem como Simples, Média e Plus.
+//
+// Versão simples x completa: o Fazenda Simples abre o app enxuto (menu curto e
+// painel com poucos atalhos); os outros planos abrem a versão completa. Os dados
+// são os mesmos nas duas, então subir de plano não perde nada.
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 
 import 'db.dart';
@@ -19,26 +23,33 @@ class PlanoEito {
   /// Pessoas por papel além do dono; papel ausente = não pode usar.
   final Map<String, int> maxPorPapel;
 
-  /// Acesso integral (false no plano Simples, que fica com o básico).
+  /// Versão completa do app (false no Fazenda Simples, que usa a versão simples).
   final bool completo;
+
+  /// Nome de vitrine: "Fazenda Simples", "Fazenda Simples PRO"...
+  String get titulo => 'Fazenda $nome';
+
+  String get versao => completo ? 'versão completa' : 'versão simples';
 
   /// Preços de tabela, em reais (texto, como aparecem na tela).
   final String mes, ano;
 
-  static const simples = PlanoEito._('Simples', 200, {'gerente': 1, 'peao': 1}, completo: false, mes: '9,90', ano: '99,90');
-  static const media = PlanoEito._('Média', 500, {'gerente': 1, 'veterinario': 1, 'peao': 2}, mes: '29,90', ano: '299,90');
+  static const simples = PlanoEito._('Simples', 100, {}, completo: false, mes: '9,90', ano: '99,90');
+  static const simplesPro = PlanoEito._('Simples PRO', 100, {'gerente': 1, 'peao': 1}, mes: '19,90', ano: '199,90');
+  static const media = PlanoEito._('Média', 300, {'gerente': 1, 'veterinario': 1, 'peao': 2}, mes: '29,90', ano: '299,90');
   static const plus = PlanoEito._('Plus', null, {'gerente': 1, 'veterinario': 1, 'zootecnista': 1, 'contador': 1, 'peao': 10}, mes: '59,90', ano: '599,90');
 
   /// Teste e Cortesia: tudo liberado, sem limite de animais nem de pessoas.
   static const livre = PlanoEito._('Livre', null, {'gerente': 99, 'veterinario': 99, 'zootecnista': 99, 'contador': 99, 'peao': 99});
 
   /// Planos à venda, do menor para o maior.
-  static const todos = [simples, media, plus];
+  static const todos = [simples, simplesPro, media, plus];
 
   /// Teste, Cortesia e conta ainda não lida (null): livre. Nome desconhecido
   /// (erro de digitação no painel) vale como Simples, para não liberar tudo.
   static PlanoEito de(Object? nome) => switch (nome) {
         'Simples' || 'Essencial' => simples,
+        'Simples PRO' => simplesPro,
         'Média' || 'Profissional' => media,
         'Plus' || 'Completa' => plus,
         null || 'Teste' || 'Cortesia' || 'Livre' || '' => livre,
@@ -51,7 +62,20 @@ class PlanoEito {
   /// Dá para convidar mais uma pessoa com [papel], dado quem já está na equipe?
   bool cabe(String papel, Map<String, int> naEquipe) => (naEquipe[papel] ?? 0) < (maxPorPapel[papel] ?? 0);
 
-  String get resumoLimite => maxAnimais == null ? 'sem limite de animais' : 'até $maxAnimais animais';
+  String get resumoLimite => maxAnimais == null ? 'acima de 300 animais, sem limite' : 'até $maxAnimais animais';
+
+  /// Equipe além do dono, em texto ("1 gerente, 1 peão" ou "só o dono").
+  String get resumoEquipe => maxPorPapel.isEmpty
+      ? 'só o dono'
+      : maxPorPapel.entries.map((e) => '${e.value} ${e.value > 1 ? _plural[e.key] : _papel[e.key]}').join(', ');
+
+  static const _plural = {
+    'gerente': 'gerentes', 'veterinario': 'veterinários', 'zootecnista': 'zootecnistas', 'contador': 'contadores', 'peao': 'peões',
+  };
+
+  static const _papel = {
+    'gerente': 'gerente', 'veterinario': 'veterinário', 'zootecnista': 'zootecnista', 'contador': 'contador', 'peao': 'peão',
+  };
 
   /// Situação do rebanho: 'ok', 'perto' (a partir de 90%), 'acima'.
   String situacao(int ativos) {

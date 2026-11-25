@@ -194,7 +194,7 @@ class _VisaoGeral extends StatelessWidget {
     final pagas = donos.where((c) => planosPagos.contains(c.data()['plano']) && c.data()['status'] != 'suspensa');
     final receita = pagas.fold<double>(0, (s, c) => s + precoMensal(c.data()['plano']));
     final porPlano = <String, int>{
-      for (final p in ['Simples', 'Média', 'Plus', 'Cortesia'])
+      for (final p in ['Simples', 'Simples PRO', 'Média', 'Plus', 'Cortesia'])
         p: donos.where((c) => nomePlano(c.data()['plano']) == p).length,
     };
     final vencendo = donos.where((c) {
@@ -700,7 +700,7 @@ class _FichaClienteState extends State<_FichaCliente> {
           title: const Text('Registrar pagamento'),
           content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              escolha('Plano', plano, const ['Simples', 'Média', 'Plus'], (v) => set(() {
+              escolha('Plano', plano, const ['Simples', 'Simples PRO', 'Média', 'Plus'], (v) => set(() {
                     plano = v ?? plano;
                     sugerir();
                   })),
@@ -1030,7 +1030,7 @@ class _GuiaUsuarios extends StatelessWidget {
         const Secao('Ativar (liberar o uso)'),
         passo('1', 'A conta nasce sozinha quando a pessoa se cadastra no app, já em teste de 30 dias.'),
         passo('2', 'Em Clientes, abra a ficha. Para dar mais tempo, use "Estender o teste".'),
-        passo('3', 'Para liberar de vez, use "Conceder plano" e escolha Simples, Média, Plus ou Cortesia, com ou sem data de fim.'),
+        passo('3', 'Para liberar de vez, use "Conceder plano" e escolha Simples, Simples PRO, Média, Plus ou Cortesia, com ou sem data de fim.'),
         passo('4', 'Se a conta estava suspensa, toque em "Reativar a conta". Vale na hora, no próximo acesso.'),
         const Secao('Desativar (suspender)'),
         passo('1', 'Abra a ficha e toque em "Suspender a conta". A pessoa não abre mais os dados; nada é apagado.'),
@@ -1193,6 +1193,7 @@ class _Comunicados extends StatelessWidget {
     'teste': 'Só quem está em teste',
     'pagantes': 'Só pagantes',
     'Simples': 'Só plano Simples',
+    'Simples PRO': 'Só plano Simples PRO',
     'Média': 'Só plano Média',
     'Plus': 'Só plano Plus',
     'uf': 'Só de um estado',

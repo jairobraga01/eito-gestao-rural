@@ -22,8 +22,8 @@ import 'planos.dart';
 // administrador dos códigos de indicação, ver Indicacoes.souAdmin).
 
 /// Planos que o criador pode dar a uma conta. Essencial, Profissional e Completa são os nomes antigos de Simples, Média e Plus.
-const planos = ['Teste', 'Simples', 'Média', 'Plus', 'Cortesia'];
-const planosPagos = ['Simples', 'Média', 'Plus', 'Essencial', 'Profissional', 'Completa'];
+const planos = ['Teste', 'Simples', 'Simples PRO', 'Média', 'Plus', 'Cortesia'];
+const planosPagos = ['Simples', 'Simples PRO', 'Média', 'Plus', 'Essencial', 'Profissional', 'Completa'];
 const categoriasChamado = ['Dúvida', 'Problema no app', 'Sugestão', 'Financeiro / plano', 'Outro'];
 
 /// Preço mensal de tabela do plano (0 para Teste e Cortesia).
@@ -214,7 +214,7 @@ class Plataforma {
     return switch ('${a['publico'] ?? 'todos'}') {
       'teste' => plano == 'Teste',
       'pagantes' => plano != 'Teste' && plano != 'Cortesia',
-      'Simples' || 'Média' || 'Plus' => nomePlano(plano) == a['publico'],
+      'Simples' || 'Simples PRO' || 'Média' || 'Plus' => nomePlano(plano) == a['publico'],
       'uf' => '${a['uf'] ?? ''}'.toUpperCase() == (ufDaConta(conta.value ?? const {}) ?? ''),
       _ => true,
     };
@@ -302,7 +302,7 @@ String textoCobrancaTeste(String nome, DateTime? ate) {
       : ate.isBefore(DateTime.now())
           ? 'Seu teste do Eito Gestão terminou em ${_ddmm(ate)}'
           : 'Seu teste do Eito Gestão termina em ${_ddmm(ate)}';
-  final tabela = PlanoEito.todos.map((p) => '• ${p.nome}: R\$ ${p.mes}/mês ou R\$ ${p.ano}/ano (${p.resumoLimite})').join('\n');
+  final tabela = PlanoEito.todos.map((p) => '• ${p.titulo}: R\$ ${p.mes}/mês ou R\$ ${p.ano}/ano (${p.resumoLimite}, ${p.versao})').join('\n');
   return 'Olá${_primeiroNome(nome)}! $quando. 🐂\n\n'
       'Para continuar com o rebanho no app, é só escolher um plano:\n$tabela\n\n'
       'Qualquer dúvida, responda aqui que a gente ajuda.';

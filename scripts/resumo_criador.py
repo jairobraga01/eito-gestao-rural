@@ -18,7 +18,7 @@ import sys
 PROJETO = 'caderneta-rebanho'
 PARA = 'eitogestaorural@gmail.com'
 BASE = f'https://firestore.googleapis.com/v1/projects/{PROJETO}/databases/(default)/documents'
-PAGOS = {'Simples', 'Média', 'Plus', 'Essencial', 'Profissional', 'Completa'}
+PAGOS = {'Simples', 'Simples PRO', 'Média', 'Plus', 'Essencial', 'Profissional', 'Completa'}
 
 
 def ler_valor(v):

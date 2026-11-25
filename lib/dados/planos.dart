@@ -42,6 +42,9 @@ class PlanoEito {
   /// Teste e Cortesia: tudo liberado, sem limite de animais nem de pessoas.
   static const livre = PlanoEito._('Livre', null, {'gerente': 99, 'veterinario': 99, 'zootecnista': 99, 'contador': 99, 'peao': 99});
 
+  /// Teste na versão simples (o jeito do Fazenda Simples, sem limite de animais durante o teste).
+  static const testeSimples = PlanoEito._('Teste', null, {}, completo: false);
+
   /// Planos à venda, do menor para o maior.
   static const todos = [simples, simplesPro, media, plus];
 
@@ -50,6 +53,7 @@ class PlanoEito {
   static PlanoEito de(Object? nome) => switch (nome) {
         'Simples' || 'Essencial' => simples,
         'Simples PRO' => simplesPro,
+        testeVersaoSimples => testeSimples,
         'Média' || 'Profissional' => media,
         'Plus' || 'Completa' => plus,
         null || 'Teste' || 'Cortesia' || 'Livre' || '' => livre,
@@ -86,6 +90,9 @@ class PlanoEito {
   }
 }
 
+/// Nome interno do Teste na versão simples (a conta guarda plano Teste e versao simples).
+const testeVersaoSimples = 'Teste simples';
+
 /// Plano da fazenda em uso (do dono). Começa livre até a conta ser lida.
 PlanoEito planoAtual() => PlanoEito.de(Db.planoDaFazenda.value);
 
@@ -93,13 +100,19 @@ PlanoEito planoAtual() => PlanoEito.de(Db.planoDaFazenda.value);
 const diasDeTeste = 30;
 
 /// Plano que vale para a conta: o Teste vencido (30 dias depois do cadastro
-/// ou a data do painel, a mais tarde) passa a valer como Simples.
+/// ou a data do painel, a mais tarde) passa a valer como Simples. No teste, a
+/// conta escolhe a versão (campo versao): 'simples' usa o app enxuto; sem o
+/// campo (contas antigas) ou 'completa', o app inteiro.
 String? planoEfetivo(Map<String, dynamic>? conta, DateTime agora) {
   final plano = conta?['plano'] as String?;
   if (plano != 'Teste') return plano;
   if (testeVencido(conta!, agora)) return PlanoEito.simples.nome;
-  return plano;
+  return conta['versao'] == 'simples' ? testeVersaoSimples : plano;
 }
+
+/// A conta está no teste grátis (ainda valendo)?
+bool emTeste(Map<String, dynamic>? conta, DateTime agora) =>
+    conta?['plano'] == 'Teste' && !testeVencido(conta!, agora);
 
 /// O teste grátis da conta já acabou?
 bool testeVencido(Map<String, dynamic> conta, DateTime agora) {

@@ -6,7 +6,7 @@ import '../dados/db.dart';
 import '../dados/estoque.dart' show alertasEstoque;
 import '../dados/mapa.dart' show Rodizio, SituacaoPasto, rodizio;
 import '../dados/planos.dart';
-import '../dados/plataforma.dart' show Plataforma;
+import '../dados/plataforma.dart' show Plataforma, dataDe;
 import '../tema.dart';
 import '../util/util.dart';
 import 'animais.dart';
@@ -76,6 +76,8 @@ class _InicioPageState extends State<InicioPage> {
       if (Plataforma.contaNova.value) {
         Plataforma.contaNova.value = false;
         await _boasVindas();
+      } else if (Db.ehDono && mounted && await sugerirVersaoCompleta(context)) {
+        // Já mostrou o convite para testar a versão completa.
       } else if (!Db.ehCampo && mounted) {
         await popupArrobaDoDia(context);
         if (Db.ehDono && mounted) await pedirNps(context);
@@ -88,7 +90,8 @@ class _InicioPageState extends State<InicioPage> {
         builder: (c) => AlertDialog(
           icon: const Icon(Icons.celebration_outlined, color: Cores.oliva, size: 40),
           title: const Text('Sua conta está pronta'),
-          content: const Text('Você tem 30 dias com tudo liberado para testar.\n\n'
+          content: Text('${versaoSimples ? 'Você tem 30 dias grátis na versão simples. Se quiser a versão completa, '
+                  'troque em "Meu plano", no menu.' : 'Você tem 30 dias com tudo liberado para testar.'}\n\n'
               'Comece cadastrando a fazenda e os pastos no mapa; depois monte os lotes do rebanho. '
               'Se precisar, fale com a gente pela Ajuda dentro do app.'),
           actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Começar'))],
@@ -818,6 +821,44 @@ class _BotaoModoInseminacao extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Já sugeriu a versão completa nesta abertura do app?
+bool _sugeriuCompleta = false;
+
+/// Ao entrar, a conta em teste na versão simples recebe o convite para testar a
+/// completa (o Fazenda Simples PRO). Devolve true se mostrou o convite.
+Future<bool> sugerirVersaoCompleta(BuildContext context) async {
+  final conta = Plataforma.conta.value;
+  final uid = conta?['uid'] as String?;
+  if (_sugeriuCompleta || uid == null || !emTeste(conta, DateTime.now()) || conta!['versao'] != 'simples') return false;
+  _sugeriuCompleta = true;
+  final ate = dataDe(conta['teste_ate']);
+  const pro = PlanoEito.simplesPro;
+  final quero = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      icon: const Icon(Icons.rocket_launch_outlined, color: Cores.oliva, size: 40),
+      title: const Text('Teste a versão completa por 30 dias'),
+      content: Text('Você está na versão simples. Experimente grátis a versão completa, a do plano ${pro.titulo}: '
+          'inseminação, confinamento, estoque, dieta, equipe, LCDPR e relatórios'
+          '${ate == null ? '' : ', até ${br(ate.toIso8601String())}'}.\n\n'
+          'Seus dados continuam os mesmos, e você pode voltar para a simples quando quiser em "Meu plano".'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Continuar no simples')),
+        FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Testar a completa')),
+      ],
+    ),
+  );
+  if (quero == true) {
+    try {
+      await Plataforma.trocarVersaoDoTeste(uid, 'completa');
+      if (context.mounted) avisar(context, 'Pronto: versão completa liberada até o fim do teste.');
+    } catch (e) {
+      if (context.mounted) avisar(context, 'Não deu para trocar agora (sem internet?). Tente em "Meu plano".');
+    }
+  }
+  return true;
 }
 
 /// Aviso do limite de animais do plano (a partir de 90% do limite).

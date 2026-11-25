@@ -33,6 +33,9 @@ class _TelaLoginState extends State<TelaLogin> {
   bool _verSenha = false;
   String? _erro;
 
+  /// Versão do app escolhida no cadastro: 'simples' ou 'completa'.
+  String _versao = 'simples';
+
   @override
   void dispose() {
     _email.dispose();
@@ -79,6 +82,7 @@ class _TelaLoginState extends State<TelaLogin> {
         // O telefone vai para a conta nova logo que ela nasce; se o cadastro
         // falhar (e-mail já usado), não pode ir parar na conta que já existe.
         Plataforma.telefoneNovo = fone;
+        Plataforma.versaoNova = _versao;
         final UserCredential cred;
         try {
           cred = await auth.createUserWithEmailAndPassword(email: email, password: senha);
@@ -327,6 +331,14 @@ class _TelaLoginState extends State<TelaLogin> {
                             prefixIcon: Icon(Icons.card_giftcard_outlined),
                           ),
                         ),
+                        const SizedBox(height: 18),
+                        const Text('Prefere o app simples ou completo?',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 8),
+                        EscolhaVersao(valor: _versao, onChanged: (v) => setState(() => _versao = v)),
+                        const SizedBox(height: 6),
+                        const Text('Os 30 dias de teste são grátis nas duas. Dá para trocar depois em "Meu plano".',
+                            style: TextStyle(color: Cores.tinta, fontSize: 14)),
                       ],
                       if (_erro != null) ...[
                         const SizedBox(height: 12),
@@ -420,6 +432,57 @@ class _Marca extends StatelessWidget {
         ]),
       ),
     ]);
+  }
+}
+
+/// Dois cartões para escolher a versão do app: simples ou completa.
+class EscolhaVersao extends StatelessWidget {
+  const EscolhaVersao({super.key, required this.valor, required this.onChanged});
+  final String valor;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget opcao(String v, IconData icone, String titulo, String texto) {
+      final marcado = valor == v;
+      return Expanded(
+        child: Material(
+          color: marcado ? const Color(0xFFEAF2E6) : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: marcado ? Cores.oliva : const Color(0xFFDDE3DF), width: marcado ? 2.5 : 1),
+          ),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => onChanged(v),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(icone, color: Cores.olivaEscuro, size: 26),
+                  const Spacer(),
+                  Icon(marcado ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: Cores.oliva),
+                ]),
+                const SizedBox(height: 6),
+                Text(titulo, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Cores.olivaEscuro)),
+                const SizedBox(height: 4),
+                Text(texto, style: const TextStyle(fontSize: 13.5, color: Cores.tinta, height: 1.3)),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return IntrinsicHeight(
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        opcao('simples', Icons.touch_app_outlined, 'Simples',
+            'Só o essencial: animais, pesagem, vacinas, compras, vendas e contas. Botões grandes e voz.'),
+        const SizedBox(width: 10),
+        opcao('completa', Icons.dashboard_customize_outlined, 'Completo',
+            'Tudo: inseminação, confinamento, estoque, dieta, equipe, LCDPR e relatórios.'),
+      ]),
+    );
   }
 }
 

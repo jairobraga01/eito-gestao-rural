@@ -91,4 +91,21 @@ void main() {
     expect(bloqueioDeAnimais('2026-10-19', novos: 5000), isNull);
     expect(planoAtual().completo, isTrue);
   });
+
+  test('teste na versão escolhida no cadastro; vencido cai no Fazenda Simples', () {
+    final hoje = DateTime(2026, 11, 25);
+    final criado = DateTime(2026, 11, 20);
+    Map<String, dynamic> conta(String? versao) =>
+        {'plano': 'Teste', 'criado_em': criado, 'versao': ?versao};
+    expect(planoEfetivo(conta('simples'), hoje), testeVersaoSimples);
+    expect(PlanoEito.de(planoEfetivo(conta('simples'), hoje)).completo, isFalse);
+    expect(PlanoEito.de(planoEfetivo(conta('simples'), hoje)).maxAnimais, isNull);
+    expect(planoEfetivo(conta('completa'), hoje), 'Teste');
+    expect(PlanoEito.de(planoEfetivo(conta('completa'), hoje)).completo, isTrue);
+    expect(planoEfetivo(conta(null), hoje), 'Teste'); // contas antigas: completa
+    expect(emTeste(conta('simples'), hoje), isTrue);
+    final depois = DateTime(2026, 12, 21);
+    expect(planoEfetivo(conta('completa'), depois), 'Simples');
+    expect(emTeste(conta('completa'), depois), isFalse);
+  });
 }

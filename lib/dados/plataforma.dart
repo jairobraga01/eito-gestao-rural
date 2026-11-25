@@ -63,7 +63,9 @@ String situacaoConta(Map<String, dynamic> c) {
         .fold<DateTime?>(null, (m, d) => m == null || d.isAfter(m) ? d : m);
     if (fim == null) return 'Teste';
     final d = '${fim.day.toString().padLeft(2, '0')}/${fim.month.toString().padLeft(2, '0')}';
-    return fim.isBefore(DateTime.now()) ? 'Teste vencido em $d (vale como Simples)' : 'Teste até $d';
+    return fim.isBefore(DateTime.now())
+        ? 'Teste vencido em $d (vale como Simples)'
+        : 'Teste até $d${c['versao'] == 'simples' ? ' (versão simples)' : ''}';
   }
   final fim = dataDe(c['plano_ate']);
   if (fim == null) return plano;
@@ -84,6 +86,9 @@ class Plataforma {
 
   /// Telefone digitado no cadastro; vai para a conta no primeiro acesso.
   static String? telefoneNovo;
+
+  /// Versão escolhida no cadastro ('simples' ou 'completa'), gravada na conta nova.
+  static String versaoNova = 'simples';
 
   /// A conta foi criada agora (mostra as boas-vindas no app).
   static final contaNova = ValueNotifier<bool>(false);
@@ -127,6 +132,7 @@ class Plataforma {
           'uid': u.uid,
           'criado_em': FieldValue.serverTimestamp(),
           'plano': 'Teste',
+          'versao': versaoNova,
           'teste_ate': Timestamp.fromDate(DateTime.now().add(const Duration(days: diasDeTeste))),
           'status': 'ativa',
           'boas_vindas_whats': 'pendente',
@@ -178,6 +184,14 @@ class Plataforma {
     }
   }
 
+  /// No teste, o dono troca a versão do app (simples ou completa).
+  static Future<void> trocarVersaoDoTeste(String uid, String versao) async {
+    await contas.doc(uid).update({'versao': versao});
+    final c = {...?conta.value, 'versao': versao};
+    conta.value = c;
+    if (Equipe.atual == null) Db.planoDaFazenda.value = planoEfetivo(c, DateTime.now());
+  }
+
   /// Liga o sininho (respostas dos chamados) e os comunicados.
   static void iniciarAvisos(String uid) {
     pararAvisos();
@@ -191,7 +205,7 @@ class Plataforma {
     _subs.add(contas.doc(uid).snapshots().listen((s) {
       if (s.exists) {
         conta.value = s.data();
-        if (Equipe.atual == null) Db.planoDaFazenda.value = s.data()?['plano'] as String?;
+        if (Equipe.atual == null) Db.planoDaFazenda.value = planoEfetivo(s.data(), DateTime.now());
         _filtrarAvisos();
       }
     }, onError: (Object e) => debugPrint('Eito: conta: $e')));

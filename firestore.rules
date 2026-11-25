@@ -146,11 +146,16 @@ service cloud.firestore {
         && request.resource.data.uid == uid
         && request.resource.data.status == 'ativa'
         && request.resource.data.plano == 'Teste'
+        && request.resource.data.get('versao', 'simples') in ['simples', 'completa']
         && request.resource.data.teste_ate is timestamp
         && request.resource.data.teste_ate < request.time + duration.value(32, 'd');
-      allow update: if admin() || (logado() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades', 'telefone', 'uf', 'uso', 'aparelhos']));
+      allow update: if admin() || (logado() && request.auth.uid == uid && (
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['email', 'nome', 'papel', 'dono', 'ultimo_acesso', 'animais', 'propriedades', 'telefone', 'uf', 'uso', 'aparelhos'])
+        // No teste, o dono escolhe a versão do app (simples ou completa).
+        || (resource.data.plano == 'Teste'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['versao'])
+          && request.resource.data.versao in ['simples', 'completa'])));
       allow delete: if admin();
     }
 

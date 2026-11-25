@@ -8,6 +8,7 @@ import '../dados/db.dart';
 import '../dados/equipe.dart';
 import '../dados/historico.dart';
 import '../dados/planos.dart';
+import '../dados/plataforma.dart' show Plataforma, dataDe;
 import '../dados/tarefas.dart';
 import '../firebase_options.dart';
 import '../tema.dart';
@@ -660,7 +661,14 @@ class _CartaoPlano extends StatelessWidget {
         final animais = animaisAtivos();
         final usados = Equipe.contagemPorPapel(equipe);
         final m = p.maxAnimais;
-        final preco = p.mes.isEmpty ? 'Teste ou cortesia: tudo liberado' : 'R\$ ${p.mes} por mês ou R\$ ${p.ano} por ano';
+        final conta = Plataforma.conta.value;
+        final teste = Db.ehDono && emTeste(conta, DateTime.now());
+        final preco = teste
+            ? 'Teste grátis${dataDe(conta?['teste_ate']) == null ? '' : ' até ${br(dataDe(conta!['teste_ate'])!.toIso8601String())}'}; '
+                'depois, se não escolher um plano, a fazenda fica no ${PlanoEito.simples.titulo}'
+            : p.mes.isEmpty
+                ? 'Teste ou cortesia: tudo liberado'
+                : 'R\$ ${p.mes} por mês ou R\$ ${p.ano} por ano';
         return Card(
           margin: const EdgeInsets.fromLTRB(16, 4, 16, 12),
           child: Padding(
@@ -669,6 +677,25 @@ class _CartaoPlano extends StatelessWidget {
               Text(p.mes.isEmpty ? 'Plano ${p.nome}' : 'Plano ${p.titulo}', style: Theme.of(context).textTheme.titleLarge),
               Text(preco),
               if (p.mes.isNotEmpty) Text('App na ${p.versao}', style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (teste) ...[
+                const SizedBox(height: 12),
+                const Text('Versão do app no teste', style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 6),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'simples', label: Text('Simples'), icon: Icon(Icons.touch_app_outlined)),
+                    ButtonSegment(value: 'completa', label: Text('Completa'), icon: Icon(Icons.dashboard_customize_outlined)),
+                  ],
+                  selected: {p.completo ? 'completa' : 'simples'},
+                  onSelectionChanged: (v) async {
+                    try {
+                      await Plataforma.trocarVersaoDoTeste(conta!['uid'] as String, v.first);
+                    } catch (e) {
+                      if (context.mounted) avisar(context, 'Não deu para trocar agora (sem internet?). Tente de novo.');
+                    }
+                  },
+                ),
+              ],
               const SizedBox(height: 12),
               Text('Animais: $animais de ${_limite(m)}'),
               if (m != null) ...[

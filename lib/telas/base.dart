@@ -190,23 +190,38 @@ bool _papelVe(int secao) {
 }
 
 /// Convite para subir de plano ao tocar numa função da versão completa.
+/// No teste grátis, o dono pode passar para a versão completa na hora.
 Future<void> convidarParaSubir(BuildContext context, String funcao) async {
   const pro = PlanoEito.simplesPro;
-  final falar = await showDialog<bool>(
+  final conta = Plataforma.conta.value;
+  final teste = Db.ehDono && emTeste(conta, DateTime.now());
+  final escolha = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
       icon: const Icon(Icons.lock_open, color: Cores.oliva, size: 36),
       title: Text('$funcao está na versão completa'),
-      content: Text('Seu plano ${PlanoEito.simples.titulo} usa a versão simples do app, com o essencial do dia a dia.\n\n'
-          'No ${pro.titulo} (R\$ ${pro.mes}/mês ou R\$ ${pro.ano}/ano, também ${pro.resumoLimite}) você libera todas as funções. '
-          'Seus animais e lançamentos continuam iguais ao mudar de plano.'),
+      content: Text(teste
+          ? 'Você está testando a versão simples. Pode passar agora para a versão completa (a do ${pro.titulo}), '
+              'grátis até o fim do teste. Seus animais e lançamentos continuam iguais.'
+          : 'Seu plano ${PlanoEito.simples.titulo} usa a versão simples do app, com o essencial do dia a dia.\n\n'
+              'No ${pro.titulo} (R\$ ${pro.mes}/mês ou R\$ ${pro.ano}/ano, também ${pro.resumoLimite}) você libera todas as funções. '
+              'Seus animais e lançamentos continuam iguais ao mudar de plano.'),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Agora não')),
-        FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Falar com o suporte')),
+        FilledButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(teste ? 'Testar a completa' : 'Falar com o suporte')),
       ],
     ),
   );
-  if (falar == true) Nav.ir(secAjuda);
+  if (escolha != true) return;
+  if (!teste) return Nav.ir(secAjuda);
+  try {
+    await Plataforma.trocarVersaoDoTeste(conta!['uid'] as String, 'completa');
+    Nav.mostrarTudo.value = false;
+  } catch (e) {
+    if (context.mounted) avisar(context, 'Não deu para trocar agora (sem internet?). Tente de novo.');
+  }
 }
 
 /// Se quem está usando lança o serviço de campo (Modo Curral e atalhos; o contador não).

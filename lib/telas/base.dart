@@ -210,12 +210,15 @@ Future<void> convidarParaSubir(BuildContext context, String funcao) async {
         TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Agora não')),
         FilledButton(
             onPressed: () => Navigator.pop(c, true),
-            child: Text(teste ? 'Testar a completa' : 'Falar com o suporte')),
+            child: Text(teste ? 'Testar a completa' : 'Ver planos')),
       ],
     ),
   );
   if (escolha != true) return;
-  if (!teste) return Nav.ir(secAjuda);
+  if (!teste) {
+    if (context.mounted) await Navigator.push(context, MaterialPageRoute(builder: (_) => const MeuPlanoPage()));
+    return;
+  }
   try {
     await Plataforma.trocarVersaoDoTeste(conta!['uid'] as String, 'completa');
     Nav.mostrarTudo.value = false;
@@ -479,7 +482,7 @@ class MenuLateral extends StatelessWidget {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
             }),
-            if (Db.ehDono && simples)
+            if (Db.ehDono)
               item(Icons.workspace_premium_outlined, 'Meu plano', () {
                 fechar();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const MeuPlanoPage()));

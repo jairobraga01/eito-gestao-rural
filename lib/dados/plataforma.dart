@@ -192,6 +192,14 @@ class Plataforma {
     if (Equipe.atual == null) Db.planoDaFazenda.value = planoEfetivo(c, DateTime.now());
   }
 
+  /// O dono muda o plano da conta (por enquanto livre, sem cobrança).
+  static Future<void> mudarPlano(String uid, String plano) async {
+    await contas.doc(uid).update({'plano': plano, 'plano_mudado_em': FieldValue.serverTimestamp()});
+    final c = {...?conta.value, 'plano': plano};
+    conta.value = c;
+    if (Equipe.atual == null) Db.planoDaFazenda.value = planoEfetivo(c, DateTime.now());
+  }
+
   /// Liga o sininho (respostas dos chamados) e os comunicados.
   static void iniciarAvisos(String uid) {
     pararAvisos();

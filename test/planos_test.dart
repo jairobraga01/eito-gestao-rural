@@ -32,26 +32,42 @@ void main() {
     expect(PlanoEito.plus.permite('contador'), isTrue);
     expect(PlanoEito.media.cabe('peao', {'peao': 1}), isTrue);
     expect(PlanoEito.media.cabe('peao', {'peao': 2}), isFalse);
-    expect(PlanoEito.simples.cabe('peao', {'peao': 1}), isFalse);
+    expect(PlanoEito.simples.cabe('peao', {}), isFalse);
+    expect(PlanoEito.simplesPro.cabe('peao', {'peao': 1}), isFalse);
     expect(PlanoEito.plus.cabe('peao', {'peao': 9}), isTrue);
   });
 
   test('preços de tabela', () {
     expect(PlanoEito.todos.map((p) => '${p.nome} ${p.mes} ${p.ano}'),
-        ['Simples 9,90 99,90', 'Média 29,90 299,90', 'Plus 59,90 599,90']);
+        ['Simples 9,90 99,90', 'Simples PRO 19,90 199,90', 'Média 29,90 299,90', 'Plus 59,90 599,90']);
+    expect(PlanoEito.todos.map((p) => p.maxAnimais), [100, 100, 300, null]);
+  });
+
+  test('versão simples só no Fazenda Simples', () {
+    expect(PlanoEito.simples.completo, isFalse);
+    expect(PlanoEito.de('Simples PRO'), PlanoEito.simplesPro);
+    expect(PlanoEito.simplesPro.completo, isTrue);
+    expect(PlanoEito.media.completo, isTrue);
+    expect(PlanoEito.plus.completo, isTrue);
+    expect(PlanoEito.de('Cortesia').completo, isTrue);
+    expect(PlanoEito.simples.titulo, 'Fazenda Simples');
+    expect(PlanoEito.simples.resumoEquipe, 'só o dono');
+    expect(PlanoEito.simplesPro.resumoEquipe, '1 gerente, 1 peão');
+    expect(PlanoEito.media.resumoEquipe, '1 gerente, 1 veterinário, 2 peões');
   });
 
   test('situação do rebanho pelo limite do plano', () {
-    expect(PlanoEito.simples.situacao(150), 'ok');
-    expect(PlanoEito.simples.situacao(180), 'perto');
-    expect(PlanoEito.simples.situacao(200), 'perto');
-    expect(PlanoEito.simples.situacao(201), 'acima');
+    expect(PlanoEito.simples.situacao(80), 'ok');
+    expect(PlanoEito.simples.situacao(90), 'perto');
+    expect(PlanoEito.simples.situacao(100), 'perto');
+    expect(PlanoEito.simples.situacao(101), 'acima');
+    expect(PlanoEito.media.situacao(301), 'acima');
     expect(PlanoEito.plus.situacao(5000), 'ok');
   });
 
   test('passar do limite começa a contar; trava só depois de 15 dias', () async {
     Db.planoDaFazenda.value = 'Simples';
-    await animais(201);
+    await animais(101);
     expect(bloqueioDeAnimais('2026-10-19'), isNull); // cruzou agora: só avisa
     await conferirLimiteAnimais('2026-10-19');
     await pumpEventQueue();
@@ -63,10 +79,10 @@ void main() {
 
   test('cadastro em lote não passa muito do limite do plano', () async {
     Db.planoDaFazenda.value = 'Simples';
-    await animais(199);
+    await animais(99);
     expect(bloqueioDeAnimais('2026-10-19', novos: 5000), isNotNull);
-    expect(bloqueioDeAnimais('2026-10-19', novos: 21), isNull); // 220 = folga de 10%
-    expect(bloqueioDeAnimais('2026-10-19', novos: 22), isNotNull);
+    expect(bloqueioDeAnimais('2026-10-19', novos: 11), isNull); // 110 = folga de 10%
+    expect(bloqueioDeAnimais('2026-10-19', novos: 12), isNotNull);
   });
 
   test('sem plano definido (teste) nada é travado', () async {

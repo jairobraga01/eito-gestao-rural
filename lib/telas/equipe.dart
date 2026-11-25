@@ -620,6 +620,30 @@ class _HistoricoPageState extends State<HistoricoPage> {
 }
 
 
+/// Versão simples: o cartão do plano sozinho (lá não há equipe).
+class MeuPlanoPage extends StatelessWidget {
+  const MeuPlanoPage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Meu plano')),
+        body: ListView(padding: const EdgeInsets.only(top: 12), children: [
+          const _CartaoPlano([]),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: FilledButton.icon(
+              icon: const Icon(Icons.support_agent),
+              label: const Text('Quero mudar de plano'),
+              onPressed: () {
+                Navigator.pop(context);
+                Nav.ir(secAjuda);
+              },
+            ),
+          ),
+        ]),
+      );
+}
+
 /// Plano da fazenda: preço, animais e pessoas usados em relação ao limite.
 class _CartaoPlano extends StatelessWidget {
   const _CartaoPlano(this.equipe);
@@ -642,8 +666,9 @@ class _CartaoPlano extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Plano ${p.nome}', style: Theme.of(context).textTheme.titleLarge),
+              Text(p.mes.isEmpty ? 'Plano ${p.nome}' : 'Plano ${p.titulo}', style: Theme.of(context).textTheme.titleLarge),
               Text(preco),
+              if (p.mes.isNotEmpty) Text('App na ${p.versao}', style: const TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 12),
               Text('Animais: $animais de ${_limite(m)}'),
               if (m != null) ...[
@@ -651,14 +676,20 @@ class _CartaoPlano extends StatelessWidget {
                 LinearProgressIndicator(value: (animais / m).clamp(0, 1).toDouble()),
               ],
               const SizedBox(height: 12),
-              const Text('Pessoas (além do dono)'),
+              Text(p.maxPorPapel.isEmpty ? 'Equipe: só o dono' : 'Pessoas (além do dono)'),
               for (final e in p.maxPorPapel.entries)
                 Text('${papeis[e.key] ?? e.key}: ${usados[e.key] ?? 0} de ${_limite(e.value)}'),
               const Divider(height: 24),
               const Text('Planos à venda'),
               for (final q in PlanoEito.todos)
-                Text('${q.nome}: R\$ ${q.mes} por mês ou R\$ ${q.ano} por ano; ${q.resumoLimite}; '
-                    '${q.maxPorPapel.entries.map((e) => '${e.value} ${papeis[e.key]!.toLowerCase()}').join(', ')}.'),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('${q.titulo}: R\$ ${q.mes} por mês ou R\$ ${q.ano} por ano; ${q.resumoLimite}; '
+                      '${q.versao}; equipe: ${q.resumoEquipe}.'),
+                ),
+              const SizedBox(height: 8),
+              const Text('Ao mudar de plano, seus animais e lançamentos continuam iguais.',
+                  style: TextStyle(fontStyle: FontStyle.italic)),
             ]),
           ),
         );

@@ -45,6 +45,9 @@ class Nav {
 
   /// Usuário logado (mostrado no menu).
   static User? usuario;
+
+  /// Versão simples: mostrar no menu também o que fica na versão completa (com cadeado).
+  static final mostrarTudo = ValueNotifier<bool>(false);
 }
 
 const itensMenu = <(String, IconData)>[
@@ -156,21 +159,54 @@ const secoesContador = {
 /// Seções só do dono (nem o gerente vê).
 const secoesDono = {secRelatorioFinanceiro};
 
-/// O que o plano Simples não inclui (financeiro completo, nutrição, mapa e exportações).
-const secoesSoMedia = {
-  secRelatorioFinanceiro, secContas, secContatos, secDividas, secPatrimonio, secCotacao, secVender, secExportacoes,
-  secProteinado, secEstoque, secMedicamentos, secDieta, secConfinamento, secMapa, secCotacaoMedicamentos, secCotacaoInsumos, secFornecedores,
-  secFornecedoresMedicamentos, secFornecedoresInsumos, secCompradores, secCadastroMedicamentos, secCadastroInsumos,
-};
+/// Versão simples (plano Fazenda Simples): só o dia a dia do rebanho e um financeiro básico.
+/// Em ordem, como aparece no menu curto.
+const menuSimples = [
+  secRebanho, secPesagem, secSanidade, secNascimentos, secEntradas, secVendas, secMortes, secOutrasSaidas,
+  secContas, secCotacao, secPropriedades, secBackup,
+];
+
+/// Seções abertas na versão simples (as do menu curto, mais painel, guia e ajuda).
+const secoesSimples = {...menuSimples, secPainel, secGuia, secAjuda};
+
+/// O app está na versão simples (Fazenda Simples)? Teste, Cortesia e os outros planos usam a completa.
+bool get versaoSimples => !planoAtual().completo;
+
+/// A seção fica fora da versão simples, mas o papel a veria na completa (aparece com cadeado).
+bool foraDoPlano(int secao) => versaoSimples && !secoesSimples.contains(secao) && _papelVe(secao);
 
 /// Se quem está usando pode abrir a seção (o dono vê tudo; o gerente, tudo menos o que é só do dono).
 bool podeVer(int secao) {
-  if (!planoAtual().completo && secoesSoMedia.contains(secao)) return false;
+  if (versaoSimples && !secoesSimples.contains(secao)) return false;
+  return _papelVe(secao);
+}
+
+bool _papelVe(int secao) {
   if (Db.ehPeao) return secoesPeao.contains(secao);
   if (Db.ehVeterinario) return secoesVeterinario.contains(secao);
   if (Db.ehZootecnista) return secoesZootecnista.contains(secao);
   if (Db.ehContador) return secoesContador.contains(secao);
   return Db.ehDono || !secoesDono.contains(secao);
+}
+
+/// Convite para subir de plano ao tocar numa função da versão completa.
+Future<void> convidarParaSubir(BuildContext context, String funcao) async {
+  const pro = PlanoEito.simplesPro;
+  final falar = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      icon: const Icon(Icons.lock_open, color: Cores.oliva, size: 36),
+      title: Text('$funcao está na versão completa'),
+      content: Text('Seu plano ${PlanoEito.simples.titulo} usa a versão simples do app, com o essencial do dia a dia.\n\n'
+          'No ${pro.titulo} (R\$ ${pro.mes}/mês ou R\$ ${pro.ano}/ano, também ${pro.resumoLimite}) você libera todas as funções. '
+          'Seus animais e lançamentos continuam iguais ao mudar de plano.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Agora não')),
+        FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Falar com o suporte')),
+      ],
+    ),
+  );
+  if (falar == true) Nav.ir(secAjuda);
 }
 
 /// Se quem está usando lança o serviço de campo (Modo Curral e atalhos; o contador não).
@@ -226,9 +262,28 @@ class MenuLateral extends StatelessWidget {
     return Drawer(
       backgroundColor: _MenuCores.fundo,
       shape: fixo ? const RoundedRectangleBorder() : null,
-      child: ValueListenableBuilder<int>(
-        valueListenable: Nav.secao,
-        builder: (context, atual, _) => ListView(
+      child: ListenableBuilder(
+        listenable: Listenable.merge([Nav.secao, Nav.mostrarTudo]),
+        builder: (context, _) => _lista(context, Nav.secao.value, fechar, item),
+      ),
+    );
+  }
+
+  Widget _lista(BuildContext context, int atual, VoidCallback fechar,
+      Widget Function(IconData, String, VoidCallback, {bool atual, Color? cor}) item) {
+    final simples = versaoSimples;
+    // Item com cadeado: função da versão completa (abre o convite para subir de plano).
+    Widget travado(IconData icone, String texto) => _ItemMenu(
+          icone: icone,
+          texto: texto,
+          cor: _MenuCores.suave,
+          seta: const Icon(Icons.lock_outline, color: _MenuCores.seta, size: 20),
+          onTap: () {
+            fechar();
+            convidarParaSubir(context, texto);
+          },
+        );
+    return ListView(
           padding: EdgeInsets.zero,
           children: [
             // Topo em degradê verde com a borda de baixo curva (estilo tênue).
@@ -295,8 +350,27 @@ class MenuLateral extends StatelessWidget {
                 ),
               ),
             ),
+            // Versão simples: lançar por voz em destaque, logo abaixo do Modo Curral.
+            if (podeLancar && simples) Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: Material(
+                color: const Color(0xFF6A1B9A).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  leading: const Icon(Icons.mic, color: Color(0xFF6A1B9A)),
+                  title: const Text('Lançar por voz',
+                      style: TextStyle(color: Color(0xFF6A1B9A), fontSize: 16, fontWeight: FontWeight.w800)),
+                  subtitle: const Text('Fale e o app anota no lugar certo', style: TextStyle(color: _MenuCores.suave)),
+                  onTap: () {
+                    fechar();
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const LancamentoVozPage()));
+                  },
+                ),
+              ),
+            ),
             // Modo Inseminação: logo abaixo do Modo Curral.
-            if (podeLancar && planoAtual().completo) Padding(
+            if (podeLancar && !simples) Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               child: Material(
                 color: Cores.azul.withValues(alpha: 0.10),
@@ -339,6 +413,37 @@ class MenuLateral extends StatelessWidget {
               Nav.ir(secTarefas);
             }, atual: atual == secTarefas),
             const _RotuloMenu('Fazenda'),
+            // Versão simples: lista curta, sem grupos.
+            if (simples)
+              for (final i in menuSimples.where(podeVer))
+                item(itensMenu[i].$2, i == secContas ? 'Financeiro (contas a pagar e receber)' : itensMenu[i].$1, () {
+                  fechar();
+                  Nav.ir(i);
+                }, atual: i == atual),
+            if (simples)
+              _ItemMenu(
+                icone: Nav.mostrarTudo.value ? Icons.visibility_off_outlined : Icons.apps,
+                texto: Nav.mostrarTudo.value ? 'Esconder as outras funções' : 'Mostrar todas as funções',
+                cor: Cores.oliva,
+                onTap: () => Nav.mostrarTudo.value = !Nav.mostrarTudo.value,
+              ),
+            if (simples && Nav.mostrarTudo.value) ...[
+              const _RotuloMenu('Na versão completa'),
+              if (podeLancar) travado(Icons.favorite_border, 'Modo Inseminação'),
+              if (foraDoPlano(secConfinamento)) travado(itensMenu[secConfinamento].$2, 'Modo Confinamento'),
+              if (foraDoPlano(secTarefas)) travado(itensMenu[secTarefas].$2, itensMenu[secTarefas].$1),
+              for (final (titulo, icone, todos) in gruposMenu)
+                if (todos.where(foraDoPlano).toSet().toList() case final itens when itens.isNotEmpty)
+                  _GrupoMenu(
+                    key: ValueKey('travado_$titulo'),
+                    icone: icone,
+                    titulo: titulo,
+                    ativo: false,
+                    children: [for (final i in itens) travado(itensMenu[i].$2, itensMenu[i].$1)],
+                  ),
+              if (Db.ehDono) travado(Icons.group_outlined, 'Equipe e permissões'),
+            ],
+            if (!simples)
             for (final (titulo, icone, todos) in gruposMenu)
               if (todos.where(podeVer).toList() case final itens when itens.isNotEmpty)
               _GrupoMenu(
@@ -359,7 +464,12 @@ class MenuLateral extends StatelessWidget {
               fechar();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const TelaDispositivos()));
             }),
-            if (Db.ehDono)
+            if (Db.ehDono && simples)
+              item(Icons.workspace_premium_outlined, 'Meu plano', () {
+                fechar();
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const MeuPlanoPage()));
+              }),
+            if (Db.ehDono && !simples)
               item(Icons.group_outlined, 'Equipe e permissões', () {
                 fechar();
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const EquipePage()));
@@ -402,9 +512,7 @@ class MenuLateral extends StatelessWidget {
             }, cor: _MenuCores.sair),
             const SizedBox(height: 16),
           ],
-        ),
-      ),
-    );
+        );
   }
 }
 
@@ -746,6 +854,9 @@ class AcoesFab extends StatelessWidget {
     ('Pesagem', Icons.monitor_weight_outlined, () => const PesagemFormPage(), ['pesagens']),
   ];
 
+  /// Atalhos que a versão simples não mostra.
+  static const _soCompleta = {'Lançar do WhatsApp', 'Lançar por foto ou PDF', 'Lote', 'Reprodução'};
+
   void _abrir(BuildContext context) {
     showGeneralDialog(
       context: context,
@@ -764,7 +875,9 @@ class AcoesFab extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    for (final (i, it) in _itens.where((it) => it.$4.every(Db.podeGravar)).indexed)
+                    for (final (i, it) in _itens
+                        .where((it) => it.$4.every(Db.podeGravar) && !(versaoSimples && _soCompleta.contains(it.$1)))
+                        .indexed)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 12, right: 4),
                         child: InkWell(

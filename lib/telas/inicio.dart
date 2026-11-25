@@ -190,6 +190,7 @@ class _InicioPageState extends State<InicioPage> {
             ),
         ];
         final largo = MediaQuery.sizeOf(context).width >= 700;
+        final simples = versaoSimples;
         return ListView(
           padding: EdgeInsets.zero,
           children: [
@@ -218,9 +219,26 @@ class _InicioPageState extends State<InicioPage> {
             ...alertas,
             const SizedBox(height: 4),
             if (podeLancar) const _RotuloSecao('Modos de lançar'),
+            // Versão simples: falar é o jeito mais fácil de lançar, então vem primeiro e grande.
+            if (podeLancar && simples) _VozDestaque(() => _abrir(const LancamentoVozPage())),
             if (podeLancar) const _BotaoModoCurral(),
-            if (Db.podeGravar('reproducoes') && planoAtual().completo) const _BotaoModoInseminacao(),
-            if (podeLancar)
+            if (Db.podeGravar('reproducoes') && !simples) const _BotaoModoInseminacao(),
+            if (podeLancar && simples)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(
+                    child: _Modo('Pesagem em série', Icons.monitor_weight_outlined, const Color(0xFF1565C0),
+                        () => _abrir(const ManejoEmSerie(modo: ModoSerie.pesagem)))),
+                if (Db.podeGravar('sanidade')) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: _Modo('Vacinação em série', Icons.vaccines_outlined, const Color(0xFF00796B),
+                          () => _abrir(const ManejoEmSerie(modo: ModoSerie.sanidade)))),
+                ],
+              ])),
+            ),
+            if (podeLancar && !simples)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -239,7 +257,7 @@ class _InicioPageState extends State<InicioPage> {
                         () => _abrir(const LancamentoVozPage()))),
               ])),
             ),
-            if (podeLancar)
+            if (podeLancar && !simples)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
               child: IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -253,6 +271,8 @@ class _InicioPageState extends State<InicioPage> {
               ])),
             ),
             const _RotuloSecao('Acesso rápido'),
+            if (simples) _AtalhosSimples(largo: largo),
+            if (!simples)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: GridView.count(
@@ -310,7 +330,13 @@ class _Cabecalho extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final itens = <(String, String, Color, int)>[
+    final itens = versaoSimples
+        ? <(String, String, Color, int)>[
+            ('${p.femeas} / ${p.machos}', 'Fêmeas / machos', const Color(0xFF8FD3FF), secRebanho),
+            ('${p.aplicacoes.length}', 'Vacinas a dar', Cores.laranja, secSanidade),
+            ('${p.carencia.length}', 'Em carência', const Color(0xFFFFB38A), secSanidade),
+          ]
+        : <(String, String, Color, int)>[
       ('${p.lotes}', 'Lotes ativos', Cores.laranja, secLotes),
       ('${p.femeas} / ${p.machos}', 'Fêmeas / machos', const Color(0xFF8FD3FF), secRebanho),
       ('${p.prenhes}', 'Prenhes', const Color(0xFFFF9FB2), secReproducao),
@@ -341,6 +367,101 @@ class _Cabecalho extends StatelessWidget {
               SizedBox(width: largura, child: _Indicador(valor, rotulo, cor, ir(secao))),
           ]);
         }),
+      ]),
+    );
+  }
+}
+
+/// Versão simples: lançar por voz, grande, no topo dos modos de lançar.
+class _VozDestaque extends StatelessWidget {
+  const _VozDestaque(this.onTap);
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+        child: Material(
+          color: const Color(0xFF6A1B9A),
+          borderRadius: BorderRadius.circular(18),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              child: Row(children: [
+                CircleAvatar(radius: 30, backgroundColor: Colors.white24, child: Icon(Icons.mic, color: Colors.white, size: 34)),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Lançar por voz',
+                        style: TextStyle(color: Colors.white, fontSize: 21, fontWeight: FontWeight.w800)),
+                    SizedBox(height: 2),
+                    Text('Fale "pesei o 25 com 380 quilos" e o app anota',
+                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                  ]),
+                ),
+                Icon(Icons.chevron_right, color: Colors.white, size: 30),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+/// Versão simples: poucos atalhos, grandes, e o convite para ver as outras funções.
+class _AtalhosSimples extends StatelessWidget {
+  const _AtalhosSimples({required this.largo});
+  final bool largo;
+
+  @override
+  Widget build(BuildContext context) {
+    final itens = <(String, IconData, Color, int)>[
+      ('Animais', Icons.pets, const Color(0xFF2E7D32), secRebanho),
+      ('Pesagem', Icons.monitor_weight_outlined, const Color(0xFF1565C0), secPesagem),
+      ('Vacinas e remédios', Icons.vaccines_outlined, const Color(0xFF00796B), secSanidade),
+      ('Nascimentos', Icons.child_friendly_outlined, const Color(0xFF6A1B9A), secNascimentos),
+      ('Compras', Icons.arrow_circle_down_outlined, const Color(0xFF00695C), secEntradas),
+      ('Vendas', Icons.arrow_circle_up_outlined, Cores.alerta, secVendas),
+      ('Financeiro', Icons.receipt_long_outlined, const Color(0xFF37474F), secContas),
+      ('Cotação da arroba', Icons.trending_up, const Color(0xFFE65100), secCotacao),
+    ].where((it) => podeVer(it.$4)).toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Column(children: [
+        GridView.count(
+          crossAxisCount: largo ? 4 : 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: largo ? 2.2 : 1.45,
+          children: [
+            for (final (texto, icone, cor, secao) in itens)
+              _CartaoSuave(
+                onTap: () => Nav.ir(secao),
+                padding: const EdgeInsets.all(8),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  _IconeSuave(icone, cor, tamanho: 60),
+                  const SizedBox(height: 8),
+                  Text(texto,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: Color(0xFF2A3530))),
+                ]),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text('Você está na versão simples do app.',
+            textAlign: TextAlign.center, style: TextStyle(color: Colors.grey.shade700)),
+        TextButton.icon(
+          icon: const Icon(Icons.apps),
+          label: const Text('Mostrar todas as funções'),
+          onPressed: () {
+            Nav.mostrarTudo.value = true;
+            Scaffold.maybeOf(context)?.openDrawer();
+          },
+        ),
       ]),
     );
   }
@@ -718,7 +839,7 @@ class _AvisoPlano extends StatelessWidget {
           if ((situacao == 'ok' && !venceu) || Db.ehCampo) return const SizedBox.shrink();
           final dias = diasParaTravar(hojeIso());
           final texto = situacao == 'ok'
-              ? 'Seu teste de $diasDeTeste dias acabou. A fazenda segue no plano Simples (até '
+              ? 'Seu teste de $diasDeTeste dias acabou. A fazenda segue no ${PlanoEito.simples.titulo} (versão simples, até '
                   '${PlanoEito.simples.maxAnimais} animais). Para liberar tudo, escolha um plano com o suporte.'
               : situacao == 'perto'
               ? 'Plano ${p.nome}: $n de ${p.maxAnimais} animais. Falta pouco para o limite.'

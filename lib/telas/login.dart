@@ -434,12 +434,23 @@ class _Promocao extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
             child: Column(children: [
-              Text('Fazenda ${p.nome}',
+              Text(p.titulo,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Cores.tinta, fontSize: 14, fontWeight: FontWeight.w800)),
               const SizedBox(height: 2),
-              Text(p.maxAnimais == null ? 'sem limite' : 'até ${p.maxAnimais} animais',
+              Text(p.maxAnimais == null ? 'acima de 300 animais' : 'até ${p.maxAnimais} animais',
                   textAlign: TextAlign.center, style: const TextStyle(color: Cores.tinta, fontSize: 12)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: p.completo ? Cores.olivaEscuro : const Color(0xFFEAF2E6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(p.versao,
+                    style: TextStyle(
+                        color: p.completo ? Colors.white : Cores.olivaEscuro, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
               const SizedBox(height: 6),
               FittedBox(
                 fit: BoxFit.scaleDown,
@@ -464,12 +475,17 @@ class _Promocao extends StatelessWidget {
         const Text('ASSINE HOJE',
             style: TextStyle(color: Cores.olivaEscuro, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 1.5)),
         const SizedBox(height: 10),
-        Row(children: [
-          for (final (i, p) in PlanoEito.todos.indexed) ...[
-            if (i > 0) const SizedBox(width: 8),
-            plano(p),
-          ],
-        ]),
+        // Dois por linha no celular: quatro lado a lado ficariam apertados.
+        for (final linha in [PlanoEito.todos.sublist(0, 2), PlanoEito.todos.sublist(2)]) ...[
+          IntrinsicHeight(
+            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              plano(linha[0]),
+              const SizedBox(width: 8),
+              plano(linha[1]),
+            ]),
+          ),
+          const SizedBox(height: 8),
+        ],
         const SizedBox(height: 10),
         const Text('Com código de indicação: $descontoIndicacao% de desconto.',
             textAlign: TextAlign.center,

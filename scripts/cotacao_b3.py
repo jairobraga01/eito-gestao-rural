@@ -1,5 +1,5 @@
 """Busca a cotação do boi gordo na B3 (pregão regular) no Notícias Agrícolas
-e grava em mercado/boi_gordo_b3 no Firestore, para o pop-up do app.
+(ou, se ele bloquear, direto na API pública da B3) e grava em mercado/boi_gordo_b3 no Firestore, para o pop-up do app.
 
 Roda no GitHub Actions (.github/workflows/cotacao-b3.yml) com a conta de
 serviço do segredo FIREBASE_SERVICE_ACCOUNT. Sem a conta, só mostra o que leu.
@@ -74,9 +74,48 @@ def gravar(dados, conta):
         sys.exit(f'Falha ao gravar no Firestore: {r.status_code} {r.text[:500]}')
 
 
+NAVEGADOR = {
+    'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                   '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'),
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,application/json;q=0.8,*/*;q=0.7',
+    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+}
+
+
 def baixar(url):
-    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0 (EitoGestao cotacao)'})
+    req = urllib.request.Request(url, headers=NAVEGADOR)
     return urllib.request.urlopen(req, timeout=60).read().decode('utf-8', 'replace')
+
+
+# Reserva: a própria B3 publica os futuros do boi (BGI) num JSON aberto.
+B3_API = 'https://cotacao.b3.com.br/mds/api/v1/DerivativeQuotation/BGI'
+MESES = dict(zip('FGHJKMNQUVXZ', ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+                                   'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']))
+
+
+def da_b3():
+    """Linhas no mesmo formato do Notícias Agrícolas, lidas da API da B3."""
+    bruto = json.loads(baixar(B3_API))
+    linhas = []
+    for c in bruto.get('Scty') or []:
+        simb = str(c.get('symb') or '')
+        q = c.get('SctyQtn') or {}
+        m = re.fullmatch(r'BGI([FGHJKMNQUVXZ])(\d{2})', simb)
+        # Fechamento = último preço do dia; sem negócio, o ajuste da véspera.
+        fech = q.get('curPrc') or q.get('prvsDayAdjstmntPric')
+        if not m or not fech:
+            continue
+        fech = float(fech)
+        if not 100 <= fech <= 2000:
+            continue
+        ant = q.get('prvsDayAdjstmntPric')
+        var = round((fech / float(ant) - 1) * 100, 2) if ant and fech != float(ant) else (0.0 if ant else None)
+        linhas.append({'contrato': f'{MESES[m.group(1)]}/{m.group(2)}', 'fechamento': fech, 'variacao': var,
+                       '_ordem': (m.group(2), 'FGHJKMNQUVXZ'.index(m.group(1)))})
+    linhas.sort(key=lambda l: l.pop('_ordem'))
+    dt = str((bruto.get('Msg') or {}).get('dtTm') or bruto.get('BizSts', {}).get('dtTm') or '')
+    d = re.match(r'(\d{4})-(\d{2})-(\d{2})', dt)
+    return linhas[:8], (f'{d.group(3)}/{d.group(2)}/{d.group(1)}' if d else '')
 
 
 def pagina_b3():
@@ -96,10 +135,17 @@ def pagina_b3():
 
 
 def main():
-    url, pagina = pagina_b3()
-    linhas, data = ler(pagina)
+    try:
+        url, pagina = pagina_b3()
+        linhas, data = ler(pagina)
+    except (Exception, SystemExit) as e:  # noqa: BLE001
+        print('Notícias Agrícolas falhou:', e)
+        url, linhas, data = '', [], ''
     if not linhas:
-        sys.exit(f'Não achei a tabela da B3 em {url}.')
+        url = B3_API
+        linhas, data = da_b3()
+    if not linhas:
+        sys.exit('Não achei a cotação da B3 em nenhuma fonte; nada gravado.')
     dados = {'linhas': linhas, 'atualizado': data, 'fonte': 'B3', 'origem': url}
     print(json.dumps(dados, ensure_ascii=False, indent=1))
     conta = os.environ.get('FIREBASE_SA', '').strip()

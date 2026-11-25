@@ -403,6 +403,20 @@ class _Marca extends StatelessWidget {
           const Text(Marca.fechamento,
               textAlign: TextAlign.center,
               style: TextStyle(color: Cores.olivaEscuro, fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 18),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            decoration: BoxDecoration(color: const Color(0xFFEAF2E6), borderRadius: BorderRadius.circular(14)),
+            child: const Column(children: [
+              Text(Marca.nome,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Cores.olivaEscuro, fontSize: 17, fontWeight: FontWeight.w800)),
+              SizedBox(height: 6),
+              Text(Marca.descricao,
+                  textAlign: TextAlign.center, style: TextStyle(color: Cores.tinta, fontSize: 15, height: 1.4)),
+            ]),
+          ),
         ]),
       ),
     ]);

@@ -34,14 +34,25 @@ Future<String?> escolherArquivoTexto({String aceitar = '.json'}) {
     final input = doc.callMethod<JSObject>('createElement'.toJS, 'input'.toJS);
     input['type'] = 'file'.toJS;
     input['accept'] = aceitar.toJS;
+    // No iPhone e em alguns Android o "change" só chega se o campo estiver na página.
+    final estilo = input['style'] as JSObject;
+    estilo['position'] = 'fixed'.toJS;
+    estilo['left'] = '-9999px'.toJS;
+    estilo['opacity'] = '0'.toJS;
+    (doc['body'] as JSObject).callMethod<JSAny?>('appendChild'.toJS, input);
+    c.future.whenComplete(() {
+      try {
+        input.callMethod<JSAny?>('remove'.toJS);
+      } catch (_) {}
+    });
+    var lendo = false;
     Future<void> ler() async {
+      if (lendo || c.isCompleted) return;
       try {
         final files = input['files'] as JSObject?;
         final f = files?.callMethod<JSObject?>('item'.toJS, 0.toJS);
-        if (f == null) {
-          if (!c.isCompleted) c.complete(null);
-          return;
-        }
+        if (f == null) return;
+        lendo = true;
         // CSV do Excel em português vem em Windows-1252: se não for UTF-8 válido, lê como latin1.
         final buf = await f.callMethod<JSPromise<JSArrayBuffer>>('arrayBuffer'.toJS).toDart;
         final bytes = buf.toDart.asUint8List();
@@ -58,12 +69,24 @@ Future<String?> escolherArquivoTexto({String aceitar = '.json'}) {
       }
     }
 
-    input.callMethod<JSAny?>('addEventListener'.toJS, 'change'.toJS, ((JSAny _) {
-      ler();
-    }).toJS);
+    for (final ev in ['change', 'input']) {
+      input.callMethod<JSAny?>('addEventListener'.toJS, ev.toJS, ((JSAny _) {
+        ler();
+      }).toJS);
+    }
     input.callMethod<JSAny?>('addEventListener'.toJS, 'cancel'.toJS, ((JSAny _) {
       if (!c.isCompleted) c.complete(null);
     }).toJS);
+    // Reserva: quando a tela volta do seletor sem o evento, confere o arquivo escolhido.
+    void conferir() {
+      for (final ms in [500, 1500, 3000]) {
+        Timer(Duration(milliseconds: ms), ler);
+      }
+    }
+
+    final janela = globalContext['window'] as JSObject;
+    janela.callMethod<JSAny?>('addEventListener'.toJS, 'focus'.toJS, ((JSAny _) => conferir()).toJS);
+    doc.callMethod<JSAny?>('addEventListener'.toJS, 'visibilitychange'.toJS, ((JSAny _) => conferir()).toJS);
     input.callMethod<JSAny?>('click'.toJS);
   } catch (_) {
     if (!c.isCompleted) c.complete(null);

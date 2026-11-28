@@ -88,7 +88,7 @@ class ContatosPage extends StatelessWidget {
   }
 
   Future<void> _importarPlanilha(BuildContext context) async {
-    final texto = await escolherArquivoTexto(aceitar: '.csv,.txt');
+    final texto = await escolherArquivoTexto(aceitar: '.csv,.txt,text/csv,text/plain,text/comma-separated-values,application/vnd.ms-excel');
     if (texto == null || !context.mounted) return;
     final novos = lerPlanilhaContatos(texto, tipoPadrao: _tipoNovo);
     if (novos.isEmpty) {

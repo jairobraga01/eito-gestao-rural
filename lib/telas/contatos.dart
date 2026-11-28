@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 
 import '../dados/contatos.dart';
 import '../dados/db.dart';
+import '../dispositivos/arquivo_stub.dart' if (dart.library.js_interop) '../dispositivos/arquivo_web.dart';
 import '../util/util.dart';
 import 'base.dart';
 import 'cotacao_compra.dart' show NovaCotacaoPage;
+import 'financeiro.dart' show entregarArquivo;
 import 'popup_arroba.dart' show mostrarCotacaoArroba;
 
 class ContatosPage extends StatelessWidget {
@@ -48,6 +50,87 @@ class ContatosPage extends StatelessWidget {
         MaterialPageRoute(builder: (_) => NovaCotacaoPage(tipo: t!, fornecedoresIniciais: {k['id'] as int})));
   }
 
+  String get _tipoNovo => tipo == 'Comprador' ? 'Comprador' : (tipo == null && fornece == null ? 'Os dois' : 'Fornecedor');
+
+  Future<void> _exportar(BuildContext context) async {
+    final lista = _lista();
+    if (lista.isEmpty) {
+      avisar(context, 'Nada para exportar.');
+      return;
+    }
+    final nome = _titulo.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    await entregarArquivo(context, '$nome-${hojeIso()}.csv', planilhaContatos(lista));
+  }
+
+  /// Confere os repetidos, pede confirmação e grava.
+  Future<void> _gravar(BuildContext context, List<Reg> novos, String origem) async {
+    if (novos.isEmpty) {
+      avisar(context, 'Nenhum contato encontrado em $origem.');
+      return;
+    }
+    final atuais = contatos();
+    final rep = novos.where((n) => contatoRepetido(n, atuais)).length;
+    final entram = novos.length - rep;
+    if (entram == 0) {
+      avisar(context, 'Todos os ${novos.length} já estão cadastrados aqui.');
+      return;
+    }
+    final ok = await confirmar(
+      context,
+      'Importar $entram contato(s)?',
+      'Entram na propriedade ${txt(Db.prop.value?['nome'])}.'
+          '${rep > 0 ? ' $rep já cadastrado(s) (mesmo nome ou telefone) ficam de fora.' : ''}',
+      ok: 'Importar',
+    );
+    if (!ok) return;
+    final (n, r) = await importarContatos(novos);
+    if (context.mounted) avisar(context, '$n importado(s)${r > 0 ? ', $r repetido(s) ignorado(s)' : ''}.');
+  }
+
+  Future<void> _importarPlanilha(BuildContext context) async {
+    final texto = await escolherArquivoTexto(aceitar: '.csv,.txt');
+    if (texto == null || !context.mounted) return;
+    final novos = lerPlanilhaContatos(texto, tipoPadrao: _tipoNovo);
+    if (novos.isEmpty) {
+      avisar(context, 'Planilha sem a coluna "nome". Use a planilha exportada pelo Eito.');
+      return;
+    }
+    await _gravar(context, novos, 'planilha');
+  }
+
+  Future<void> _copiarDeOutra(BuildContext context) async {
+    final props = (await Db.propriedades()).where((p) => p['id'] != Db.pid).toList();
+    if (!context.mounted) return;
+    if (props.isEmpty) {
+      avisar(context, 'Você só tem esta propriedade. Para outra conta, use Exportar planilha.');
+      return;
+    }
+    final p = await showModalBottomSheet<Reg>(
+      context: context,
+      showDragHandle: true,
+      builder: (c) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          const ListTile(title: Text('Copiar de qual propriedade?')),
+          for (final p in props)
+            ListTile(
+              leading: const Icon(Icons.home_work_outlined),
+              title: Text(txt(p['nome'])),
+              onTap: () => Navigator.pop(c, p),
+            ),
+        ]),
+      ),
+    );
+    if (p == null || !context.mounted) return;
+    final daLa = contatosDaPropriedade(p['id'] as int).where((c) {
+      if (fornece != null) {
+        final v = forneceDo(c);
+        return c['tipo'] != 'Comprador' && (v.isEmpty || v.contains(fornece));
+      }
+      return tipo == null || c['tipo'] == 'Os dois' || c['tipo'] == tipo;
+    }).toList();
+    await _gravar(context, daLa, txt(p['nome']));
+  }
+
   List<Reg> _lista() => fornece != null ? fornecedoresDe(fornece!) : (tipo == null ? contatos() : contatosPara(tipo!));
 
   @override
@@ -68,6 +151,26 @@ class ContatosPage extends StatelessWidget {
             icon: const Icon(Icons.trending_up),
             onPressed: () => mostrarCotacaoArroba(context),
           ),
+        PopupMenuButton<String>(
+          tooltip: 'Exportar e importar',
+          icon: const Icon(Icons.import_export),
+          onSelected: (o) => switch (o) {
+            'exp' => _exportar(context),
+            'imp' => _importarPlanilha(context),
+            _ => _copiarDeOutra(context),
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+                value: 'exp',
+                child: ListTile(leading: Icon(Icons.file_download_outlined), title: Text('Exportar planilha'))),
+            PopupMenuItem(
+                value: 'imp',
+                child: ListTile(leading: Icon(Icons.file_upload_outlined), title: Text('Importar planilha'))),
+            PopupMenuItem(
+                value: 'cop',
+                child: ListTile(leading: Icon(Icons.copy_all_outlined), title: Text('Copiar de outra propriedade'))),
+          ],
+        ),
       ],
       fab: FloatingActionButton.extended(
         heroTag: null,

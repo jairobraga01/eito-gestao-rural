@@ -1,5 +1,7 @@
 // Cadastro de fornecedores e compradores, com o histórico de negócios de cada um.
 import 'db.dart';
+import 'financeiro.dart' show csv;
+import 'importar_animais.dart' show lerCsv;
 
 const tiposContato = ['Fornecedor', 'Comprador', 'Os dois'];
 
@@ -69,3 +71,89 @@ HistoricoContato historicoDoContato(Reg c) {
   }
   return h;
 }
+
+// ======================= Exportar e importar o cadastro =======================
+
+const _colunas = ['nome', 'tipo', 'fornece', 'telefone', 'documento', 'cidade', 'obs'];
+
+/// Planilha (CSV com ";") dos contatos de [lista], para levar a outra propriedade.
+String planilhaContatos(List<Reg> lista) => csv(_colunas, [
+      for (final c in lista)
+        [c['nome'], c['tipo'], forneceDo(c).join(', '), c['telefone'], c['documento'], c['cidade'], c['obs']],
+    ]);
+
+String _soDigitos(Object? v) => _t(v).replaceAll(RegExp(r'\D'), '');
+String _nomeChave(Object? v) => _t(v).trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+
+/// Já existe na propriedade atual um contato com o mesmo nome ou o mesmo telefone?
+bool contatoRepetido(Reg novo, [List<Reg>? atuais]) {
+  final n = _nomeChave(novo['nome']);
+  final f = _soDigitos(novo['telefone']);
+  for (final c in atuais ?? contatos()) {
+    if (n.isNotEmpty && _nomeChave(c['nome']) == n) return true;
+    if (f.length >= 8 && _soDigitos(c['telefone']) == f) return true;
+  }
+  return false;
+}
+
+/// Lê a planilha exportada (ou uma feita à mão com a coluna "nome").
+/// [tipoPadrao] vale para as linhas sem tipo.
+List<Reg> lerPlanilhaContatos(String texto, {String tipoPadrao = 'Fornecedor'}) {
+  final tab = lerCsv(texto);
+  if (tab.isEmpty) return const [];
+  final cab = [for (final x in tab.first) _nomeChave(x)];
+  final iNome = cab.indexOf('nome');
+  if (iNome < 0) return const [];
+  String col(List<String> l, String nome) {
+    final i = cab.indexOf(nome);
+    return i >= 0 && i < l.length ? l[i].trim() : '';
+  }
+
+  return [
+    for (final l in tab.skip(1))
+      if (col(l, 'nome').isNotEmpty)
+        () {
+          final tipo = tiposContato.firstWhere((t) => t.toLowerCase() == col(l, 'tipo').toLowerCase(),
+              orElse: () => tipoPadrao);
+          final vende = col(l, 'fornece').toLowerCase();
+          return <String, Object?>{
+            'nome': col(l, 'nome'),
+            'tipo': tipo,
+            'fornece': tipo == 'Comprador'
+                ? null
+                : [for (final o in forneceOpcoes) if (vende.contains(o.toLowerCase())) o],
+            'telefone': col(l, 'telefone').isEmpty ? null : col(l, 'telefone'),
+            'documento': col(l, 'documento').isEmpty ? null : col(l, 'documento'),
+            'cidade': col(l, 'cidade').isEmpty ? null : col(l, 'cidade'),
+            'obs': col(l, 'obs').isEmpty ? null : col(l, 'obs'),
+          };
+        }(),
+  ];
+}
+
+/// Grava na propriedade atual os contatos que ainda não existem nela.
+/// Devolve (gravados, repetidos).
+Future<(int, int)> importarContatos(List<Reg> novos) async {
+  final atuais = [...contatos()];
+  var ok = 0, rep = 0;
+  for (final n in novos) {
+    if (contatoRepetido(n, atuais)) {
+      rep++;
+      continue;
+    }
+    final v = {
+      for (final k in _colunas) k: n[k],
+      'propriedade_id': Db.pid,
+    };
+    await Db.inserir('contatos', v);
+    atuais.add(v);
+    ok++;
+  }
+  return (ok, rep);
+}
+
+/// Contatos de outra propriedade da mesma conta.
+List<Reg> contatosDaPropriedade(int propriedadeId) => [
+      for (final c in Db.registros('contatos'))
+        if (_int(c['propriedade_id']) == propriedadeId) c,
+    ];
